@@ -1,231 +1,276 @@
-# Handoff Notes — Two Dots
-
-**Read this file first.** It covers what's in the box, how to get the repo running locally, and the exact three actions that must happen before any further build work.
-
-For day-to-day reference (architecture, scripts, etc.) see `README.md`.
+# Two Dots — Handoff Notes
+*Last updated: end of session 7 (27 Apr 2026). App deployed and running on Pixel 7.*
 
 ---
 
-## What this repo contains
+## Current state
 
-| | | |
-|---|---|---|
-| **Scaffold** | S1 | ✅ complete |
-| **Engine port** (pure TS) | S2 | ✅ complete, 90 tests passing |
-| **Persistence layer** (Supabase + React Query + Yup) | S5 | ✅ complete, 32 tests passing |
-| **Analytics** (Phase 1 gate instrumentation) | S6 | ✅ complete, 16 tests passing |
-| **Monetisation facade** | — | ✅ stubbed for Phase 2 |
-| **App entry** (`app/_layout.tsx`, `app/index.tsx`) | — | ✅ scaffolded, engine wired to placeholder view |
-| **Skia render** | S3 | ⚠️ not started — next major block |
-| **Audio / haptics wiring** | S4 | ⚠️ not started |
-| **EAS Build + TestFlight + Play Internal** | S7 | ⚠️ not started |
+The app is **fully playable and deployed** on a Pixel 7 via `npx expo run:android` (development build). All four phases of the visual/game overhaul are complete and live.
 
-**Total: 122 tests passing across 8 suites. Engine coverage: 98% statements, 86.58% branches, 100% functions.**
+| Phase | Status |
+|---|---|
+| S1 Scaffold | ✅ |
+| S2 Engine port (pure TS) | ✅ 90 tests passing |
+| S5 Persistence (Supabase + React Query) | ✅ 32 tests passing |
+| S6 Analytics | ✅ 16 tests passing |
+| Phase 1 — 60fps physics + HUD polish | ✅ deployed |
+| Phase 2 — Death screen overhaul | ✅ deployed |
+| Phase 3 — Idle screen overhaul | ✅ deployed |
+| Phase 4 — Skia canvas migration | ✅ deployed |
+| Polish pass (audio, fonts, visual fixes) | ✅ deployed |
+| EAS Build / TestFlight / Play Internal | ⚠️ not started |
 
 ---
 
-## First run — exact steps
+## Key file locations
 
-These assume macOS. Adjust for Linux/Windows as needed — Expo works on all three.
+| File | Purpose |
+|---|---|
+| `src/app/index.tsx` | **Main game screen** — entire game UI (1300+ lines). All phases live here. |
+| `src/app/_layout.tsx` | Root layout — font loading, splash screen, analytics bootstrap |
+| `src/features/game/engine/step.ts` | Physics loop — `stepPlaying`, `stepDead`, `handleTap` |
+| `src/features/game/engine/constants.ts` | All tuning constants (gravity, speeds, timings, colours) |
+| `src/features/game/engine/tiers.ts` | Tier/scoring logic |
+| `src/features/game/engine/spawn.ts` | Pipe spawning |
+| `src/features/game/engine/collision.ts` | Hit detection |
+| `src/features/game/engine/state.ts` | `GameState` type definition |
+| `src/features/game/engine/index.ts` | Barrel export |
+| `src/features/analytics/` | Analytics queue + event types |
+| `src/features/leaderboard/` | Supabase score submission + hooks |
+| `src/features/monetisation/` | Stubbed monetisation facade |
+| `src/providers.tsx` | React Query + SafeArea providers |
+| `assets/sounds/` | 16 WAV sound files (pre-generated, included) |
+| `assets/fonts/` | Empty — fonts load via URI from GitHub CDN on first run |
+| `deploy-android.bat` | `npx expo run:android` wrapper |
+| `run-deploy.vbs` | VBScript launcher for deploy (double-click in Explorer) |
+| `package.json` | `expo-av ~14.0.0` for audio (NOT expo-audio) |
+| `app.config.ts` | Expo config — bundle ID, icons, splash, plugins |
+| `supabase/migrations/` | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql` |
 
-### 1. Install dependencies
+**Prototype reference (read-only):**
+`G:\My Drive\NewCo\Business ideas\Two Dots\TwoDots-38.html`
+This is the canonical HTML prototype. Every physics constant, colour, timing, and draw call in the RN app is sourced from this file.
+
+---
+
+## Architecture
+
+### Rendering model
+
+The game uses a **hybrid React Native + Skia** rendering model:
+
+- **Skia `<Canvas>`** (GPU layer, absolute-positioned, `pointerEvents="none"`): dots, pipes, particles, divider glow, title bloom, overlays (gold wash, freeze ramp)
+- **React Native `<View>` + `<Text>`**: score display, progress dots, milestone pop text, idle screen text, pause overlay, death overlay text
+
+### Game loop
+
+```
+requestAnimationFrame → loop()
+  → fixed-timestep accumulator (16.667ms slices = 60fps regardless of display Hz)
+  → stepPlaying(s) or stepDead(s) per accumulated slice
+  → setDisplay(snap(s)) every other frame (halves React re-render cost)
+```
+
+`gsRef` is the live mutable `GameState`. `display` is the React state snapshot pushed for rendering. The game loop and all physics run outside React.
+
+### State phases
+
+`GameState.phase` can be `'idle' | 'playing' | 'dead'`.
+
+- **idle**: dots bob via `Date.now()` sine wave, no physics steps
+- **playing**: full physics, `stepPlaying` called each tick
+- **dead**: particles + score count-up, `stepDead` called each tick
+
+### Audio
+
+Uses **`expo-av`** (`Audio.Sound`). All 16 sounds preloaded on mount into `sounds.current` (a `Record<string, Audio.Sound>`). Replay via `replayAsync()` — resets to 0 and plays, perfect for SFX.
+
+**Why expo-av and not expo-audio:** `expo-audio ~0.1.0` has broken Android autolinking in SDK 51 — the native module never registers even after a clean rebuild. `expo-av ~14.0.0` is stable and battle-tested.
+
+### Fonts
+
+**Space Mono Bold** loaded via `expo-font` with URI-based loading from GitHub raw CDN:
+```
+https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/SpaceMono-Bold.ttf
+```
+Loaded once on first app launch, cached by expo-font. Splash screen held via `SplashScreen.preventAutoHideAsync()` until fonts ready. Falls back to system font gracefully if load fails.
+
+---
+
+## Colours and design constants
+
+```ts
+COL_L  = '#FF5E35'   // orange — left lane, left dot
+COL_R  = '#2ECFFF'   // cyan — right lane, right dot
+COL_BG = '#07070f'   // near-black background
+GOLD   = '#FFD046'   // milestone/score gold
+WALL_R = '#10355c'   // pipe base colour (both halves — prototype draws WALL_L then overwrites with WALL_R)
+
+W      = 390         // logical canvas width (all coordinates in this space)
+SCALE  = SCREEN_W / W  // sx(n) = n * SCALE converts logical → screen px
+```
+
+---
+
+## How to deploy
+
+**Prerequisites:**
+- Android device with USB or WiFi debugging enabled
+- `adb devices` must show the device before running
 
 ```bash
-cd two-dots
+cd "C:\Claude\Two Dots\two-dots"
 npm install --legacy-peer-deps
+npx expo run:android
 ```
 
-**Why `--legacy-peer-deps`:** React Native 0.74 + `@testing-library/react-native@12` + `@react-native-async-storage/async-storage@1.23.1` have circular peer-dep claims that npm's strict resolver rejects. They actually work together at runtime; `--legacy-peer-deps` tells npm to believe me.
+Or double-click `run-deploy.vbs` in Explorer (runs the same command in a new cmd window).
 
-### 2. Regenerate Supabase types (**do this first**)
+**Always use `--legacy-peer-deps`** — peer dep conflicts between `@testing-library/react-native` and React 18 cause plain `npm install` to fail.
 
-My hand-written `src/shared/supabase/types.ts` hits a `never`-inference edge case in Supabase v2's query builder generics. The fix is to use Supabase's own type generator instead of hand-maintaining:
+Build takes 3–5 minutes on first run, ~1 minute on subsequent runs (Gradle incremental).
 
+---
+
+## Intentional prototype divergences
+
+These were reviewed and confirmed as deliberate choices — do NOT "fix" them:
+
+1. **Fixed-timestep physics loop** — prototype runs raw `requestAnimationFrame` which runs faster on 90/120Hz. RN version uses a 16.667ms accumulator to keep physics at exactly 60fps on all devices.
+2. **`DisplaySnapshot` pattern** — React state is a copy pushed every other frame; prototype mutates and reads state in the same loop. Required for React rendering model.
+3. **`expo-av` instead of Web Audio API** — prototype generates tones programmatically; RN app uses pre-generated WAV files via expo-av.
+
+---
+
+## Remaining variances from prototype (not yet fixed)
+
+These were identified during the variance audit but deliberately deferred or left as future work:
+
+- **Milestone pop drift** — the milestone text currently drifts upward on a linear `mDriftY` value. The prototype has a slightly different easing curve. Minor visual difference.
+- **Lane background during dead phase** — stays at `0x08` alpha; prototype fades it differently. Low priority.
+
+---
+
+## Known issues / gotchas
+
+### `--legacy-peer-deps` always required
+`@testing-library/react-native ^12.5.0` has a circular peer dep claim against `react@^19`. Use `--legacy-peer-deps` for all `npm install` operations.
+
+### Font loading is network-dependent on first launch
+The Space Mono Bold TTF is fetched from `raw.githubusercontent.com` on first launch and cached. If the device has no internet on first launch, the app falls back to system font (no crash). Subsequent launches use the cache.
+
+**To eliminate this dependency:** download the TTF files manually and place them in `assets/fonts/`:
+- `assets/fonts/SpaceMono-Regular.ttf`
+- `assets/fonts/SpaceMono-Bold.ttf`
+
+Then update `_layout.tsx` to use `require()` instead of URI:
+```ts
+SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
+```
+
+### TypeScript: Supabase `never` errors in leaderboard hooks
+`src/shared/supabase/types.ts` is hand-written and missing fields that Supabase v2's query builder expects. Causes ~10 typecheck errors in leaderboard/analytics hooks. Fix:
 ```bash
-# Once your Supabase project is created (see step 4):
 npm install -g supabase
-supabase login
-supabase gen types typescript --project-id YOUR-PROJECT-REF > src/shared/supabase/types.ts
+supabase gen types typescript --project-id YOUR-REF > src/shared/supabase/types.ts
 ```
+Engine, schemas, and all game code typecheck clean.
 
-Until this is done, `npm run typecheck` will show ~10 errors in the leaderboard/analytics hooks — all variants of "Argument of type X is not assignable to parameter of type 'never'". The engine, schemas, analytics serialiser, and retry-rate math all typecheck clean.
+### `expo-doctor` warning about Skia version
+`@shopify/react-native-skia@1.3.10` is newer than Expo SDK 51's expected `1.2.3`. This is intentional — `1.3.10` has required Skia APIs we use. Ignore the warning. Do not downgrade.
 
-### 3. Run the tests
+---
 
-```bash
-npm test
-```
+## What to build next
 
-Expect 122 passing. If fewer, something broke in transit — check git status, diff against the HANDOFF-time commit.
+### EAS Build + store submission (S7)
 
-### 4. Set up Supabase
+The immediate next milestone is getting a build onto TestFlight (iOS) and Play Internal Testing (Android).
 
-1. Create a new project at [supabase.com](https://supabase.com/).
-2. Copy the three migration files from `supabase/migrations/` into the SQL Editor and run them in order: `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`.
-3. Verify RLS is enabled on all three tables (Table Editor → each table → RLS toggle).
-4. Copy your project URL and `anon` key from Project Settings → API.
-5. Populate `.env` (gitignored):
+1. **Set up EAS:**
+   ```bash
+   npm install -g eas-cli
+   eas login
+   eas build:configure
    ```
-   cp .env.example .env
-   # edit .env with real values
+2. **Populate `eas.json`** — it exists but has an empty `projectId`. Run `eas init` to fill it.
+3. **Build for Android internal testing:**
+   ```bash
+   eas build --platform android --profile preview
    ```
-6. Re-run step 2 above now that the project exists.
+4. **iOS:** requires Apple Developer account, provisioning profile, and Xcode on a Mac.
 
-### 5. First device run
+### Audio polish
 
-You need one of:
-- **iOS:** Xcode 15+, iOS simulator
-- **Android:** Android Studio, Android emulator (API 33+), or a physical device in USB debugging mode
+The 16 WAV sound files in `assets/sounds/` were generated programmatically to match the prototype's Web Audio API synthesis. They're functional but could be refined:
+- `blip_t1.wav` through `blip_t8.wav` — score blips, pitch rises with tier
+- `chord_tier.wav`, `chord_five.wav` — milestone chimes
+- `jump_l.wav`, `jump_r.wav` — dot jump sounds
+- `tap.wav`, `pause_on.wav` — UI sounds
+- `close_call.wav`, `death.wav` — events
 
-Then:
+### Leaderboard UI
 
-```bash
-npm run ios       # first time: builds the dev client (~5–10 min)
-# or
-npm run android
-```
+The leaderboard data layer is complete (`useTopScores`, `usePersonalBest`, `useSubmitScore`). There's no UI for it yet. The death screen could show a live leaderboard rank after the count-up finishes.
 
-The placeholder game screen should open: black background, white "TWO DOTS" title, "tap to start" hint. Tapping anywhere triggers engine events (check the JS console / Flipper). Tapping twice (to start playing, then to die by falling) will fire a `run_end` analytics event and submit a score to Supabase.
+### Monetisation
 
-**You can verify persistence is working by:**
-1. Play once (let a dot fall off-screen to die instantly)
-2. Open Supabase dashboard → Table Editor → `scores`
-3. You should see one row with your device ID and score 0
+`src/features/monetisation/useMonetisation.ts` is a stub that always returns `showInterstitial: () => void`. Rewire to RevenueCat or Admob when ready.
 
 ---
 
-## Known pitfalls
+## Engine test coverage
 
-### TypeScript: the `never` issue in Supabase hooks
+```
+src/features/game/engine/__tests__/
+  tiers.test.ts       — tier boundary scores, gateInTier, tierName
+  collision.test.ts   — dotHitsPipe, isCloseCall, isOutOfBounds
+  spawn.test.ts       — pipe spawning determinism, gap constraints
 
-**Symptom:** `tsc --noEmit` reports errors in `useSubmitScore.ts`, `useDeviceId.ts`, `queue.ts` — all of the form "Argument of type X is not assignable to parameter of type 'never'".
+src/features/analytics/__tests__/
+  serialise.test.ts   — event serialisation round-trips
+  retryRate.test.ts   — retry rate gate calculation
 
-**Cause:** Hand-written `src/shared/supabase/types.ts` is missing some field the Supabase v2 generator produces. I spent a session trying to reverse-engineer the exact shape — it's not worth it.
+src/features/leaderboard/__tests__/
+  scoreSubmission.test.ts — score submission schema validation
 
-**Fix:** `supabase gen types typescript --project-id YOUR-REF > src/shared/supabase/types.ts` (see step 2 above).
+src/shared/utils/__tests__/
+  rng.test.ts         — deterministic RNG
+```
 
-### The Expo `tsconfig.base` trap
+Run with: `npm test`
 
-**Don't change `tsconfig.json`** to extend `expo/tsconfig.base` even though that's the Expo docs recommendation. Vitest (via Vite's esbuild loader) auto-discovers `tsconfig.json` from CWD and parses the extends chain during test runs. If it can't resolve Expo's base (because, say, vitest starts faster than the Expo cache is warm), the whole test run fails before a single test executes.
+---
 
-The current self-contained `tsconfig.json` with strict mode and the `@/` / `@features/` / `@shared/` path aliases is what Expo CLI looks for anyway, and it works for both `expo start` and `vitest`.
+## Supabase schema
 
-### Peer-dep conflicts around React versions
+Three tables, all with RLS enabled:
 
-`npm install` without `--legacy-peer-deps` fails loudly at React Native 0.85/0.76 wanting React 19, which conflicts with React 18 transitively expected by other packages. As of April 2026, the stable working combination is:
+- **`devices`** — `device_id UUID PK`, `created_at`
+- **`scores`** — `id`, `device_id FK`, `session_id`, `score`, `tier`, `death_side`, `created_at`
+- **`analytics_events`** — `id`, `device_id FK`, `session_id`, `run_index`, `event_type`, `payload JSONB`, `created_at`
 
-| Package | Pin |
+Migrations in `supabase/migrations/`. Connection via `.env`:
+```
+EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
+
+---
+
+## Session history summary
+
+| Session | Work done |
 |---|---|
-| `expo` | `~51.0.0` |
-| `react` | `18.2.0` |
-| `react-native` | `0.74.5` |
-| `@shopify/react-native-skia` | `1.3.10` |
-| `@testing-library/react-native` | `^12.5.0` |
-
-Do not upgrade any one of these without testing the full matrix. If you move to Expo SDK 52, everything in that list bumps together.
-
-### The "factory" comment style is deliberate
-
-Comments in the engine (`src/features/game/engine/*.ts`) are unusually prose-heavy — they reference the HTML prototype line numbers and explain why certain refactors happened (module-global `lastSide` → explicit `SpawnerState`). Don't strip them. When you need to tune physics later (pipe speed, gap size, pause duration), those comments tell you exactly what part of the prototype you're changing and what behaviour it affects.
-
----
-
-## The three immediate actions
-
-In order. Don't skip ahead.
-
-### Action 1: Package into your own repo and commit
-
-This is the first commit of the Two Dots project. Before anything else:
-
-```bash
-git init
-git add .
-git commit -m "Initial scaffold + engine port + persistence layer"
-git remote add origin <your-repo>
-git push -u origin main
-```
-
-The `.gitignore` already excludes `node_modules`, `.env`, `.expo/`, `coverage/`, and the iOS/Android native folders Expo generates on first build.
-
-### Action 2: Regenerate Supabase types (see "First run" step 2)
-
-This closes the `never` typecheck errors. Once done, `npm run typecheck` should pass clean, and `npm run lint`, `npm test`, and `npm run format:check` should all be green. That's the state you want before touching any more code.
-
-### Action 3: First device run (see "First run" step 5)
-
-Confirms that:
-- Expo actually builds the dev client against this `package.json`
-- `@shopify/react-native-skia` resolves native modules on both iOS and Android
-- Analytics events flow through to Supabase end-to-end
-- The placeholder game screen launches and taps are registered
-
-If any of those fail, the issue is in the S1 scaffold — not in the S3 render work you're about to start. Catch it now, not after you've written 500 lines of Skia.
-
----
-
-## What to build next — S3 Skia render
-
-Once actions 1–3 are done, the next work is replacing the `<View>` placeholder in `app/index.tsx` with real rendering.
-
-**The engine already emits everything the renderer needs.** `stepPlaying()` returns `FrameEffects` (audio/haptic events + scored/died flags). `GameState` exposes `pipes`, `dotLY`, `dotRY`, `deathParticles`, `scorePop`, `closeL`, `closeR`, `survivalPulse` — every visual counter the prototype uses. All are mutated in place by the engine; the renderer reads from `stateRef.current` on every frame.
-
-**Expected new files:**
-
-```
-src/features/game/components/
-  GameCanvas.tsx         — Skia <Canvas> mounting point + useFrameCallback loop
-  Dot.tsx                — renders one dot with radial gradient + pulse scaling
-  Pipe.tsx               — renders one pipe with scanline wall pattern + clearFlash glow
-  Particle.tsx           — renders one death particle (if extracted; may be inlined)
-  DeathOverlay.tsx       — RN Views on top of Skia canvas: score count-up, tier name, retry pill
-  IdleOverlay.tsx        — RN Views: "TWO DOTS" title, "tap to start", thumb circles
-
-src/features/game/hooks/
-  useGameLoop.ts         — Reanimated useFrameCallback → stepPlaying / stepDead
-  useTapInput.ts         — gesture-handler Tap + runOnJS → handleTap
-  useAudio.ts            — expo-audio wrapper, consumes AudioEvent[] from FrameEffects
-  useHaptics.ts          — expo-haptics wrapper, consumes HapticEvent[] from FrameEffects
-```
-
-**Port the prototype's draw calls 1:1.** They're at lines 909–1294 of the original `TwoDots.html`. Canvas2D → Skia translation is mostly mechanical:
-
-| Canvas2D | Skia |
-|---|---|
-| `ctx.fillRect(x, y, w, h)` | `<Rect x={x} y={y} width={w} height={h} />` |
-| `ctx.arc(x, y, r, 0, 2*PI); ctx.fill()` | `<Circle cx={x} cy={y} r={r} />` |
-| `ctx.createRadialGradient(...)` | `<RadialGradient c={vec(x,y)} r={r} colors={[...]} />` |
-| `ctx.globalAlpha = a` | `opacity={a}` prop on the shape |
-| `ctx.createPattern(offscreen, 'repeat')` | `<ImageShader image={...} tx="repeat" ty="repeat" />` |
-
-**Performance gotcha:** don't create Skia paint objects per frame. Memoise with `useMemo` and mutate colour/opacity per frame if needed.
-
-**First milestone to aim for:** dots and pipes rendering at 60fps on an iPhone 12 / Pixel 5 equivalent. No audio, no haptics, no particles yet. If that holds, everything else is additive. If it drops frames, fall back to flat colours (no radial gradients) before anything else — the prototype's gradients are cheap on Canvas2D but expensive on per-frame Skia paint construction.
-
----
-
-## Decisions Log candidates
-
-When you next update the TD Confluence page, these five decisions from the build sessions are worth recording:
-
-1. **Stack: Expo + Supabase, not Expo + FastAPI.** Reason: Two Dots is a mobile game, not a SaaS. `technical-requirements.md` §9 names Supabase as the production end state. Skipping the dev-time Postgres/Docker/Alembic layer saves weeks with no loss.
-
-2. **Render: Skia, not RN Game Engine.** Reason: the prototype is an imperative Canvas2D loop. Skia ports 1:1. RNGE would require rewriting the game loop as a React component tree — weeks of work for equivalent output.
-
-3. **Testing: Maestro, not Playwright.** Reason: `technical-requirements.md` §4.4 specifies Playwright for E2E but Playwright doesn't support React Native. Maestro is the mobile equivalent; YAML flows; CI-runnable.
-
-4. **Engine state mutates in place.** Reason: functional-style per-frame copy would allocate ~8 objects per frame at 60fps. The mutation is contained inside the engine module, and the boundary is tested via effects-as-data. See `src/features/game/engine/step.ts` top comment.
-
-5. **Supabase types must be generated, not hand-written.** Reason: I hit this the hard way. The Supabase v2 query-builder generics rely on a specific shape that hand-written types consistently miss in subtle ways. Use `supabase gen types typescript`.
-
----
-
-## Contact points
-
-- **The HTML prototype** — `TwoDots.html`, ~1344 lines. Every engine value in `src/features/game/engine/constants.ts` is sourced from a specific line range in this file. If physics ever need re-tuning, start there.
-- **The Confluence pages** — business case at page ID 29196298, research page at 40075295. Both should be updated after the first playable build is on TestFlight.
-- **The Drive KB** — `New Co / Knowledge Base / Two Dots — Knowledge Base.md`. Log material decisions here via ingest.
-
----
-
-*Last updated: end of session 4. Ready for handoff.*
+| 1–4 | Scaffold, engine port, persistence, analytics |
+| 5 | Phase 1: 60fps physics gate, idle bob, lane backgrounds, score pop, death flash |
+| 6 | Phase 2: death screen (big score, shadows, count-up, tier info, retry pill) |
+| 6 | Phase 3: idle screen (TWO/DOTS title, instruction text, thumb circles) |
+| 6 | Phase 4: Skia migration (dots with glow/pulse/rings, pipes with scanlines/caps, divider glow) |
+| 7 | Polish pass: audio wiring, pause pulse, idle title bloom shadow |
+| 7 | divPulse fix, Space Mono font loading, all StyleSheet text updated |
+| 7 | P1 fixes: gold wash, freeze ramp, particle shrink, pipe shimmer, deathFlash decrement |
+| 7 | P2/P3 fixes: pipe colours/edges/glows, adaptive score Y, death Y offset, hint Y |
+| 7 | expo-audio → expo-av migration (fixed Android native module crash) |
+| 7 | package.json prepare script removed (Windows `\|\| true` incompatibility) |
