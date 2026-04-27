@@ -484,11 +484,14 @@ export default function GameScreen(): React.ReactElement {
   const thumbY = VIS_H * 0.72 * SCALE;
   const thumbFillAlpha = (0.05 + 0.03 * Math.sin(nowMs / 700)).toFixed(3);
 
-  // U2 (Stage 2.2): respect device safe-area insets so HUD elements don't
-  // collide with the iOS notch / Dynamic Island or Android gesture nav bar.
-  // SafeAreaProvider is already wired in providers.tsx; we just consume it
-  // here and offset the absolute-positioned top elements by insets.top.
+  // U2 (Stage 2.2, refined): the original HUD top values already had standard
+  // Android status-bar breathing room baked in (~30px). Adding raw insets.top
+  // pushed everything ~30px too low on Pixel 7. Instead, only add the EXCESS
+  // inset above the standard status bar height — that way Android stays put
+  // and iPhone notch / Dynamic Island still gets the offset it needs.
   const insets = useSafeAreaInsets();
+  const STANDARD_STATUS_BAR = 30;
+  const notchOffset = Math.max(0, insets.top - STANDARD_STATUS_BAR);
 
   // Tier progress dots
   const tier = tierFor(display.score);
@@ -829,7 +832,7 @@ export default function GameScreen(): React.ReactElement {
             pointerEvents="none"
             style={[
               styles.scoreContainer,
-              { top: insets.top + Math.max(58 * SCALE, GAME_H * 0.09) },
+              { top: notchOffset + Math.max(58 * SCALE, GAME_H * 0.09) },
               { transform: [{ scale: scoreScale }] },
             ]}
           >
@@ -876,7 +879,7 @@ export default function GameScreen(): React.ReactElement {
             pointerEvents="none"
             style={[
               styles.progressDotsContainer,
-              { top: insets.top + Math.max(58 * SCALE, GAME_H * 0.09) + 56 },
+              { top: notchOffset + Math.max(58 * SCALE, GAME_H * 0.09) + 56 },
             ]}
           >
             {isSurvival
@@ -902,7 +905,7 @@ export default function GameScreen(): React.ReactElement {
         {display.milestonePop > 0 && display.phase === 'playing' && (
           <View
             pointerEvents="none"
-            style={[styles.milestoneContainer, { top: insets.top + 110 - mDriftY, opacity: mAlpha }]}
+            style={[styles.milestoneContainer, { top: notchOffset + 110 - mDriftY, opacity: mAlpha }]}
           >
             <Text style={styles.milestoneText}>★ {display.score} ★</Text>
             {isTierBoundary && (
