@@ -31,6 +31,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import {
@@ -483,6 +484,12 @@ export default function GameScreen(): React.ReactElement {
   const thumbY = VIS_H * 0.72 * SCALE;
   const thumbFillAlpha = (0.05 + 0.03 * Math.sin(nowMs / 700)).toFixed(3);
 
+  // U2 (Stage 2.2): respect device safe-area insets so HUD elements don't
+  // collide with the iOS notch / Dynamic Island or Android gesture nav bar.
+  // SafeAreaProvider is already wired in providers.tsx; we just consume it
+  // here and offset the absolute-positioned top elements by insets.top.
+  const insets = useSafeAreaInsets();
+
   // Tier progress dots
   const tier = tierFor(display.score);
   const isSurvival = tier === 8;
@@ -521,6 +528,14 @@ export default function GameScreen(): React.ReactElement {
           handleTouch(t.locationX / SCALE);
         }
       }}
+      // U1 (Stage 2.2): screen-reader hooks. The whole View is the touch
+      // target across all phases — VoiceOver/TalkBack now describe it as a
+      // button with how-to-play context. Score updates aren't announced
+      // (would be too chatty); users explore the rest by touching.
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel="Two Dots game"
+      accessibilityHint="Tap left side of screen to jump the orange dot. Tap right side to jump the cyan dot. Keep both alive."
       style={[styles.root, { backgroundColor: bgColor }]}
     >
       <View style={{ width: SCREEN_W, height: GAME_H, overflow: 'hidden' }}>
@@ -812,7 +827,11 @@ export default function GameScreen(): React.ReactElement {
         {display.phase === 'playing' && (
           <View
             pointerEvents="none"
-            style={[styles.scoreContainer, { transform: [{ scale: scoreScale }] }]}
+            style={[
+              styles.scoreContainer,
+              { top: insets.top + Math.max(58 * SCALE, GAME_H * 0.09) },
+              { transform: [{ scale: scoreScale }] },
+            ]}
           >
             {/* Orange shadow — invisible at rest, flashes up on each score pop */}
             <Text
@@ -853,7 +872,13 @@ export default function GameScreen(): React.ReactElement {
 
         {/* ── Tier progress dots ── */}
         {display.phase === 'playing' && (
-          <View pointerEvents="none" style={styles.progressDotsContainer}>
+          <View
+            pointerEvents="none"
+            style={[
+              styles.progressDotsContainer,
+              { top: insets.top + Math.max(58 * SCALE, GAME_H * 0.09) + 56 },
+            ]}
+          >
             {isSurvival
               ? (() => {
                   const ps = 6 + 3 * Math.sin(nowMs / 300);
@@ -877,7 +902,7 @@ export default function GameScreen(): React.ReactElement {
         {display.milestonePop > 0 && display.phase === 'playing' && (
           <View
             pointerEvents="none"
-            style={[styles.milestoneContainer, { top: 110 - mDriftY, opacity: mAlpha }]}
+            style={[styles.milestoneContainer, { top: insets.top + 110 - mDriftY, opacity: mAlpha }]}
           >
             <Text style={styles.milestoneText}>★ {display.score} ★</Text>
             {isTierBoundary && (

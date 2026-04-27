@@ -37,11 +37,23 @@ if (typeof g.crypto.getRandomValues === 'undefined') {
 
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { Text } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { Providers } from '@/providers';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { initAnalyticsQueue, logEvent } from '@features/analytics';
+
+// U3 (Stage 2.2): cap Dynamic Type / Display Size scaling at 1.3× across the
+// whole app. Two Dots is a fixed-pixel design — uncapped scaling at 200%+
+// breaks the carefully-positioned HUD and idle title. 1.3× still gives users
+// who need slightly larger text some headroom while keeping layouts readable.
+type TextDefaults = { defaultProps?: { maxFontSizeMultiplier?: number } };
+const TextWithDefaults = Text as unknown as TextDefaults;
+TextWithDefaults.defaultProps = {
+  ...TextWithDefaults.defaultProps,
+  maxFontSizeMultiplier: 1.3,
+};
 
 // Hold the splash screen until fonts (and analytics) are ready.
 SplashScreen.preventAutoHideAsync().catch(() => {
