@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Expo / EAS
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+play-service-account.json
+
+# Native
+android/
+ios/
+
+# Env
+.env
+.env.*.local
+.env.local
+
+# Testing
+coverage/
+.vitest-cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
