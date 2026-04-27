@@ -10,13 +10,7 @@
  * of every run (see `initSpawnerState`) and passed through pure functions.
  */
 
-import {
-  GRAVITY,
-  JUMP_VY,
-  PIPE_SPACING,
-  PIPE_W,
-  W,
-} from './constants';
+import { GRAVITY, JUMP_VY, PIPE_SPACING, PIPE_W, W } from './constants';
 import type { Rng } from '@shared/utils/rng';
 import { gapSize, pipePauseMs, pipeSpeed, tierFor } from './tiers';
 

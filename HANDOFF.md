@@ -1,5 +1,6 @@
 # Two Dots — Handoff Notes
-*Last updated: end of session 7 (27 Apr 2026). App deployed and running on Pixel 7.*
+
+_Last updated: end of session 7 (27 Apr 2026). App deployed and running on Pixel 7._
 
 ---
 
@@ -7,45 +8,45 @@
 
 The app is **fully playable and deployed** on a Pixel 7 via `npx expo run:android` (development build). All four phases of the visual/game overhaul are complete and live.
 
-| Phase | Status |
-|---|---|
-| S1 Scaffold | ✅ |
-| S2 Engine port (pure TS) | ✅ 90 tests passing |
-| S5 Persistence (Supabase + React Query) | ✅ 32 tests passing |
-| S6 Analytics | ✅ 16 tests passing |
-| Phase 1 — 60fps physics + HUD polish | ✅ deployed |
-| Phase 2 — Death screen overhaul | ✅ deployed |
-| Phase 3 — Idle screen overhaul | ✅ deployed |
-| Phase 4 — Skia canvas migration | ✅ deployed |
-| Polish pass (audio, fonts, visual fixes) | ✅ deployed |
-| EAS Build / TestFlight / Play Internal | ⚠️ not started |
+| Phase                                    | Status              |
+| ---------------------------------------- | ------------------- |
+| S1 Scaffold                              | ✅                  |
+| S2 Engine port (pure TS)                 | ✅ 90 tests passing |
+| S5 Persistence (Supabase + React Query)  | ✅ 32 tests passing |
+| S6 Analytics                             | ✅ 16 tests passing |
+| Phase 1 — 60fps physics + HUD polish     | ✅ deployed         |
+| Phase 2 — Death screen overhaul          | ✅ deployed         |
+| Phase 3 — Idle screen overhaul           | ✅ deployed         |
+| Phase 4 — Skia canvas migration          | ✅ deployed         |
+| Polish pass (audio, fonts, visual fixes) | ✅ deployed         |
+| EAS Build / TestFlight / Play Internal   | ⚠️ not started      |
 
 ---
 
 ## Key file locations
 
-| File | Purpose |
-|---|---|
-| `src/app/index.tsx` | **Main game screen** — entire game UI (1300+ lines). All phases live here. |
-| `src/app/_layout.tsx` | Root layout — font loading, splash screen, analytics bootstrap |
-| `src/features/game/engine/step.ts` | Physics loop — `stepPlaying`, `stepDead`, `handleTap` |
-| `src/features/game/engine/constants.ts` | All tuning constants (gravity, speeds, timings, colours) |
-| `src/features/game/engine/tiers.ts` | Tier/scoring logic |
-| `src/features/game/engine/spawn.ts` | Pipe spawning |
-| `src/features/game/engine/collision.ts` | Hit detection |
-| `src/features/game/engine/state.ts` | `GameState` type definition |
-| `src/features/game/engine/index.ts` | Barrel export |
-| `src/features/analytics/` | Analytics queue + event types |
-| `src/features/leaderboard/` | Supabase score submission + hooks |
-| `src/features/monetisation/` | Stubbed monetisation facade |
-| `src/providers.tsx` | React Query + SafeArea providers |
-| `assets/sounds/` | 16 WAV sound files (pre-generated, included) |
-| `assets/fonts/` | Empty — fonts load via URI from GitHub CDN on first run |
-| `deploy-android.bat` | `npx expo run:android` wrapper |
-| `run-deploy.vbs` | VBScript launcher for deploy (double-click in Explorer) |
-| `package.json` | `expo-av ~14.0.0` for audio (NOT expo-audio) |
-| `app.config.ts` | Expo config — bundle ID, icons, splash, plugins |
-| `supabase/migrations/` | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql` |
+| File                                    | Purpose                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `src/app/index.tsx`                     | **Main game screen** — entire game UI (1300+ lines). All phases live here. |
+| `src/app/_layout.tsx`                   | Root layout — font loading, splash screen, analytics bootstrap             |
+| `src/features/game/engine/step.ts`      | Physics loop — `stepPlaying`, `stepDead`, `handleTap`                      |
+| `src/features/game/engine/constants.ts` | All tuning constants (gravity, speeds, timings, colours)                   |
+| `src/features/game/engine/tiers.ts`     | Tier/scoring logic                                                         |
+| `src/features/game/engine/spawn.ts`     | Pipe spawning                                                              |
+| `src/features/game/engine/collision.ts` | Hit detection                                                              |
+| `src/features/game/engine/state.ts`     | `GameState` type definition                                                |
+| `src/features/game/engine/index.ts`     | Barrel export                                                              |
+| `src/features/analytics/`               | Analytics queue + event types                                              |
+| `src/features/leaderboard/`             | Supabase score submission + hooks                                          |
+| `src/features/monetisation/`            | Stubbed monetisation facade                                                |
+| `src/providers.tsx`                     | React Query + SafeArea providers                                           |
+| `assets/sounds/`                        | 16 WAV sound files (pre-generated, included)                               |
+| `assets/fonts/`                         | Empty — fonts load via URI from GitHub CDN on first run                    |
+| `deploy-android.bat`                    | `npx expo run:android` wrapper                                             |
+| `run-deploy.vbs`                        | VBScript launcher for deploy (double-click in Explorer)                    |
+| `package.json`                          | `expo-av ~14.0.0` for audio (NOT expo-audio)                               |
+| `app.config.ts`                         | Expo config — bundle ID, icons, splash, plugins                            |
+| `supabase/migrations/`                  | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`            |
 
 **Prototype reference (read-only):**
 `G:\My Drive\NewCo\Business ideas\Two Dots\TwoDots-38.html`
@@ -90,9 +91,11 @@ Uses **`expo-av`** (`Audio.Sound`). All 16 sounds preloaded on mount into `sound
 ### Fonts
 
 **Space Mono Bold** loaded via `expo-font` with URI-based loading from GitHub raw CDN:
+
 ```
 https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts/SpaceMono-Bold.ttf
 ```
+
 Loaded once on first app launch, cached by expo-font. Splash screen held via `SplashScreen.preventAutoHideAsync()` until fonts ready. Falls back to system font gracefully if load fails.
 
 ---
@@ -100,14 +103,14 @@ Loaded once on first app launch, cached by expo-font. Splash screen held via `Sp
 ## Colours and design constants
 
 ```ts
-COL_L  = '#FF5E35'   // orange — left lane, left dot
-COL_R  = '#2ECFFF'   // cyan — right lane, right dot
-COL_BG = '#07070f'   // near-black background
-GOLD   = '#FFD046'   // milestone/score gold
-WALL_R = '#10355c'   // pipe base colour (both halves — prototype draws WALL_L then overwrites with WALL_R)
+COL_L = '#FF5E35'; // orange — left lane, left dot
+COL_R = '#2ECFFF'; // cyan — right lane, right dot
+COL_BG = '#07070f'; // near-black background
+GOLD = '#FFD046'; // milestone/score gold
+WALL_R = '#10355c'; // pipe base colour (both halves — prototype draws WALL_L then overwrites with WALL_R)
 
-W      = 390         // logical canvas width (all coordinates in this space)
-SCALE  = SCREEN_W / W  // sx(n) = n * SCALE converts logical → screen px
+W = 390; // logical canvas width (all coordinates in this space)
+SCALE = SCREEN_W / W; // sx(n) = n * SCALE converts logical → screen px
 ```
 
 ---
@@ -115,6 +118,7 @@ SCALE  = SCREEN_W / W  // sx(n) = n * SCALE converts logical → screen px
 ## How to deploy
 
 **Prerequisites:**
+
 - Android device with USB or WiFi debugging enabled
 - `adb devices` must show the device before running
 
@@ -154,30 +158,38 @@ These were identified during the variance audit but deliberately deferred or lef
 ## Known issues / gotchas
 
 ### `--legacy-peer-deps` always required
+
 `@testing-library/react-native ^12.5.0` has a circular peer dep claim against `react@^19`. Use `--legacy-peer-deps` for all `npm install` operations.
 
 ### Font loading is network-dependent on first launch
+
 The Space Mono Bold TTF is fetched from `raw.githubusercontent.com` on first launch and cached. If the device has no internet on first launch, the app falls back to system font (no crash). Subsequent launches use the cache.
 
 **To eliminate this dependency:** download the TTF files manually and place them in `assets/fonts/`:
+
 - `assets/fonts/SpaceMono-Regular.ttf`
 - `assets/fonts/SpaceMono-Bold.ttf`
 
 Then update `_layout.tsx` to use `require()` instead of URI:
+
 ```ts
 SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
 'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
 ```
 
 ### TypeScript: Supabase `never` errors in leaderboard hooks
+
 `src/shared/supabase/types.ts` is hand-written and missing fields that Supabase v2's query builder expects. Causes ~10 typecheck errors in leaderboard/analytics hooks. Fix:
+
 ```bash
 npm install -g supabase
 supabase gen types typescript --project-id YOUR-REF > src/shared/supabase/types.ts
 ```
+
 Engine, schemas, and all game code typecheck clean.
 
 ### `expo-doctor` warning about Skia version
+
 `@shopify/react-native-skia@1.3.10` is newer than Expo SDK 51's expected `1.2.3`. This is intentional — `1.3.10` has required Skia APIs we use. Ignore the warning. Do not downgrade.
 
 ---
@@ -204,6 +216,7 @@ The immediate next milestone is getting a build onto TestFlight (iOS) and Play I
 ### Audio polish
 
 The 16 WAV sound files in `assets/sounds/` were generated programmatically to match the prototype's Web Audio API synthesis. They're functional but could be refined:
+
 - `blip_t1.wav` through `blip_t8.wav` — score blips, pitch rises with tier
 - `chord_tier.wav`, `chord_five.wav` — milestone chimes
 - `jump_l.wav`, `jump_r.wav` — dot jump sounds
@@ -252,6 +265,7 @@ Three tables, all with RLS enabled:
 - **`analytics_events`** — `id`, `device_id FK`, `session_id`, `run_index`, `event_type`, `payload JSONB`, `created_at`
 
 Migrations in `supabase/migrations/`. Connection via `.env`:
+
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
@@ -261,16 +275,16 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 ## Session history summary
 
-| Session | Work done |
-|---|---|
-| 1–4 | Scaffold, engine port, persistence, analytics |
-| 5 | Phase 1: 60fps physics gate, idle bob, lane backgrounds, score pop, death flash |
-| 6 | Phase 2: death screen (big score, shadows, count-up, tier info, retry pill) |
-| 6 | Phase 3: idle screen (TWO/DOTS title, instruction text, thumb circles) |
-| 6 | Phase 4: Skia migration (dots with glow/pulse/rings, pipes with scanlines/caps, divider glow) |
-| 7 | Polish pass: audio wiring, pause pulse, idle title bloom shadow |
-| 7 | divPulse fix, Space Mono font loading, all StyleSheet text updated |
-| 7 | P1 fixes: gold wash, freeze ramp, particle shrink, pipe shimmer, deathFlash decrement |
-| 7 | P2/P3 fixes: pipe colours/edges/glows, adaptive score Y, death Y offset, hint Y |
-| 7 | expo-audio → expo-av migration (fixed Android native module crash) |
-| 7 | package.json prepare script removed (Windows `\|\| true` incompatibility) |
+| Session | Work done                                                                                     |
+| ------- | --------------------------------------------------------------------------------------------- |
+| 1–4     | Scaffold, engine port, persistence, analytics                                                 |
+| 5       | Phase 1: 60fps physics gate, idle bob, lane backgrounds, score pop, death flash               |
+| 6       | Phase 2: death screen (big score, shadows, count-up, tier info, retry pill)                   |
+| 6       | Phase 3: idle screen (TWO/DOTS title, instruction text, thumb circles)                        |
+| 6       | Phase 4: Skia migration (dots with glow/pulse/rings, pipes with scanlines/caps, divider glow) |
+| 7       | Polish pass: audio wiring, pause pulse, idle title bloom shadow                               |
+| 7       | divPulse fix, Space Mono font loading, all StyleSheet text updated                            |
+| 7       | P1 fixes: gold wash, freeze ramp, particle shrink, pipe shimmer, deathFlash decrement         |
+| 7       | P2/P3 fixes: pipe colours/edges/glows, adaptive score Y, death Y offset, hint Y               |
+| 7       | expo-audio → expo-av migration (fixed Android native module crash)                            |
+| 7       | package.json prepare script removed (Windows `\|\| true` incompatibility)                     |

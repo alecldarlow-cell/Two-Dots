@@ -25,7 +25,9 @@ export interface RetryRateResult {
  * The events are grouped by sessionId and evaluated per session; the top-line
  * numbers aggregate across all qualifying sessions.
  */
-export function computeRetryRate(events: Array<AnalyticsEvent & { occurredAt: number }>): RetryRateResult {
+export function computeRetryRate(
+  events: Array<AnalyticsEvent & { occurredAt: number }>,
+): RetryRateResult {
   // Group by sessionId.
   const bySession = new Map<string, Array<AnalyticsEvent & { occurredAt: number }>>();
   for (const e of events) {

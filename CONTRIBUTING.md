@@ -56,12 +56,12 @@ Self-merge is fine. The PR exists for hygiene, not gatekeeping.
 
 Releases are tagged on `main` after the relevant work is merged. Versioning is semver with pre-release suffixes:
 
-| Suffix | Meaning |
-|---|---|
+| Suffix              | Meaning                                                    |
+| ------------------- | ---------------------------------------------------------- |
 | `vX.Y.Z-internal.N` | Cut for Play Internal Testing or TestFlight internal track |
-| `vX.Y.Z-beta.N` | Wider beta cohort |
-| `vX.Y.Z-rc.N` | Release candidate, regression tested |
-| `vX.Y.Z` | Production release on stores |
+| `vX.Y.Z-beta.N`     | Wider beta cohort                                          |
+| `vX.Y.Z-rc.N`       | Release candidate, regression tested                       |
+| `vX.Y.Z`            | Production release on stores                               |
 
 ### Cutting a release
 

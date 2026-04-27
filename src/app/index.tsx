@@ -30,12 +30,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Dimensions,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import {
@@ -77,28 +72,29 @@ import { useMonetisation } from '@features/monetisation';
 import * as Crypto from 'expo-crypto';
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
-const COL_L        = '#FF5E35';
-const COL_R        = '#2ECFFF';
-const COL_BG       = '#07070f';
-const COL_BG_FLASH = '#1c0404';  // brief reddish bg on death
-// Pipe wall colours — match HTML prototype exactly
-const WALL_L       = '#5c3510';  // left-lane pipe: warm dark brown
-const WALL_R       = '#10355c';  // right-lane pipe: cool dark blue
-const GOLD         = '#FFD046';
+const COL_L = '#FF5E35';
+const COL_R = '#2ECFFF';
+const COL_BG = '#07070f';
+const COL_BG_FLASH = '#1c0404'; // brief reddish bg on death
+// Pipe wall colour — both halves use WALL_R; the prototype briefly draws a
+// WALL_L underlay before overwriting with WALL_R on the right half, but the RN
+// port skips the underlay since it's never visible.
+const WALL_R = '#10355c';
+const GOLD = '#FFD046';
 // Fixed physics timestep — matches 60fps HTML prototype regardless of display refresh rate
 const PHYSICS_STEP_MS = 1000 / 60; // 16.667ms per step
 
 // ─── Layout (computed once at module load) ────────────────────────────────────
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
-const SCALE    = SCREEN_W / W;
-const VIS_H    = Math.min(VIS_H_MAX, Math.max(VIS_H_MIN, SCREEN_H / SCALE));
-const GAME_H   = VIS_H * SCALE;
+const SCALE = SCREEN_W / W;
+const VIS_H = Math.min(VIS_H_MAX, Math.max(VIS_H_MIN, SCREEN_H / SCALE));
+const GAME_H = VIS_H * SCALE;
 
 // Idle bob geometry — matches prototype exactly.
-const IDLE_SAFE_TOP  = 330;
-const IDLE_SAFE_BOT  = VIS_H * 0.72 - 80;
-const IDLE_CENTRE_Y  = (IDLE_SAFE_TOP + IDLE_SAFE_BOT) / 2;
+const IDLE_SAFE_TOP = 330;
+const IDLE_SAFE_BOT = VIS_H * 0.72 - 80;
+const IDLE_CENTRE_Y = (IDLE_SAFE_TOP + IDLE_SAFE_BOT) / 2;
 const IDLE_AMPLITUDE = Math.min(55, (IDLE_SAFE_BOT - IDLE_SAFE_TOP) / 2);
 
 // ─── Display snapshot ─────────────────────────────────────────────────────────
@@ -130,29 +126,29 @@ interface DisplaySnapshot {
 
 function snap(s: GameState): DisplaySnapshot {
   return {
-    phase:            s.phase,
-    dotLY:            s.dotLY,
-    dotRY:            s.dotRY,
-    pipes:            s.pipes.map((p) => ({ ...p })),
-    score:            s.score,
-    scoreDisplay:     s.scoreDisplay,
-    deathSide:        s.deathSide,
-    deathParticles:   s.deathParticles.map((p) => ({ ...p })),
+    phase: s.phase,
+    dotLY: s.dotLY,
+    dotRY: s.dotRY,
+    pipes: s.pipes.map((p) => ({ ...p })),
+    score: s.score,
+    scoreDisplay: s.scoreDisplay,
+    deathSide: s.deathSide,
+    deathParticles: s.deathParticles.map((p) => ({ ...p })),
     deathCountFrames: s.deathCountFrames,
     scoreCountFrames: s.scoreCountFrames,
-    deathTierName:    s.deathTierName,
-    deathGateInTier:  s.deathGateInTier,
-    paused:           s.paused,
-    pulseL:           s.pulseL,
-    pulseR:           s.pulseR,
-    closeL:           s.closeL,
-    closeR:           s.closeR,
-    deathFlashL:      s.deathFlashL,
-    deathFlashR:      s.deathFlashR,
-    flash:            s.flash,
-    scorePop:         s.scorePop,
-    milestonePop:     s.milestonePop,
-    survivalPulse:    s.survivalPulse,
+    deathTierName: s.deathTierName,
+    deathGateInTier: s.deathGateInTier,
+    paused: s.paused,
+    pulseL: s.pulseL,
+    pulseR: s.pulseR,
+    closeL: s.closeL,
+    closeR: s.closeR,
+    deathFlashL: s.deathFlashL,
+    deathFlashR: s.deathFlashR,
+    flash: s.flash,
+    scorePop: s.scorePop,
+    milestonePop: s.milestonePop,
+    survivalPulse: s.survivalPulse,
   };
 }
 
@@ -167,25 +163,25 @@ function alphaHex(a: number): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function GameScreen(): React.ReactElement {
-  const deviceState            = useDeviceId();
+  const deviceState = useDeviceId();
   const { mutate: submitScore } = useSubmitScore();
-  const { showInterstitial }   = useMonetisation();
+  const { showInterstitial } = useMonetisation();
 
-  const sessionIdRef   = useRef<string>(Crypto.randomUUID());
-  const runIndexRef    = useRef<number>(0);
-  const deathTimeRef   = useRef<number>(0);
-  const prevPhaseRef   = useRef<GameState['phase']>('idle');
+  const sessionIdRef = useRef<string>(Crypto.randomUUID());
+  const runIndexRef = useRef<number>(0);
+  const deathTimeRef = useRef<number>(0);
+  const prevPhaseRef = useRef<GameState['phase']>('idle');
   // Fixed-timestep accumulator — ensures physics runs at exactly 60 steps/second
   // regardless of display refresh rate (60/90/120Hz). Without this, physics
   // runs 50–100% faster on high-refresh-rate devices.
-  const lastFrameRef   = useRef<number>(0);
-  const accRef         = useRef<number>(0);
+  const lastFrameRef = useRef<number>(0);
+  const accRef = useRef<number>(0);
   // Best score — persisted in-memory like the prototype (no AsyncStorage needed for MVP)
-  const bestScoreRef   = useRef<number>(0);
+  const bestScoreRef = useRef<number>(0);
   // Set to true when this run beats the previous best (drives "★ NEW BEST ★" display)
-  const wasNewBestRef  = useRef<boolean>(false);
+  const wasNewBestRef = useRef<boolean>(false);
 
-  const gsRef      = useRef<GameState>(initState());
+  const gsRef = useRef<GameState>(initState());
   const [display, setDisplay] = useState<DisplaySnapshot>(() => snap(gsRef.current));
 
   // ─── Audio (expo-av) ───────────────────────────────────────────────────────
@@ -199,33 +195,39 @@ export default function GameScreen(): React.ReactElement {
   }).current;
 
   // Load all sounds once on mount; clean up on unmount.
+  // Capture sounds.current into a local so the cleanup closure references the
+  // same map ESLint can prove won't change. (sounds is initialized once via
+  // useRef so .current is stable, but lint can't see that.)
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true }).catch(() => {});
+    const soundsMap = sounds.current;
     const sources: Record<string, number> = {
-      jumpL:     require('../../assets/sounds/jump_l.wav'),
-      jumpR:     require('../../assets/sounds/jump_r.wav'),
-      tap:       require('../../assets/sounds/tap.wav'),
-      pauseOn:   require('../../assets/sounds/pause_on.wav'),
-      blip1:     require('../../assets/sounds/blip_t1.wav'),
-      blip2:     require('../../assets/sounds/blip_t2.wav'),
-      blip3:     require('../../assets/sounds/blip_t3.wav'),
-      blip4:     require('../../assets/sounds/blip_t4.wav'),
-      blip5:     require('../../assets/sounds/blip_t5.wav'),
-      blip6:     require('../../assets/sounds/blip_t6.wav'),
-      blip7:     require('../../assets/sounds/blip_t7.wav'),
-      blip8:     require('../../assets/sounds/blip_t8.wav'),
+      jumpL: require('../../assets/sounds/jump_l.wav'),
+      jumpR: require('../../assets/sounds/jump_r.wav'),
+      tap: require('../../assets/sounds/tap.wav'),
+      pauseOn: require('../../assets/sounds/pause_on.wav'),
+      blip1: require('../../assets/sounds/blip_t1.wav'),
+      blip2: require('../../assets/sounds/blip_t2.wav'),
+      blip3: require('../../assets/sounds/blip_t3.wav'),
+      blip4: require('../../assets/sounds/blip_t4.wav'),
+      blip5: require('../../assets/sounds/blip_t5.wav'),
+      blip6: require('../../assets/sounds/blip_t6.wav'),
+      blip7: require('../../assets/sounds/blip_t7.wav'),
+      blip8: require('../../assets/sounds/blip_t8.wav'),
       chordTier: require('../../assets/sounds/chord_tier.wav'),
       chordFive: require('../../assets/sounds/chord_five.wav'),
       closeCall: require('../../assets/sounds/close_call.wav'),
-      death:     require('../../assets/sounds/death.wav'),
+      death: require('../../assets/sounds/death.wav'),
     };
     Object.entries(sources).forEach(([key, src]) => {
       Audio.Sound.createAsync(src, { shouldPlay: false })
-        .then(({ sound }) => { sounds.current[key] = sound; })
+        .then(({ sound }) => {
+          soundsMap[key] = sound;
+        })
         .catch(() => {});
     });
     return () => {
-      Object.values(sounds.current).forEach((s) => s.unloadAsync().catch(() => {}));
+      Object.values(soundsMap).forEach((s) => s.unloadAsync().catch(() => {}));
     };
   }, []);
 
@@ -240,16 +242,24 @@ export default function GameScreen(): React.ReactElement {
         case 'score-blip':
           replay(`blip${Math.min(ae.tier, 8)}`);
           break;
-        case 'tier-boundary-chord': replay('chordTier'); break;
-        case 'every-five-chime':    replay('chordFive'); break;
-        case 'close-call':          replay('closeCall'); break;
-        case 'death':               replay('death');     break;
+        case 'tier-boundary-chord':
+          replay('chordTier');
+          break;
+        case 'every-five-chime':
+          replay('chordFive');
+          break;
+        case 'close-call':
+          replay('closeCall');
+          break;
+        case 'death':
+          replay('death');
+          break;
         // tap/tap-start/tap-pause fired from handleTouch, not the loop
       }
     }
 
     function loop() {
-      const s   = gsRef.current;
+      const s = gsRef.current;
       const now = Date.now();
 
       // ── Fixed-timestep physics accumulator ─────────────────────────────────
@@ -283,7 +293,10 @@ export default function GameScreen(): React.ReactElement {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, []);
+    // `replay` is stable (captured via useRef(...).current at component
+    // initialisation, never reassigned) so listing it here doesn't cause
+    // the loop to restart — it just satisfies the exhaustive-deps lint.
+  }, [replay]);
 
   // ─── Death side-effect ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -296,34 +309,41 @@ export default function GameScreen(): React.ReactElement {
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       logEvent({
-        type:           'run_end',
-        sessionId:      sessionIdRef.current,
-        runIndex:       runIndexRef.current,
-        score:          display.score,
-        tier:           tierFor(display.score),
-        deathSide:      display.deathSide,
+        type: 'run_end',
+        sessionId: sessionIdRef.current,
+        runIndex: runIndexRef.current,
+        score: display.score,
+        tier: tierFor(display.score),
+        deathSide: display.deathSide,
         deathGateInTier: display.deathGateInTier,
       });
       if (deviceState.status === 'ready') {
         submitScore({
-          deviceId:  deviceState.deviceId,
+          deviceId: deviceState.deviceId,
           sessionId: sessionIdRef.current,
-          score:     display.score,
-          tier:      tierFor(display.score),
+          score: display.score,
+          tier: tierFor(display.score),
           deathSide: display.deathSide,
         });
       }
       showInterstitial();
     }
     prevPhaseRef.current = display.phase;
-  }, [display.phase, display.score, display.deathSide, display.deathGateInTier,
-      deviceState, submitScore, showInterstitial]);
+  }, [
+    display.phase,
+    display.score,
+    display.deathSide,
+    display.deathGateInTier,
+    deviceState,
+    submitScore,
+    showInterstitial,
+  ]);
 
   // ─── Touch handler (supports multi-touch via onTouchStart) ─────────────────
   function handleTouch(tapX: number) {
-    const s         = gsRef.current;
+    const s = gsRef.current;
     const prevPhase = s.phase;
-    const now       = Date.now();
+    const now = Date.now();
 
     const events = handleTap(s, tapX, now, VIS_H);
     setDisplay(snap(s));
@@ -331,13 +351,17 @@ export default function GameScreen(): React.ReactElement {
     // Analytics
     if (prevPhase === 'idle' && s.phase === 'playing') {
       runIndexRef.current++;
-      logEvent({ type: 'run_start', sessionId: sessionIdRef.current, runIndex: runIndexRef.current });
+      logEvent({
+        type: 'run_start',
+        sessionId: sessionIdRef.current,
+        runIndex: runIndexRef.current,
+      });
     } else if (prevPhase === 'dead' && s.phase === 'idle') {
       logEvent({
-        type:               'retry_tapped',
-        sessionId:          sessionIdRef.current,
-        previousRunIndex:   runIndexRef.current,
-        timeSinceDeathMs:   now - deathTimeRef.current,
+        type: 'retry_tapped',
+        sessionId: sessionIdRef.current,
+        previousRunIndex: runIndexRef.current,
+        timeSinceDeathMs: now - deathTimeRef.current,
       });
     }
 
@@ -367,55 +391,64 @@ export default function GameScreen(): React.ReactElement {
   // ─── Derived render values ─────────────────────────────────────────────────
   const nowMs = Date.now();
   // Idle title glow pulse (5s cycle, used for cross-lane shadow opacity)
-  const glowPulse          = 0.5 + 0.5 * Math.sin(nowMs / 2500);
+  const glowPulse = 0.5 + 0.5 * Math.sin(nowMs / 2500);
   const titleShadowOpacity = 0.18 + glowPulse * 0.08;
   // Pause sub-text pulse (matches prototype: 0.45+0.55*sin(now/500))
-  const pauseSubOpacity    = 0.45 + 0.55 * Math.sin(nowMs / 500);
+  const pauseSubOpacity = 0.45 + 0.55 * Math.sin(nowMs / 500);
 
   // Idle bob — computed from live clock so dots move even when step() isn't running
-  const dotLDisplayY = display.phase === 'idle'
-    ? IDLE_CENTRE_Y + Math.sin(nowMs / 900) * IDLE_AMPLITUDE
-    : display.dotLY;
-  const dotRDisplayY = display.phase === 'idle'
-    ? IDLE_CENTRE_Y + Math.sin(nowMs / 900 + 1.8) * IDLE_AMPLITUDE
-    : display.dotRY;
+  const dotLDisplayY =
+    display.phase === 'idle'
+      ? IDLE_CENTRE_Y + Math.sin(nowMs / 900) * IDLE_AMPLITUDE
+      : display.dotLY;
+  const dotRDisplayY =
+    display.phase === 'idle'
+      ? IDLE_CENTRE_Y + Math.sin(nowMs / 900 + 1.8) * IDLE_AMPLITUDE
+      : display.dotRY;
 
-  // Lane background alpha — tier-responsive
-  const laneAlpha = display.phase === 'playing'
-    ? LANE_ALPHA_BY_TIER[Math.min(7, tierFor(display.score) - 1)]
-    : 0x08;
+  // Lane background alpha — tier-responsive. The Math.min keeps the index
+  // in [0, 7] so the array access never goes out of range, but ?? 0x08 is a
+  // belt-and-braces guard that also satisfies noUncheckedIndexedAccess.
+  const laneAlpha =
+    display.phase === 'playing'
+      ? (LANE_ALPHA_BY_TIER[Math.min(7, tierFor(display.score) - 1)] ?? 0x08)
+      : 0x08;
   const laneHex = alphaHex(laneAlpha);
 
   // Background colour — briefly reddish on death
   const bgColor = display.flash > 6 ? COL_BG_FLASH : COL_BG;
 
   // Live score pop animation
-  const popT       = display.scorePop / 18;
+  const popT = display.scorePop / 18;
   const scoreScale = 1 + popT * 0.4;
   const scoreColor = display.scorePop > 12 ? '#ffffff' : GOLD;
-  const shadowOff  = 3 + popT * 4;
+  const shadowOff = 3 + popT * 4;
 
   // Milestone pop
   const TIER_BOUNDARY_SCORES = [5, 10, 15, 20, 25, 30, 35];
   const isTierBoundary = TIER_BOUNDARY_SCORES.includes(display.score);
   const milestoneFrames = isTierBoundary ? 90 : 40;
-  const mT    = display.milestonePop / milestoneFrames;
-  const mAlpha = display.milestonePop > 0
-    ? (isTierBoundary
-        ? (display.milestonePop > 30 ? 1 : display.milestonePop / 30)
-        : (mT > 0.15 ? 1 : mT / 0.15))
-    : 0;
+  const mT = display.milestonePop / milestoneFrames;
+  const mAlpha =
+    display.milestonePop > 0
+      ? isTierBoundary
+        ? display.milestonePop > 30
+          ? 1
+          : display.milestonePop / 30
+        : mT > 0.15
+          ? 1
+          : mT / 0.15
+      : 0;
   const mDriftY = (1 - mT) * 30;
 
   // Survival pulse on divider
-  const sPulseT  = display.survivalPulse / 20;
-  const sPulseW  = sx(2 + sPulseT * 6);
-  const sPulseX  = sx(W / 2) - sPulseW / 2;
+  const sPulseT = display.survivalPulse / 20;
+  const sPulseW = sx(2 + sPulseT * 6);
+  const sPulseX = sx(W / 2) - sPulseW / 2;
 
   // Death overlay
   const showDeathOverlay =
-    display.phase === 'dead' &&
-    display.deathCountFrames <= display.scoreCountFrames;
+    display.phase === 'dead' && display.deathCountFrames <= display.scoreCountFrames;
 
   // Count-up completion — best/tier/retry only revealed once animation ends
   const countDone = display.deathCountFrames === 0;
@@ -429,28 +462,30 @@ export default function GameScreen(): React.ReactElement {
   const thumbFillAlpha = (0.05 + 0.03 * Math.sin(nowMs / 700)).toFixed(3);
 
   // Tier progress dots
-  const tier       = tierFor(display.score);
+  const tier = tierFor(display.score);
   const isSurvival = tier === 8;
 
   // Divider glow animation — prototype: 0.03 + 0.02 * sin(now / 800)
   const divPulse = 0.03 + 0.02 * Math.sin(nowMs / 800);
-  const divHex   = alphaHex(Math.round(divPulse * 255));
+  const divHex = alphaHex(Math.round(divPulse * 255));
 
   // Pause shimmer — white overlay on each pipe segment, pulsing at ~8Hz
   const pauseShimmerOpacity = 0.08 + 0.08 * Math.sin(nowMs / 120);
 
   // Gold screen wash — full-canvas tint during milestone pop window
   // Tier-boundary pop is more subdued (0.15 peak) than regular milestone (0.22 peak).
-  const goldWashAlpha = display.milestonePop > 0 && display.phase === 'playing'
-    ? (isTierBoundary ? 0.15 : 0.22) * mAlpha
-    : 0;
+  const goldWashAlpha =
+    display.milestonePop > 0 && display.phase === 'playing'
+      ? (isTierBoundary ? 0.15 : 0.22) * mAlpha
+      : 0;
 
   // Freeze ramp — black overlay that ramps 0→0.45 during the particle freeze window
   // (deathCountFrames > scoreCountFrames). Gives weight to the death moment.
   const freezeWindowFrames = display.deathCountFrames - display.scoreCountFrames;
-  const freezeAlpha = display.phase === 'dead' && freezeWindowFrames > 0
-    ? (1 - freezeWindowFrames / DEATH_FREEZE_FRAMES) * 0.45
-    : 0;
+  const freezeAlpha =
+    display.phase === 'dead' && freezeWindowFrames > 0
+      ? (1 - freezeWindowFrames / DEATH_FREEZE_FRAMES) * 0.45
+      : 0;
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -459,24 +494,37 @@ export default function GameScreen(): React.ReactElement {
         // Multi-touch: iterate changedTouches so both fingers fire independently
         const { changedTouches } = e.nativeEvent;
         for (let i = 0; i < changedTouches.length; i++) {
-          handleTouch(changedTouches[i].locationX / SCALE);
+          const t = changedTouches[i];
+          if (!t) continue;
+          handleTouch(t.locationX / SCALE);
         }
       }}
       style={[styles.root, { backgroundColor: bgColor }]}
     >
       <View style={{ width: SCREEN_W, height: GAME_H, overflow: 'hidden' }}>
-
         {/* ── Lane backgrounds ── */}
-        <View pointerEvents="none" style={{
-          position: 'absolute', left: 0, top: 0,
-          width: SCREEN_W / 2, height: GAME_H,
-          backgroundColor: COL_L + laneHex,
-        }} />
-        <View pointerEvents="none" style={{
-          position: 'absolute', left: SCREEN_W / 2, top: 0,
-          width: SCREEN_W / 2, height: GAME_H,
-          backgroundColor: COL_R + laneHex,
-        }} />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: SCREEN_W / 2,
+            height: GAME_H,
+            backgroundColor: COL_L + laneHex,
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: SCREEN_W / 2,
+            top: 0,
+            width: SCREEN_W / 2,
+            height: GAME_H,
+            backgroundColor: COL_R + laneHex,
+          }}
+        />
 
         {/* ── Skia Canvas for visual effects ── */}
         {/* Contains: divider glow, pipes (with scanlines/glow/caps), death particles,
@@ -493,12 +541,7 @@ export default function GameScreen(): React.ReactElement {
         >
           {/* ── Divider bilateral soft glow ── */}
           {/* Left glow: COL_L transparent at far-left, opaque near centre */}
-          <Rect
-            x={sx(W / 2 - 18)}
-            y={0}
-            width={sx(18)}
-            height={GAME_H}
-          >
+          <Rect x={sx(W / 2 - 18)} y={0} width={sx(18)} height={GAME_H}>
             <LinearGradient
               start={vec(sx(W / 2 - 18), 0)}
               end={vec(sx(W / 2), 0)}
@@ -507,12 +550,7 @@ export default function GameScreen(): React.ReactElement {
           </Rect>
 
           {/* Right glow: COL_R fade from left to right */}
-          <Rect
-            x={sx(W / 2)}
-            y={0}
-            width={sx(18)}
-            height={GAME_H}
-          >
+          <Rect x={sx(W / 2)} y={0} width={sx(18)} height={GAME_H}>
             <LinearGradient
               start={vec(sx(W / 2), 0)}
               end={vec(sx(W / 2 + 18), 0)}
@@ -521,13 +559,7 @@ export default function GameScreen(): React.ReactElement {
           </Rect>
 
           {/* Hard centre line */}
-          <Rect
-            x={sx(W / 2 - 1)}
-            y={0}
-            width={2}
-            height={GAME_H}
-            color="#111120"
-          />
+          <Rect x={sx(W / 2 - 1)} y={0} width={2} height={GAME_H} color="#111120" />
 
           {/* ── Survival pulse on divider (optional) ── */}
           {display.survivalPulse > 0 && (
@@ -565,13 +597,7 @@ export default function GameScreen(): React.ReactElement {
                 {segments.map((seg, segIdx) => (
                   <Group key={segIdx}>
                     {/* Left half (WALL_R base — prototype draws WALL_L then overwrites with WALL_R) */}
-                    <Rect
-                      x={pipeLeft}
-                      y={seg.y}
-                      width={halfW}
-                      height={seg.h}
-                      color={WALL_R}
-                    />
+                    <Rect x={pipeLeft} y={seg.y} width={halfW} height={seg.h} color={WALL_R} />
 
                     {/* Right half (WALL_R, COL_R inner edge) */}
                     <Rect
@@ -595,12 +621,7 @@ export default function GameScreen(): React.ReactElement {
 
                     {/* Outer glow gradients — prototype: left outer = COL_R, right outer = COL_L */}
                     {/* Left half: left (outer) edge glows COL_R */}
-                    <Rect
-                      x={pipeLeft}
-                      y={seg.y}
-                      width={sx(18)}
-                      height={seg.h}
-                    >
+                    <Rect x={pipeLeft} y={seg.y} width={sx(18)} height={seg.h}>
                       <LinearGradient
                         start={vec(pipeLeft, seg.y)}
                         end={vec(pipeLeft + sx(18), seg.y)}
@@ -772,9 +793,7 @@ export default function GameScreen(): React.ReactElement {
           />
 
           {/* ── Idle title bloom glow ── */}
-          {display.phase === 'idle' && (
-            <TitleBloom nowMs={nowMs} />
-          )}
+          {display.phase === 'idle' && <TitleBloom nowMs={nowMs} />}
 
           {/* ── Death freeze ramp (black overlay 0→0.45 during particle freeze window) ── */}
           {freezeAlpha > 0 && (
@@ -790,59 +809,76 @@ export default function GameScreen(): React.ReactElement {
 
         {/* ── Live score with pop animation ── */}
         {display.phase === 'playing' && (
-          <View pointerEvents="none" style={[
-            styles.scoreContainer,
-            { transform: [{ scale: scoreScale }] },
-          ]}>
+          <View
+            pointerEvents="none"
+            style={[styles.scoreContainer, { transform: [{ scale: scoreScale }] }]}
+          >
             {/* Orange shadow — invisible at rest, flashes up on each score pop */}
-            <Text style={[styles.scoreLive, {
-              color: COL_L,
-              opacity: popT * 0.65,
-              position: 'absolute', left: 0, right: 0,
-              transform: [{ translateX: shadowOff }, { translateY: shadowOff }],
-            }]}>{display.score}</Text>
-            {/* Cyan shadow */}
-            <Text style={[styles.scoreLive, {
-              color: COL_R,
-              opacity: popT * 0.65,
-              position: 'absolute', left: 0, right: 0,
-              transform: [{ translateX: -shadowOff }, { translateY: -shadowOff }],
-            }]}>{display.score}</Text>
-            {/* Core */}
-            <Text style={[styles.scoreLive, { color: scoreColor }]}>
+            <Text
+              style={[
+                styles.scoreLive,
+                {
+                  color: COL_L,
+                  opacity: popT * 0.65,
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  transform: [{ translateX: shadowOff }, { translateY: shadowOff }],
+                },
+              ]}
+            >
               {display.score}
             </Text>
+            {/* Cyan shadow */}
+            <Text
+              style={[
+                styles.scoreLive,
+                {
+                  color: COL_R,
+                  opacity: popT * 0.65,
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  transform: [{ translateX: -shadowOff }, { translateY: -shadowOff }],
+                },
+              ]}
+            >
+              {display.score}
+            </Text>
+            {/* Core */}
+            <Text style={[styles.scoreLive, { color: scoreColor }]}>{display.score}</Text>
           </View>
         )}
 
         {/* ── Tier progress dots ── */}
         {display.phase === 'playing' && (
           <View pointerEvents="none" style={styles.progressDotsContainer}>
-            {isSurvival ? (
-              (() => {
-                const ps = 6 + 3 * Math.sin(nowMs / 300);
-                return (
-                  <View style={{
-                    width: ps, height: ps, borderRadius: ps / 2,
-                    backgroundColor: GOLD, opacity: 0.9,
-                  }} />
-                );
-              })()
-            ) : (
-              Array.from({ length: tier }, (_, i) => (
-                <View key={i} style={styles.progressDot} />
-              ))
-            )}
+            {isSurvival
+              ? (() => {
+                  const ps = 6 + 3 * Math.sin(nowMs / 300);
+                  return (
+                    <View
+                      style={{
+                        width: ps,
+                        height: ps,
+                        borderRadius: ps / 2,
+                        backgroundColor: GOLD,
+                        opacity: 0.9,
+                      }}
+                    />
+                  );
+                })()
+              : Array.from({ length: tier }, (_, i) => <View key={i} style={styles.progressDot} />)}
           </View>
         )}
 
         {/* ── Milestone pop overlay ── */}
         {display.milestonePop > 0 && display.phase === 'playing' && (
-          <View pointerEvents="none" style={[
-            styles.milestoneContainer,
-            { top: 110 - mDriftY, opacity: mAlpha },
-          ]}>
-            <Text style={styles.milestoneText}>★  {display.score}  ★</Text>
+          <View
+            pointerEvents="none"
+            style={[styles.milestoneContainer, { top: 110 - mDriftY, opacity: mAlpha }]}
+          >
+            <Text style={styles.milestoneText}>★ {display.score} ★</Text>
             {isTierBoundary && (
               <Text style={styles.milestoneTierName}>{tierName(display.score)}</Text>
             )}
@@ -852,90 +888,140 @@ export default function GameScreen(): React.ReactElement {
         {/* ── Idle screen — Phase 3 ── */}
         {display.phase === 'idle' && (
           <View pointerEvents="none" style={styles.idleOverlay}>
-
             {/* TWO on left lane, DOTS on right lane — bold title in lane colours */}
             {/* Cross-lane shadow: opposite colour, +3px offset, slow opacity pulse */}
-            <Text numberOfLines={1} style={[styles.idleWord, {
-              color: COL_R, opacity: titleShadowOpacity,
-              position: 'absolute',
-              top: sx(200) - sx(34) + 3,
-              left: 3,
-              width: SCREEN_W / 2,
-            }]}>TWO</Text>
-            <Text numberOfLines={1} style={[styles.idleWord, {
-              color: COL_L,
-              position: 'absolute',
-              top: sx(200) - sx(34),
-              left: 0,
-              width: SCREEN_W / 2,
-            }]}>TWO</Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.idleWord,
+                {
+                  color: COL_R,
+                  opacity: titleShadowOpacity,
+                  position: 'absolute',
+                  top: sx(200) - sx(34) + 3,
+                  left: 3,
+                  width: SCREEN_W / 2,
+                },
+              ]}
+            >
+              TWO
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.idleWord,
+                {
+                  color: COL_L,
+                  position: 'absolute',
+                  top: sx(200) - sx(34),
+                  left: 0,
+                  width: SCREEN_W / 2,
+                },
+              ]}
+            >
+              TWO
+            </Text>
 
-            <Text numberOfLines={1} style={[styles.idleWord, {
-              color: COL_L, opacity: titleShadowOpacity,
-              position: 'absolute',
-              top: sx(200) - sx(34) + 3,
-              left: SCREEN_W / 2 + 3,
-              width: SCREEN_W / 2,
-            }]}>DOTS</Text>
-            <Text numberOfLines={1} style={[styles.idleWord, {
-              color: COL_R,
-              position: 'absolute',
-              top: sx(200) - sx(34),
-              left: SCREEN_W / 2,
-              width: SCREEN_W / 2,
-            }]}>DOTS</Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.idleWord,
+                {
+                  color: COL_L,
+                  opacity: titleShadowOpacity,
+                  position: 'absolute',
+                  top: sx(200) - sx(34) + 3,
+                  left: SCREEN_W / 2 + 3,
+                  width: SCREEN_W / 2,
+                },
+              ]}
+            >
+              DOTS
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.idleWord,
+                {
+                  color: COL_R,
+                  position: 'absolute',
+                  top: sx(200) - sx(34),
+                  left: SCREEN_W / 2,
+                  width: SCREEN_W / 2,
+                },
+              ]}
+            >
+              DOTS
+            </Text>
 
             {/* Primary instruction */}
-            <Text style={[styles.idleInstruction, {
-              position: 'absolute',
-              top: sx(268),
-              left: 0, right: 0,
-            }]}>keep both dots alive</Text>
+            <Text
+              style={[
+                styles.idleInstruction,
+                {
+                  position: 'absolute',
+                  top: sx(268),
+                  left: 0,
+                  right: 0,
+                },
+              ]}
+            >
+              keep both dots alive
+            </Text>
 
             {/* Control hints — "LEFT HALF" right of centre, "RIGHT HALF" left of centre */}
-            <View style={[styles.idleHintsRow, {
-              position: 'absolute',
-              top: sx(296),
-              left: 0, right: 0,
-            }]}>
+            <View
+              style={[
+                styles.idleHintsRow,
+                {
+                  position: 'absolute',
+                  top: sx(296),
+                  left: 0,
+                  right: 0,
+                },
+              ]}
+            >
               <Text style={[styles.idleHintL, { color: COL_L }]}>LEFT HALF</Text>
               <Text style={[styles.idleHintR, { color: COL_R }]}>RIGHT HALF</Text>
             </View>
 
             {/* Left thumb circle */}
-            <View style={{
-              position: 'absolute',
-              left: sx(LANE_L) - thumbR,
-              top:  thumbY - thumbR,
-              width:  thumbR * 2,
-              height: thumbR * 2,
-              borderRadius: thumbR,
-              borderWidth: 2,
-              borderColor: COL_L + '99',
-              backgroundColor: `rgba(255,255,255,${thumbFillAlpha})`,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View
+              style={{
+                position: 'absolute',
+                left: sx(LANE_L) - thumbR,
+                top: thumbY - thumbR,
+                width: thumbR * 2,
+                height: thumbR * 2,
+                borderRadius: thumbR,
+                borderWidth: 2,
+                borderColor: COL_L + '99',
+                backgroundColor: `rgba(255,255,255,${thumbFillAlpha})`,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <Text style={[styles.thumbLabel, { color: COL_L }]}>TAP</Text>
             </View>
 
             {/* Right thumb circle */}
-            <View style={{
-              position: 'absolute',
-              left: sx(LANE_R) - thumbR,
-              top:  thumbY - thumbR,
-              width:  thumbR * 2,
-              height: thumbR * 2,
-              borderRadius: thumbR,
-              borderWidth: 2,
-              borderColor: COL_R + '99',
-              backgroundColor: `rgba(255,255,255,${thumbFillAlpha})`,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View
+              style={{
+                position: 'absolute',
+                left: sx(LANE_R) - thumbR,
+                top: thumbY - thumbR,
+                width: thumbR * 2,
+                height: thumbR * 2,
+                borderRadius: thumbR,
+                borderWidth: 2,
+                borderColor: COL_R + '99',
+                backgroundColor: `rgba(255,255,255,${thumbFillAlpha})`,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <Text style={[styles.thumbLabel, { color: COL_R }]}>TAP</Text>
             </View>
-
           </View>
         )}
 
@@ -949,38 +1035,62 @@ export default function GameScreen(): React.ReactElement {
 
         {/* ── Death overlay — Phase 2 ── */}
         {showDeathOverlay && (
-          <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.57)', justifyContent: 'flex-start', paddingTop: sx(VIS_H / 2 - 30) }]}>
-
+          <View
+            style={[
+              styles.overlay,
+              {
+                backgroundColor: 'rgba(0,0,0,0.57)',
+                justifyContent: 'flex-start',
+                paddingTop: sx(VIS_H / 2 - 30),
+              },
+            ]}
+          >
             {/* Big score — count-up from 0 to final. Orange/cyan shadows + GOLD core. */}
             <View style={styles.deathScoreBlock}>
               {/* Orange shadow, +6/+6 */}
-              <Text style={[styles.deathScoreBig, {
-                color: COL_L, opacity: 0.5,
-                position: 'absolute', left: 0, right: 0,
-                transform: [{ translateX: sx(6) }, { translateY: sx(6) }],
-              }]}>{display.scoreDisplay}</Text>
-              {/* Cyan shadow, -6/-6 */}
-              <Text style={[styles.deathScoreBig, {
-                color: COL_R, opacity: 0.5,
-                position: 'absolute', left: 0, right: 0,
-                transform: [{ translateX: -sx(6) }, { translateY: -sx(6) }],
-              }]}>{display.scoreDisplay}</Text>
-              {/* GOLD core */}
-              <Text style={[styles.deathScoreBig, { color: GOLD }]}>
+              <Text
+                style={[
+                  styles.deathScoreBig,
+                  {
+                    color: COL_L,
+                    opacity: 0.5,
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    transform: [{ translateX: sx(6) }, { translateY: sx(6) }],
+                  },
+                ]}
+              >
                 {display.scoreDisplay}
               </Text>
+              {/* Cyan shadow, -6/-6 */}
+              <Text
+                style={[
+                  styles.deathScoreBig,
+                  {
+                    color: COL_R,
+                    opacity: 0.5,
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    transform: [{ translateX: -sx(6) }, { translateY: -sx(6) }],
+                  },
+                ]}
+              >
+                {display.scoreDisplay}
+              </Text>
+              {/* GOLD core */}
+              <Text style={[styles.deathScoreBig, { color: GOLD }]}>{display.scoreDisplay}</Text>
             </View>
 
             {/* Best score — shown once count-up finishes */}
-            {countDone && display.score > 0 && (
-              wasNewBestRef.current ? (
-                <Text style={styles.deathNewBest}>★  NEW BEST  ★</Text>
+            {countDone &&
+              display.score > 0 &&
+              (wasNewBestRef.current ? (
+                <Text style={styles.deathNewBest}>★ NEW BEST ★</Text>
               ) : (
-                <Text style={styles.deathBestLine}>
-                  BEST  {bestScoreRef.current}
-                </Text>
-              )
-            )}
+                <Text style={styles.deathBestLine}>BEST {bestScoreRef.current}</Text>
+              ))}
 
             {/* Tier + gate info */}
             {countDone && display.score > 0 && (
@@ -993,18 +1103,19 @@ export default function GameScreen(): React.ReactElement {
 
             {/* Tap-to-retry pill — pulsing text on coloured pill */}
             {countDone && (
-              <View style={[styles.retryPill, {
-                backgroundColor: (display.deathSide === 'R' ? COL_R : COL_L) + '2e',
-              }]}>
-                <Text style={[styles.retryText, { opacity: retryPulse }]}>
-                  tap to retry
-                </Text>
+              <View
+                style={[
+                  styles.retryPill,
+                  {
+                    backgroundColor: (display.deathSide === 'R' ? COL_R : COL_L) + '2e',
+                  },
+                ]}
+              >
+                <Text style={[styles.retryText, { opacity: retryPulse }]}>tap to retry</Text>
               </View>
             )}
-
           </View>
         )}
-
       </View>
     </View>
   );
@@ -1064,23 +1175,14 @@ function Dot({ cx, cy, col, pulse, closeCall, deathFlash }: DotProps) {
 
       {/* 2. Ambient glow halo */}
       <Circle cx={cx} cy={cy} r={r * 2.2}>
-        <RadialGradient
-          c={vec(cx, cy)}
-          r={r * 2.2}
-          colors={[col + '55', col + '00']}
-        />
+        <RadialGradient c={vec(cx, cy)} r={r * 2.2} colors={[col + '55', col + '00']} />
       </Circle>
 
       {/* 3. Solid dot core */}
       <Circle cx={cx} cy={cy} r={r} color={col} />
 
       {/* 4. Highlight spot (top-left, white 42% opacity) */}
-      <Circle
-        cx={cx - r * 0.28}
-        cy={cy - r * 0.3}
-        r={r * 0.3}
-        color="rgba(255,255,255,0.42)"
-      />
+      <Circle cx={cx - r * 0.28} cy={cy - r * 0.3} r={r * 0.3} color="rgba(255,255,255,0.42)" />
 
       {/* 5. Close-call gold ring (expands, range 1-12) */}
       {closeCall > 0 &&
@@ -1088,7 +1190,7 @@ function Dot({ cx, cy, col, pulse, closeCall, deathFlash }: DotProps) {
           r + 4 * SCALE + (1 - closeCall / 12) * 14 * SCALE,
           sx(2),
           GOLD,
-          (closeCall / 12) * 0.9
+          (closeCall / 12) * 0.9,
         )}
 
       {/* 6. Death flash rings (expands outward, range 1-18) */}
@@ -1098,13 +1200,13 @@ function Dot({ cx, cy, col, pulse, closeCall, deathFlash }: DotProps) {
             r + 6 * SCALE + (1 - deathFlash / 18) * 30 * SCALE,
             sx(3),
             'rgba(255,80,50,1)',
-            (deathFlash / 18) * 0.95
+            (deathFlash / 18) * 0.95,
           )}
           {strokeCircle(
             r + 6 * SCALE + (1 - deathFlash / 18) * 30 * SCALE - 6 * SCALE,
             sx(1.5),
             'rgba(255,200,100,1)',
-            (deathFlash / 18) * 0.95 * 0.6
+            (deathFlash / 18) * 0.95 * 0.6,
           )}
         </>
       )}
@@ -1203,16 +1305,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── Live score ──────────────────────────────────────────────────────────────
   scoreContainer: {
     position: 'absolute',
     // Adaptive Y: prototype uses Math.max(58, visH*0.09) in logical px
-    top: Math.max(58 * SCALE, GAME_H * 0.09), left: 0, right: 0,
-    alignItems: 'center', justifyContent: 'center',
+    top: Math.max(58 * SCALE, GAME_H * 0.09),
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingBottom: 8,
   },
   scoreLive: {
@@ -1227,33 +1337,52 @@ const styles = StyleSheet.create({
   progressDotsContainer: {
     position: 'absolute',
     // Track score Y: prototype places dots 22 logical px below score text
-    top: Math.max(58 * SCALE, GAME_H * 0.09) + 22 * SCALE, left: 0, right: 0,
+    top: Math.max(58 * SCALE, GAME_H * 0.09) + 22 * SCALE,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 7,
   },
   progressDot: {
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: GOLD, opacity: 0.85,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: GOLD,
+    opacity: 0.85,
   },
 
   // ── Milestone pop ───────────────────────────────────────────────────────────
   milestoneContainer: {
     position: 'absolute',
-    left: 0, right: 0,
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
   milestoneText: {
-    color: GOLD, fontFamily: 'SpaceMono-Bold', fontSize: 14, fontWeight: 'bold', letterSpacing: 2,
+    color: GOLD,
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
   milestoneTierName: {
-    color: GOLD, fontFamily: 'SpaceMono-Bold', fontSize: 28, fontWeight: 'bold', letterSpacing: 4, marginTop: 8,
+    color: GOLD,
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 4,
+    marginTop: 8,
   },
 
   // ── Idle screen — Phase 3 ───────────────────────────────────────────────────
   idleOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   idleWord: {
     fontFamily: 'SpaceMono-Bold',
@@ -1276,26 +1405,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   idleHintL: {
-    fontFamily: 'SpaceMono-Bold', fontSize: sx(14), fontWeight: 'bold', letterSpacing: 2,
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: sx(14),
+    fontWeight: 'bold',
+    letterSpacing: 2,
     textAlign: 'right',
     paddingRight: 10,
   },
   idleHintR: {
-    fontFamily: 'SpaceMono-Bold', fontSize: sx(14), fontWeight: 'bold', letterSpacing: 2,
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: sx(14),
+    fontWeight: 'bold',
+    letterSpacing: 2,
     textAlign: 'left',
     paddingLeft: 10,
   },
   thumbLabel: {
-    fontFamily: 'SpaceMono-Bold', fontSize: sx(14), fontWeight: 'bold', letterSpacing: 2,
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: sx(14),
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
 
   // ── Pause ───────────────────────────────────────────────────────────────────
   pauseTitle: {
-    color: '#ffffff', fontFamily: 'SpaceMono-Bold', fontSize: 28, fontWeight: 'bold', letterSpacing: 8,
+    color: '#ffffff',
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 8,
   },
   sub: {
-    color: '#ffffff', fontFamily: 'SpaceMono-Bold', fontSize: sx(14), fontWeight: 'bold',
-    letterSpacing: 3, marginTop: 14,
+    color: '#ffffff',
+    fontFamily: 'SpaceMono-Bold',
+    fontSize: sx(14),
+    fontWeight: 'bold',
+    letterSpacing: 3,
+    marginTop: 14,
   },
 
   // ── Death screen — Phase 2 ──────────────────────────────────────────────────

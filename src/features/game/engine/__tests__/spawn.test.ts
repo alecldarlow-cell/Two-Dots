@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  clampToReachable,
-  initSpawnerState,
-  maxUpReach,
-  pipeGapCY,
-  spawnPipe,
-} from '../spawn';
+import { clampToReachable, initSpawnerState, maxUpReach, pipeGapCY, spawnPipe } from '../spawn';
 import { gapSize, pipeSpeed } from '../tiers';
 import { mulberry32 } from '@shared/utils/rng';
 import { PIPE_SPACING } from '../constants';
@@ -116,9 +110,7 @@ describe('spawn', () => {
         const run = (): number[] => {
           const spawner = initSpawnerState();
           const rng = mulberry32(seed);
-          return Array.from({ length: 20 }, (_, i) =>
-            pipeGapCY(i, gapSize(i), visH, spawner, rng),
-          );
+          return Array.from({ length: 20 }, (_, i) => pipeGapCY(i, gapSize(i), visH, spawner, rng));
         };
         expect(run()).toEqual(run());
       });

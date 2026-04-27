@@ -14,13 +14,21 @@
  * Polyfill crypto.getRandomValues() for Hermes / React Native.
  * Must be the very first import so it runs before @supabase/supabase-js,
  * uuid, or any other library that calls it during module initialisation.
+ *
+ * The local CryptoLike type captures the minimal shape we install on globalThis
+ * so we can avoid `any` casts. The double-cast through `unknown` is needed
+ * because lib.dom defines a stricter `Crypto` type that conflicts with our
+ * minimal implementation.
  */
 import * as ExpoCrypto from 'expo-crypto';
-if (typeof (global as any).crypto === 'undefined') {
-  (global as any).crypto = {};
+type CryptoLike = { getRandomValues?: (array: Uint8Array) => Uint8Array };
+type GlobalWithCrypto = { crypto?: CryptoLike };
+const g = globalThis as unknown as GlobalWithCrypto;
+if (typeof g.crypto === 'undefined') {
+  g.crypto = {};
 }
-if (typeof (global as any).crypto.getRandomValues === 'undefined') {
-  (global as any).crypto.getRandomValues = (array: Uint8Array): Uint8Array => {
+if (typeof g.crypto.getRandomValues === 'undefined') {
+  g.crypto.getRandomValues = (array: Uint8Array): Uint8Array => {
     const bytes = ExpoCrypto.getRandomBytes(array.length);
     array.set(bytes);
     return array;

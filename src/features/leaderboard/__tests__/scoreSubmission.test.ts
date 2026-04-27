@@ -12,9 +12,7 @@ const validInput = {
 describe('scoreSubmissionSchema', () => {
   describe('GIVEN a valid payload', () => {
     it('WHEN validated THEN passes', async () => {
-      await expect(scoreSubmissionSchema.validate(validInput)).resolves.toMatchObject(
-        validInput,
-      );
+      await expect(scoreSubmissionSchema.validate(validInput)).resolves.toMatchObject(validInput);
     });
   });
 
@@ -31,9 +29,7 @@ describe('scoreSubmissionSchema', () => {
       await expect(scoreSubmissionSchema.validate({ ...validInput, score })).rejects.toThrow();
     });
     it('WHEN negative THEN rejects', async () => {
-      await expect(
-        scoreSubmissionSchema.validate({ ...validInput, score: -5 }),
-      ).rejects.toThrow();
+      await expect(scoreSubmissionSchema.validate({ ...validInput, score: -5 })).rejects.toThrow();
     });
     it('WHEN non-integer THEN rejects', async () => {
       await expect(

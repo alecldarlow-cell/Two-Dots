@@ -96,7 +96,14 @@ export async function flush(): Promise<boolean> {
 
   try {
     const supabase = getSupabase();
-    const { error } = await supabase.from('analytics_events').insert(batch);
+    // TODO(P1-4): the `as never` is a temporary bridge. PendingEvent.payload is
+    // typed as Record<string, unknown> | null because that's what callers
+    // actually pass; Supabase's auto-generated `Json` union is stricter and
+    // recursive. Both serialise identically on the wire. Remove this cast
+    // after `supabase gen types typescript --project-id <ref> > src/shared/supabase/types.ts`.
+    const { error } = await supabase
+      .from('analytics_events')
+      .insert(batch as never);
     if (error) throw error;
     state.flushing = false;
     return true;

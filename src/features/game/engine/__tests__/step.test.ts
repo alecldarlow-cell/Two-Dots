@@ -129,6 +129,7 @@ describe('step', () => {
       // Force-spawn a pipe exactly at the left lane with an impossibly small gap.
       s.pipes = [
         {
+          id: 0,
           x: LANE_L,
           pauseUntil: 0, // pre-expired
           gapCY: 0,
@@ -211,6 +212,7 @@ describe('step', () => {
       handleTap(s, LANE_L, 1000, VIS_H);
       s.pipes = [
         {
+          id: 1,
           x: LANE_L - 50, // already past left lane
           pauseUntil: 0,
           gapCY: VIS_H / 2,
@@ -236,6 +238,7 @@ describe('step', () => {
       s.score = 4; // next score will be 5 — tier 2 boundary
       s.pipes = [
         {
+          id: 2,
           x: LANE_L - 50,
           pauseUntil: 0,
           gapCY: VIS_H / 2,
@@ -260,6 +263,7 @@ describe('step', () => {
       s.score = 39;
       s.pipes = [
         {
+          id: 3,
           x: LANE_L - 50,
           pauseUntil: 0,
           gapCY: VIS_H / 2,
@@ -282,6 +286,7 @@ describe('step', () => {
       handleTap(s, LANE_L, 1000, VIS_H);
       const offscreenPipe = {
         x: -200, // well off-screen left
+        id: 4,
         pauseUntil: 0,
         gapCY: VIS_H / 2,
         gap: 300,

@@ -8,10 +8,7 @@
 
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { getSupabase } from '@shared/supabase';
-import {
-  scoreSubmissionSchema,
-  type ScoreSubmissionInput,
-} from '../schemas/scoreSubmission';
+import { scoreSubmissionSchema, type ScoreSubmissionInput } from '../schemas/scoreSubmission';
 import { personalBestQueryKey } from './usePersonalBest';
 import { topScoresQueryKey } from './useTopScores';
 
@@ -44,11 +41,7 @@ async function submitScoreImpl(input: ScoreSubmissionInput): Promise<SubmittedSc
   return { id: data.id, score: data.score, tier: data.tier };
 }
 
-export function useSubmitScore(): UseMutationResult<
-  SubmittedScore,
-  Error,
-  ScoreSubmissionInput
-> {
+export function useSubmitScore(): UseMutationResult<SubmittedScore, Error, ScoreSubmissionInput> {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: submitScoreImpl,

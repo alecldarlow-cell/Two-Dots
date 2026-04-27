@@ -148,12 +148,14 @@ Total: 122 tests, 98% statement coverage on engine
 ```
 
 **Not yet tested:**
+
 - React components and hooks — will use `@testing-library/react-native` in S3 (Skia render phase)
 - Device smoke tests — Maestro flows, also in S3
 
 The per-frame physics of the engine is validated; it's the render-layer and device integration that still need exercise.
 
 Test pattern follows `../technical-requirements.md` §4.3:
+
 ```
 describe('GIVEN <condition>', () => {
   describe('WHEN <action>', () => {
@@ -189,6 +191,7 @@ eas submit --profile production --platform android --track internal
 ```
 
 Bundle IDs:
+
 - iOS: `com.newco.twodots`
 - Android: `com.newco.twodots`
 
@@ -200,13 +203,13 @@ Both stores require a privacy policy URL. A minimal one disclosing anonymous dev
 
 Documented deliberately so the Decisions Log in Confluence can reference them:
 
-| Deviation | Reason |
-|---|---|
-| No FastAPI backend | Two Dots is a mobile game. §9 of tech-requirements names Supabase as the production target. The dev-time Postgres/Docker/Alembic pattern is shaped for SaaS, which this isn't. |
-| Mobile-only repo, no monorepo | §3.1 describes the monorepo for backend-paired products. §1.3 allows mobile in a separate repo. No backend means no monorepo. |
-| Maestro (not Playwright) for E2E | §4.4 specifies Playwright; Playwright doesn't support React Native. Maestro is the mobile equivalent. Still device-runnable in CI. |
-| Skia (not RN Game Engine) for render | Business case mentioned RN Game Engine. The HTML prototype is Canvas2D imperative — Skia is a direct port. RNGE is a React component tree per entity, which would require rewriting the game loop from scratch. |
-| Engine mutates state in place | Functional-style per-frame copy would allocate ~8 objects/frame at 60fps. Not worth the GC pressure for a pure-logic module with one call site. Mutation is contained; the boundary is tested via effects-as-data. |
+| Deviation                            | Reason                                                                                                                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No FastAPI backend                   | Two Dots is a mobile game. §9 of tech-requirements names Supabase as the production target. The dev-time Postgres/Docker/Alembic pattern is shaped for SaaS, which this isn't.                                     |
+| Mobile-only repo, no monorepo        | §3.1 describes the monorepo for backend-paired products. §1.3 allows mobile in a separate repo. No backend means no monorepo.                                                                                      |
+| Maestro (not Playwright) for E2E     | §4.4 specifies Playwright; Playwright doesn't support React Native. Maestro is the mobile equivalent. Still device-runnable in CI.                                                                                 |
+| Skia (not RN Game Engine) for render | Business case mentioned RN Game Engine. The HTML prototype is Canvas2D imperative — Skia is a direct port. RNGE is a React component tree per entity, which would require rewriting the game loop from scratch.    |
+| Engine mutates state in place        | Functional-style per-frame copy would allocate ~8 objects/frame at 60fps. Not worth the GC pressure for a pure-logic module with one call site. Mutation is contained; the boundary is tested via effects-as-data. |
 
 ---
 

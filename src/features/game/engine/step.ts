@@ -92,8 +92,7 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
   // PIPE_SPACING px in from the right edge. Keeps pipe density constant as
   // speed ramps — a fixed-time spawn would compress spacing in Chaos.
   // PIPE_SPAWN_MS retained as a safety ceiling in case no pipe exists yet.
-  const rightmostX =
-    s.pipes.length > 0 ? Math.max(...s.pipes.map((p) => p.x)) : -Infinity;
+  const rightmostX = s.pipes.length > 0 ? Math.max(...s.pipes.map((p) => p.x)) : -Infinity;
   const shouldSpawn =
     s.pipes.length === 0 ||
     W - PIPE_W / 2 - rightmostX >= PIPE_SPACING ||
@@ -136,9 +135,7 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
         const isTierBoundary = ([5, 10, 15, 20, 25, 30, 35] as const).includes(
           s.score as 5 | 10 | 15 | 20 | 25 | 30 | 35,
         );
-        s.milestonePop = isTierBoundary
-          ? MILESTONE_POP_FRAMES_TIER_BOUNDARY
-          : MILESTONE_POP_FRAMES;
+        s.milestonePop = isTierBoundary ? MILESTONE_POP_FRAMES_TIER_BOUNDARY : MILESTONE_POP_FRAMES;
         effects.audio.push(
           isTierBoundary ? { kind: 'tier-boundary-chord' } : { kind: 'every-five-chime' },
         );

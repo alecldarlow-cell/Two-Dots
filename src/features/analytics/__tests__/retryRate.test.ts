@@ -4,11 +4,7 @@ import type { AnalyticsEvent } from '../events';
 
 type Stamped = AnalyticsEvent & { occurredAt: number };
 
-function makeDeath(
-  sessionId: string,
-  runIndex: number,
-  at: number,
-): Stamped {
+function makeDeath(sessionId: string, runIndex: number, at: number): Stamped {
   return {
     type: 'run_end',
     sessionId,

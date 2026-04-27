@@ -1,24 +1,24 @@
 # Two Dots — Forward Plan
 
-*Created: 27 Apr 2026, end of session 7. Sequencing for the 9 remaining workstreams listed in the handoff.*
+_Created: 27 Apr 2026, end of session 7. Sequencing for the 9 remaining workstreams listed in the handoff._
 
-> Read this alongside `HANDOFF.md`. The handoff describes what *exists*; this plan describes what to *do next* and in what order.
+> Read this alongside `HANDOFF.md`. The handoff describes what _exists_; this plan describes what to _do next_ and in what order.
 
 ---
 
 ## TL;DR — recommended order
 
-| # | Stage | Workstream | Source item | Why here |
-|---|---|---|---|---|
-| 1 | Foundation | Git hygiene + branch model | (4) | Everything downstream benefits; do once, reap forever |
-| 2 | Foundation | Bundle Space Mono TTF locally | (2) | Removes a network dependency before reviewers see the app |
-| 3 | Pre-submission gate | Bug audit (Claude-led) | (9) | Cheaper to fix now than via tester reports |
-| 4 | Pre-submission gate | UX/UI audit | (7) | Same logic — first impressions matter for v1 testers |
-| 5 | Pre-submission gate | Leaderboard UI on death screen | (3) | Data layer already done; ship a complete experience to testers |
-| 6 | Ship | EAS Android → Play Internal Testing | (1) | Faster path; no Mac/Apple Dev gating |
-| 7 | Ship | EAS iOS → TestFlight | (1, 5) | Requires Apple Developer + Mac |
-| 8 | Validate | Real-device testing via Wi-Fi debugging | (6) | In parallel with tester feedback |
-| 9 | Iterate | Code refactor | (8) | Informed by what audits + testers actually found |
+| #   | Stage               | Workstream                              | Source item | Why here                                                       |
+| --- | ------------------- | --------------------------------------- | ----------- | -------------------------------------------------------------- |
+| 1   | Foundation          | Git hygiene + branch model              | (4)         | Everything downstream benefits; do once, reap forever          |
+| 2   | Foundation          | Bundle Space Mono TTF locally           | (2)         | Removes a network dependency before reviewers see the app      |
+| 3   | Pre-submission gate | Bug audit (Claude-led)                  | (9)         | Cheaper to fix now than via tester reports                     |
+| 4   | Pre-submission gate | UX/UI audit                             | (7)         | Same logic — first impressions matter for v1 testers           |
+| 5   | Pre-submission gate | Leaderboard UI on death screen          | (3)         | Data layer already done; ship a complete experience to testers |
+| 6   | Ship                | EAS Android → Play Internal Testing     | (1)         | Faster path; no Mac/Apple Dev gating                           |
+| 7   | Ship                | EAS iOS → TestFlight                    | (1, 5)      | Requires Apple Developer + Mac                                 |
+| 8   | Validate            | Real-device testing via Wi-Fi debugging | (6)         | In parallel with tester feedback                               |
+| 9   | Iterate             | Code refactor                           | (8)         | Informed by what audits + testers actually found               |
 
 **Rationale for re-ordering:** the user's list had EAS first. I'm pushing it to step 6 because (a) git hygiene is a prerequisite for clean release tagging, (b) the local-font fix is a 30-minute change that removes a real App Store review risk, and (c) audits are dramatically cheaper before a build is in tester hands. The whole pre-submission block should take <2 sessions.
 
@@ -26,7 +26,7 @@
 
 ## Stage 1 — Foundation
 
-### 1. Git process hardening — *item (4)*
+### 1. Git process hardening — _item (4)_
 
 **Goal:** clean, predictable git state so refactors and releases are safe to do.
 
@@ -43,6 +43,7 @@
 6. Verify `.env` is gitignored and rotate the Supabase anon key if there's any chance it was committed historically.
 
 **Done when:**
+
 - `git status` is clean.
 - `main` has a tag for current state (`v0.1.0-pre-eas`).
 - Build artifacts confirmed excluded from history.
@@ -54,7 +55,7 @@
 
 ---
 
-### 2. Bundle Space Mono TTF locally — *item (2)*
+### 2. Bundle Space Mono TTF locally — _item (2)_
 
 **Goal:** kill the runtime CDN fetch from `raw.githubusercontent.com`. Currently the font loads from GitHub on first launch — fine in dev, awful for App Store reviewers on flaky hotel wifi.
 
@@ -69,6 +70,7 @@
 5. Commit on a branch (`feat/bundle-fonts`), tag, merge.
 
 **Done when:**
+
 - App renders Space Mono Bold with no network connection on first launch.
 - Bundle size increase is acceptable (~50KB for both TTFs combined — negligible).
 
@@ -80,7 +82,7 @@
 
 ## Stage 2 — Pre-submission quality gates
 
-### 3. Bug audit — *item (9)*
+### 3. Bug audit — _item (9)_
 
 **Goal:** find and fix everything Claude can find before testers do.
 
@@ -99,6 +101,7 @@
 5. **Delegate the deep audit:** spawn a subagent ("Explore very thorough") to read `src/app/index.tsx`, `src/features/game/engine/*`, and the prototype HTML side-by-side and report behavioural divergences not yet logged.
 
 **Done when:**
+
 - TypeScript clean (`tsc --noEmit` exits 0).
 - All tests pass.
 - A `BUG_AUDIT.md` file lists every issue found with status (fixed / deferred / won't-fix).
@@ -107,9 +110,9 @@
 
 ---
 
-### 4. UX/UI audit — *item (7)*
+### 4. UX/UI audit — _item (7)_
 
-**Goal:** catch usability and visual issues that the prototype-comparison audits would miss because they're about *new* RN-only surfaces.
+**Goal:** catch usability and visual issues that the prototype-comparison audits would miss because they're about _new_ RN-only surfaces.
 
 **Concrete steps:**
 
@@ -122,6 +125,7 @@
 7. Capture findings in `UX_AUDIT.md`.
 
 **Done when:**
+
 - A prioritised list exists (P0 fix-before-ship / P1 fix-this-stage / P2 backlog).
 - All P0s fixed.
 
@@ -129,13 +133,14 @@
 
 ---
 
-### 5. Leaderboard UI on death screen — *item (3)*
+### 5. Leaderboard UI on death screen — _item (3)_
 
 **Goal:** ship a complete, satisfying death screen that shows the player's rank against the global board.
 
 **Design:**
 
 After the score count-up finishes on the death screen, fade in:
+
 - Player's personal best (from `usePersonalBest`).
 - Player's rank in top 100 (from `useTopScores` + comparison).
 - Top 5 scores list (small, below the retry pill).
@@ -152,6 +157,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 6. New-PB ribbon: detect via `score > previousBest`, animate in.
 
 **Done when:**
+
 - Death screen always shows leaderboard data within 1s of the count-up finishing, or silently omits it if the network failed.
 - A new PB triggers the ribbon.
 - Score submission is confirmed to fire on every death (check Supabase `scores` table after a few runs).
@@ -164,7 +170,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 
 ## Stage 3 — Ship
 
-### 6. EAS Android → Play Internal Testing — *item (1)*
+### 6. EAS Android → Play Internal Testing — _item (1)_
 
 **Goal:** an installable APK/AAB in the hands of 5–10 testers via Play Console internal track.
 
@@ -193,22 +199,25 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 7. **Distribute:** share the opt-in URL with testers.
 
 **Done when:**
+
 - ≥1 tester (other than the dev) has installed via Play Internal Testing and confirmed it runs.
 - A `RELEASES.md` entry logs the build number, EAS build URL, and Play Console version code.
 
 **Estimated effort:** 1 full session (most of it is Play Console form-filling and waiting for builds).
 
 **Risks:**
+
 - First Android build often fails on a missing native module config — `expo-av` and Skia both need their plugins listed in `app.config.ts`. Verify before building.
 - Play's content rating questionnaire is tedious; budget 30 min.
 
 ---
 
-### 7. EAS iOS → TestFlight — *item (1) + (5)*
+### 7. EAS iOS → TestFlight — _item (1) + (5)_
 
 **Goal:** TestFlight build distributed to internal testers.
 
 **Prerequisites that may be blockers:**
+
 - Apple Developer account ($99/year).
 - Mac for at least the initial Xcode setup, certificates, provisioning. EAS can handle most of this in the cloud, but you'll need a Mac for any local debug.
 - App Store Connect app entry created.
@@ -230,12 +239,14 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 7. Wait for TestFlight processing (10–30 min after upload).
 
 **Done when:**
+
 - Internal testers receive the TestFlight invite and can install.
 - iOS smoke-test passes (idle → play → death → leaderboard).
 
 **Estimated effort:** 1 session if Apple Dev is already set up; 2+ sessions if enrollment is fresh.
 
 **Risks:**
+
 - iOS-specific bugs not caught on Android: safe-area inset differences, audio session category (`expo-av` defaults usually fine), font loading timing.
 - TestFlight processing failures usually mean a missing privacy declaration in `Info.plist` — EAS surfaces this in the build log.
 
@@ -243,7 +254,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 
 ## Stage 4 — Validate
 
-### 8. Real-device testing via Wi-Fi debugging — *item (6)*
+### 8. Real-device testing via Wi-Fi debugging — _item (6)_
 
 **Goal:** validate on hardware diversity beyond the Pixel 7.
 
@@ -268,6 +279,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 4. **Log results in `DEVICE_TESTING.md`.**
 
 **Done when:**
+
 - ≥3 devices tested, all hit ≥58 fps sustained on the playing phase.
 - No crashes in 10 minutes of play on any device.
 
@@ -277,7 +289,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 
 ## Stage 5 — Iterate
 
-### 9. Code refactor — *item (8)*
+### 9. Code refactor — _item (8)_
 
 **Goal:** address the technical-debt hotspots that surfaced during stages 3–4 audits.
 
@@ -296,6 +308,7 @@ If the player just set a new PB, flash a "NEW BEST" ribbon over the score.
 **Approach:** do this on a `refactor/screen-split` branch, keep all engine tests green throughout, and tag a release before merging in case a regression slips in.
 
 **Done when:**
+
 - `src/app/index.tsx` is <300 lines.
 - All tests still pass.
 - A senior code review (subagent or human) signs off.
@@ -320,23 +333,23 @@ These apply to every stage:
 
 ## Effort summary
 
-| Stage | Sessions | Calendar time |
-|---|---|---|
-| 1. Foundation (git + fonts) | 0.5 | 1 day |
-| 2. Pre-submission gates (bug + UX + leaderboard) | 1.5 | 2–3 days |
-| 3. Ship (Android + iOS) | 1.5–3 | 3–7 days (Apple gating) |
-| 4. Real-device validation | 0.5–1 | 1–2 days |
-| 5. Refactor | 1–2 | 2–4 days |
-| **Total** | **5–8 sessions** | **~2 weeks calendar** |
+| Stage                                            | Sessions         | Calendar time           |
+| ------------------------------------------------ | ---------------- | ----------------------- |
+| 1. Foundation (git + fonts)                      | 0.5              | 1 day                   |
+| 2. Pre-submission gates (bug + UX + leaderboard) | 1.5              | 2–3 days                |
+| 3. Ship (Android + iOS)                          | 1.5–3            | 3–7 days (Apple gating) |
+| 4. Real-device validation                        | 0.5–1            | 1–2 days                |
+| 5. Refactor                                      | 1–2              | 2–4 days                |
+| **Total**                                        | **5–8 sessions** | **~2 weeks calendar**   |
 
 ---
 
 ## Answers to open questions (27 Apr 2026)
 
-1. **Apple Developer enrollment** — *unsure, asked Piers*. iOS work is **blocked** until confirmed. If not active, allow 24–48h for enrollment. Stage 3.2 cannot start until this is resolved; Stage 3.1 (Android) is unblocked.
-2. **Supabase anon key in git history** — *unsure*. Treat as potentially leaked. Stage 1.1 must include `git log --all -p -- .env .env.local` to verify, and rotate the key in Supabase dashboard regardless if there's any doubt. Anon keys are designed for client exposure, but rotation is cheap insurance.
-3. **Monetisation in v1** — *deferred to v2*. Confirms the handoff: `useMonetisation.ts` stays stubbed for internal testing. Removed from this plan's scope entirely.
-4. **Tester pool** — *both platforms, Android first*. Reinforces Stage 3 ordering: ship Android, gather feedback, then ship iOS. Stage 4 (real-device matrix) can also lead with Android devices.
+1. **Apple Developer enrollment** — _unsure, asked Piers_. iOS work is **blocked** until confirmed. If not active, allow 24–48h for enrollment. Stage 3.2 cannot start until this is resolved; Stage 3.1 (Android) is unblocked.
+2. **Supabase anon key in git history** — _unsure_. Treat as potentially leaked. Stage 1.1 must include `git log --all -p -- .env .env.local` to verify, and rotate the key in Supabase dashboard regardless if there's any doubt. Anon keys are designed for client exposure, but rotation is cheap insurance.
+3. **Monetisation in v1** — _deferred to v2_. Confirms the handoff: `useMonetisation.ts` stays stubbed for internal testing. Removed from this plan's scope entirely.
+4. **Tester pool** — _both platforms, Android first_. Reinforces Stage 3 ordering: ship Android, gather feedback, then ship iOS. Stage 4 (real-device matrix) can also lead with Android devices.
 
 ## Implications for sequencing
 
