@@ -57,11 +57,12 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 | P1-12 | Render      | Close-call ring opacity decay vs. death-flash opacity decay differ in feel — close-call expands but stays opaque-ish; death-flash expands AND fades. Prototype reference unverified.                                                           | Open the prototype HTML, capture both states, decide whether to align                                             |
 | P1-13 | Leaderboard | Score submission fires inside death-side-effect `useEffect` without awaiting. UI shows death screen instantly; if network is slow, server roundtrip lands after "BEST" text already rendered. Best-score state can race the submission result. | Refactor to: optimistic local update on death, server submission separate, reconcile via React Query invalidation |
 
-### From device screenshot (Stage 1.2)
+### From device smoke tests (Stage 1.2 + Stage 2.1 wave-1)
 
-| #     | Area | Description                                                                                                              | Status                                                                        |
-| ----- | ---- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| P1-14 | UX   | "DOTS" truncated to "DO…" on right lane idle screen. Space Mono Bold at 68px overflows lane width on narrow iOS devices. | Drop title size 4–6px, or shorten/split the text, or letter-space differently |
+| #     | Area | Description                                                                                                                                                            | Status                                                                                                                                |
+| ----- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| P1-14 | UX   | "DOTS" title truncated/wraps on idle screen — Space Mono Bold at 68px overflows the right lane. **Confirmed on iOS AND Pixel 7.** Cross-device, not iOS-specific.      | Drop title size 4–6px, or shorten/split the text, or reduce letter-spacing. Verify against the prototype HTML.                        |
+| P1-15 | UX   | Tier-progress dot indicator overlaps the pipe-count number. Discovered on Pixel 7 during Stage 2.1 wave-1 smoke test.                                                  | Inspect score HUD layout — likely the progress-dots row needs a vertical offset, or the score number's bottom margin is too small.    |
 
 ---
 
@@ -100,7 +101,8 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 | P1-11       | P1       | Engine      | Subagent          | open                                                                 |
 | P1-12       | P1       | Render      | Subagent          | open                                                                 |
 | P1-13       | P1       | Leaderboard | Subagent          | open                                                                 |
-| P1-14       | P1       | UX          | Screenshot        | open                                                                 |
+| P1-14       | P1       | UX          | Screenshot + Pixel 7 | ✅ fixed (`idleWord` fontSize sx(68)→sx(60); y-offset adjusted) — pending device verification |
+| P1-15       | P1       | UX          | Pixel 7 smoke test | ✅ fixed (progress-dots gap 22\*SCALE → 56px unscaled) — pending device verification |
 | P2-1..P2-10 | P2       | various     | Subagent / Format | deferred                                                             |
 
 ---

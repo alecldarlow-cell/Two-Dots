@@ -898,7 +898,7 @@ export default function GameScreen(): React.ReactElement {
                   color: COL_R,
                   opacity: titleShadowOpacity,
                   position: 'absolute',
-                  top: sx(200) - sx(34) + 3,
+                  top: sx(200) - sx(30) + 3,
                   left: 3,
                   width: SCREEN_W / 2,
                 },
@@ -913,7 +913,7 @@ export default function GameScreen(): React.ReactElement {
                 {
                   color: COL_L,
                   position: 'absolute',
-                  top: sx(200) - sx(34),
+                  top: sx(200) - sx(30),
                   left: 0,
                   width: SCREEN_W / 2,
                 },
@@ -930,7 +930,7 @@ export default function GameScreen(): React.ReactElement {
                   color: COL_L,
                   opacity: titleShadowOpacity,
                   position: 'absolute',
-                  top: sx(200) - sx(34) + 3,
+                  top: sx(200) - sx(30) + 3,
                   left: SCREEN_W / 2 + 3,
                   width: SCREEN_W / 2,
                 },
@@ -945,7 +945,7 @@ export default function GameScreen(): React.ReactElement {
                 {
                   color: COL_R,
                   position: 'absolute',
-                  top: sx(200) - sx(34),
+                  top: sx(200) - sx(30),
                   left: SCREEN_W / 2,
                   width: SCREEN_W / 2,
                 },
@@ -1336,8 +1336,11 @@ const styles = StyleSheet.create({
   // ── Progress dots ───────────────────────────────────────────────────────────
   progressDotsContainer: {
     position: 'absolute',
-    // Track score Y: prototype places dots 22 logical px below score text
-    top: Math.max(58 * SCALE, GAME_H * 0.09) + 22 * SCALE,
+    // P1-15: clear the 42px-tall score text. Prototype used `+ 22 * SCALE` —
+    // that worked because the prototype's score was rendered at scaled size,
+    // but here `scoreLive.fontSize` is fixed at 42 (unscaled). Hardcode 56px
+    // gap so dots sit cleanly below the score on every device width.
+    top: Math.max(58 * SCALE, GAME_H * 0.09) + 56,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -1386,7 +1389,10 @@ const styles = StyleSheet.create({
   },
   idleWord: {
     fontFamily: 'SpaceMono-Bold',
-    fontSize: sx(68),
+    // P1-14: was sx(68); reduced to sx(60) so "DOTS" fits the right lane
+    // (Space Mono Bold ~0.65 char-width × 4 chars × 60 + spacing fits inside
+    // SCREEN_W/2 with margin on both Pixel 7 and narrower iOS screens).
+    fontSize: sx(60),
     fontWeight: 'bold',
     letterSpacing: 4,
     textAlign: 'center',
