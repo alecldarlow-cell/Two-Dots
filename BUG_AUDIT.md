@@ -87,7 +87,7 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 
 | ID          | Severity | Area        | Source            | Status                                                               |
 | ----------- | -------- | ----------- | ----------------- | -------------------------------------------------------------------- |
-| P0-1        | P0       | Render      | Subagent          | open — needs verification                                            |
+| P0-1        | P0       | Render      | Subagent          | ✅ fixed: Dot strokeCircle now uses `<Circle style="stroke">` (no Path); PipeScanlines memoizes path on (w,h), translates via Group transform — pending device verification |
 | P1-1        | P1       | Lint+Type   | tsc / lint        | ✅ fixed (deleted `WALL_L`)                                          |
 | P1-2        | P1       | Type        | tsc               | ✅ fixed (`?? 0x08` fallback on `laneAlpha`)                         |
 | P1-3        | P1       | Type        | tsc               | ✅ fixed (null-guard on `changedTouches[i]`)                         |
@@ -97,11 +97,11 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 | P1-7        | P1       | Lint        | lint              | ✅ fixed (`varsIgnorePattern: '^_'` added to ESLint config)          |
 | P1-8        | P1       | Lint warn   | lint              | ✅ fixed (`soundsMap` local capture in preload effect)              |
 | P1-9        | P1       | Lint warn   | lint              | ✅ fixed (`replay` added to deps; stable via `useRef.current`)      |
-| P1-10       | P1       | Engine      | Subagent          | open                                                                 |
-| P1-11       | P1       | Engine      | Subagent          | open                                                                 |
+| P1-10       | P1       | Engine      | Subagent          | ✅ fixed (added 2 property tests sweeping scores 0–99)               |
+| P1-11       | P1       | Engine      | Subagent          | ✅ fixed (`Math.max` defensive guard on `deathFlashL/R` extension)   |
 | P1-12       | P1       | Render      | Subagent          | open                                                                 |
 | P1-13       | P1       | Leaderboard | Subagent          | open                                                                 |
-| P1-14       | P1       | UX          | Screenshot + Pixel 7 | ✅ fixed (`idleWord` fontSize sx(68)→sx(60); y-offset adjusted) — pending device verification |
+| P1-14       | P1       | UX          | Screenshot + Pixel 7 | ✅ fixed (fontSize sx(68)→sx(60); fits screen on Pixel 7). Polish refinement deferred to Stage 2.2 — title still doesn't feel fully resolved aesthetically. |
 | P1-15       | P1       | UX          | Pixel 7 smoke test | ✅ fixed (progress-dots gap 22\*SCALE → 56px unscaled) — pending device verification |
 | P2-1..P2-10 | P2       | various     | Subagent / Format | deferred                                                             |
 

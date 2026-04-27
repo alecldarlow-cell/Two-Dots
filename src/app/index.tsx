@@ -29,7 +29,7 @@
  *  - Title bloom glow on idle screen
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
@@ -1143,22 +1143,20 @@ interface DotProps {
 function Dot({ cx, cy, col, pulse, closeCall, deathFlash }: DotProps) {
   const r = sx(DOT_R) + (pulse > 0 ? pulse * SCALE * 0.5 : 0);
 
-  // Helper: draw a stroked circle using Path
-  const strokeCircle = (radius: number, strokeW: number, color: string, opacity: number) => {
-    const path = Skia.Path.Make();
-    path.addCircle(cx, cy, radius);
-    return (
-      <Path
-        path={path}
-        start={0}
-        end={1}
-        color={color}
-        opacity={opacity}
-        style="stroke"
-        strokeWidth={strokeW}
-      />
-    );
-  };
+  // P0-1: previously used Skia.Path.Make() in a helper — that allocated a new
+  // Path every frame for every visible ring. Skia's <Circle style="stroke">
+  // primitive renders the same shape with no Path object at all.
+  const strokeCircle = (radius: number, strokeW: number, color: string, opacity: number) => (
+    <Circle
+      cx={cx}
+      cy={cy}
+      r={radius}
+      color={color}
+      opacity={opacity}
+      style="stroke"
+      strokeWidth={strokeW}
+    />
+  );
 
   return (
     <Group>
@@ -1228,36 +1226,40 @@ interface PipeScanlinesProps {
 }
 
 function PipeScanlines({ x, y, width, height, edgeCol }: PipeScanlinesProps) {
-  const path = Skia.Path.Make();
-
-  // Horizontal lines every 5 logical px
-  const hSpacing = 5 * SCALE;
-  let ly = y;
-  while (ly < y + height) {
-    path.moveTo(x, ly);
-    path.lineTo(x + width, ly);
-    ly += hSpacing;
-  }
-
-  // Vertical lines every 9 logical px
-  const vSpacing = 9 * SCALE;
-  let lx = x;
-  while (lx < x + width) {
-    path.moveTo(lx, y);
-    path.lineTo(lx, y + height);
-    lx += vSpacing;
-  }
+  // P0-1: build the scanline path RELATIVE to (0, 0) and memoize on the only
+  // dimensions that actually change the geometry — width and height. The pipe's
+  // x/y position is applied via a Group transform at render time, so as the
+  // pipe scrolls leftward (x changes every frame) the path itself stays cached
+  // and is never reallocated. Heights vary per pipe segment but cluster in a
+  // small set of values (top vs bottom segment of each gap), giving a high
+  // memo-cache hit rate across pipes.
+  const path = useMemo(() => {
+    const p = Skia.Path.Make();
+    const hSpacing = 5 * SCALE;
+    for (let ly = 0; ly < height; ly += hSpacing) {
+      p.moveTo(0, ly);
+      p.lineTo(width, ly);
+    }
+    const vSpacing = 9 * SCALE;
+    for (let lx = 0; lx < width; lx += vSpacing) {
+      p.moveTo(lx, 0);
+      p.lineTo(lx, height);
+    }
+    return p;
+  }, [width, height]);
 
   return (
-    <Path
-      path={path}
-      start={0}
-      end={1}
-      color={edgeCol}
-      opacity={0.25}
-      strokeWidth={1}
-      style="stroke"
-    />
+    <Group transform={[{ translateX: x }, { translateY: y }]}>
+      <Path
+        path={path}
+        start={0}
+        end={1}
+        color={edgeCol}
+        opacity={0.25}
+        strokeWidth={1}
+        style="stroke"
+      />
+    </Group>
   );
 }
 

@@ -153,6 +153,23 @@ describe('tiers', () => {
     it('WHEN Survival score 50 THEN returns gate 15', () => {
       expect(gateInTier(50)).toBe(15);
     });
+
+    // P1-10: property-style sweep. Locks the contract that across every score
+    // a player can reach in tiers 1-7, gateInTier returns a value in [1, 5].
+    // If anyone changes TIER_STARTS or the indexing arithmetic, this fails fast.
+    it('WHEN any score in tiers 1-7 THEN returns a gate in [1, 5]', () => {
+      for (let score = 0; score < 35; score++) {
+        const gate = gateInTier(score);
+        expect(gate).toBeGreaterThanOrEqual(1);
+        expect(gate).toBeLessThanOrEqual(5);
+      }
+    });
+
+    it('WHEN any Survival score (>=35) THEN returns a non-negative gate', () => {
+      for (let score = 35; score < 100; score++) {
+        expect(gateInTier(score)).toBeGreaterThanOrEqual(0);
+      }
+    });
   });
 
   describe('GIVEN TIER_STARTS', () => {

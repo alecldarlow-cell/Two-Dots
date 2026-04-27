@@ -224,9 +224,12 @@ function transitionToDead(s: GameState): void {
   const diedL = s.deathFlashL > 0;
   const diedR = s.deathFlashR > 0;
   s.deathSide = diedL && diedR ? 'both' : diedL ? 'L' : 'R';
-  // Extend flash rings to cover the full freeze window.
-  if (s.deathFlashL > 0) s.deathFlashL = DEATH_FLASH_FRAMES;
-  if (s.deathFlashR > 0) s.deathFlashR = DEATH_FLASH_FRAMES;
+  // Extend flash rings to cover the full freeze window. Using Math.max guards
+  // against truncating an in-flight ring whose counter may already exceed
+  // DEATH_FLASH_FRAMES (e.g. if a future change raises the constant or if
+  // multiple sources stack onto the same dot in one frame). P1-11.
+  if (s.deathFlashL > 0) s.deathFlashL = Math.max(s.deathFlashL, DEATH_FLASH_FRAMES);
+  if (s.deathFlashR > 0) s.deathFlashR = Math.max(s.deathFlashR, DEATH_FLASH_FRAMES);
   s.deathTierName = tierName(s.score);
   s.deathGateInTier = gateInTier(s.score);
 
