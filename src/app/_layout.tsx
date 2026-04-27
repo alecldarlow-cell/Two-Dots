@@ -4,9 +4,10 @@
  * Wraps every route in the app-wide Providers (React Query, GestureHandler,
  * SafeArea) and bootstraps analytics once the device ID is available.
  *
- * Font loading: Space Mono (Regular + Bold) is fetched from the Google Fonts
- * GitHub repo on first launch and cached by expo-font. The splash screen is
- * held until fonts are ready so no layout-shift occurs.
+ * Font loading: Space Mono (Regular + Bold) is bundled locally under
+ * assets/fonts/ and loaded via require(). The splash screen is held until
+ * fonts are ready so no layout-shift occurs. No network dependency on first
+ * launch — works in airplane mode.
  */
 
 /**
@@ -39,9 +40,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   // preventAutoHideAsync can throw on some Expo versions — safe to ignore.
 });
 
-const SPACE_MONO_BASE =
-  'https://raw.githubusercontent.com/googlefonts/spacemono/main/fonts';
-
 function AnalyticsBootstrap(): null {
   const deviceState = useDeviceId();
 
@@ -65,8 +63,8 @@ function AnalyticsBootstrap(): null {
 
 export default function RootLayout(): React.ReactElement {
   const [fontsLoaded, fontError] = useFonts({
-    SpaceMono: { uri: `${SPACE_MONO_BASE}/SpaceMono-Regular.ttf` },
-    'SpaceMono-Bold': { uri: `${SPACE_MONO_BASE}/SpaceMono-Bold.ttf` },
+    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
+    'SpaceMono-Bold': require('../../assets/fonts/SpaceMono-Bold.ttf'),
   });
 
   useEffect(() => {

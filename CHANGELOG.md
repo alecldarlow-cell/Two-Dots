@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 
 ## [Unreleased]
 
+### Added
+- `assets/fonts/SpaceMono-Regular.ttf` and `assets/fonts/SpaceMono-Bold.ttf` bundled locally (~98 KB each, downloaded from `google/fonts`).
+
+### Changed
+- `src/app/_layout.tsx`: Space Mono now loads from local `require()` instead of fetching from `raw.githubusercontent.com` at runtime. App now renders correct typography on first launch with no network — works in airplane mode and removes a flaky-wifi failure mode for App Store reviewers.
+
 ### Removed
 - Dead `app/_layout.tsx` and `app/index.tsx` (an old debug stub from S2). The live entry point is `src/app/`, which `babel-preset-expo` auto-resolves via `EXPO_ROUTER_APP_ROOT`.
 
