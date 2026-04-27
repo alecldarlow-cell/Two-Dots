@@ -8,13 +8,29 @@ const SR = 44100;
 const OUT = path.join(__dirname, 'assets', 'sounds');
 fs.mkdirSync(OUT, { recursive: true });
 
+// ADSR-style envelope. Adding a release ramp (the missing R in the original
+// AD-only envelope) is what eliminates the click on every sound: the original
+// exponential decay only got the amplitude down to ~56% by the buffer end,
+// then it cut hard to silence — a step discontinuity that the ear hears as a
+// pop. A 5ms linear fade-to-zero at the end closes the discontinuity without
+// shortening the perceived note.
 function sine(freq, dur, amp = 0.7, decay = 15) {
   const n   = Math.round(SR * dur);
-  const atk = Math.round(SR * 0.005);
+  const atk = Math.round(SR * 0.005);  // 5ms attack
+  const rel = Math.round(SR * 0.005);  // 5ms release
   const buf = [];
   for (let i = 0; i < n; i++) {
     const v   = Math.sin(2 * Math.PI * freq * i / SR);
-    const env = i < atk ? i / atk : Math.exp(-decay * (i - atk) / SR);
+    let env;
+    if (i < atk) {
+      env = i / atk;
+    } else if (i >= n - rel) {
+      // Release: take current decay value and ramp to 0 over the last `rel` samples.
+      const decayed = Math.exp(-decay * (i - atk) / SR);
+      env = decayed * ((n - i) / rel);
+    } else {
+      env = Math.exp(-decay * (i - atk) / SR);
+    }
     buf.push(v * amp * env);
   }
   return buf;
@@ -59,13 +75,22 @@ function writeWav(name, samples) {
 
 console.log('Generating sounds → assets/sounds/\n');
 
+// Jump pair (U6): retuned to a perfect fourth (4:3 ratio) — was 380 + 520
+// (~tritone, mildly dissonant). 380 × 4/3 = 506.67. The fourth reads as
+// "two voices speaking together," which fits the dual-dot game language.
 writeWav('jump_l.wav',   sine(380, 0.04));
-writeWav('jump_r.wav',   sine(520, 0.04));
+writeWav('jump_r.wav',   sine(507, 0.04));
 writeWav('tap.wav',      sine(440, 0.05));
 writeWav('pause_on.wav', sine(330, 0.05));
 
+// Score-blip ladder (U7): replaced the arithmetic +40 Hz steps (which formed
+// no musical pattern) with a pentatonic scale C5..E6. Pentatonic notes are
+// pairwise consonant in any combination, so blips never clash with the chord
+// chimes (E5/A5/E6) or the death sound. As tier rises, the player hears a
+// clean ascending pentatonic — a familiar "you're climbing" feel.
+const PENTATONIC_HZ = [523, 587, 659, 784, 880, 1047, 1175, 1319]; // C5 D5 E5 G5 A5 C6 D6 E6
 for (let t = 1; t <= 8; t++) {
-  const freq = 500 + (t - 1) * 40;
+  const freq = PENTATONIC_HZ[t - 1];
   const dur  = t >= 7 ? 0.06 : 0.08;
   writeWav(`blip_t${t}.wav`, sine(freq, dur));
 }

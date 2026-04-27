@@ -38,7 +38,6 @@ import {
   Circle,
   Path,
   Rect,
-  RoundedRect,
   Group,
   Skia,
   vec,
@@ -65,6 +64,7 @@ import {
 } from '@features/game/engine';
 import type { GameState, AudioEvent } from '@features/game/engine';
 import { defaultRng } from '@shared/utils/rng';
+import { getItem, setItem, StorageKeys } from '@shared/storage';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { useSubmitScore } from '@features/leaderboard/api';
 import { logEvent } from '@features/analytics';
@@ -80,6 +80,10 @@ const COL_BG_FLASH = '#1c0404'; // brief reddish bg on death
 // WALL_L underlay before overwriting with WALL_R on the right half, but the RN
 // port skips the underlay since it's never visible.
 const WALL_R = '#10355c';
+// Pipe gap edge — bright sky blue, deliberately not COL_R (cyan) so it doesn't
+// claim the right lane semantically. Stage 2.2 redesign: orange/cyan are now
+// reserved for "left dot / right dot"; pipes live in their own blue family.
+const PIPE_EDGE = '#7ac0e8';
 const GOLD = '#FFD046';
 // Fixed physics timestep — matches 60fps HTML prototype regardless of display refresh rate
 const PHYSICS_STEP_MS = 1000 / 60; // 16.667ms per step
@@ -176,7 +180,8 @@ export default function GameScreen(): React.ReactElement {
   // runs 50–100% faster on high-refresh-rate devices.
   const lastFrameRef = useRef<number>(0);
   const accRef = useRef<number>(0);
-  // Best score — persisted in-memory like the prototype (no AsyncStorage needed for MVP)
+  // Best score — persisted to AsyncStorage so it survives app kill. Loaded
+  // once on mount; written through on every new PB. (Stage 2.2 P-best fix.)
   const bestScoreRef = useRef<number>(0);
   // Set to true when this run beats the previous best (drives "★ NEW BEST ★" display)
   const wasNewBestRef = useRef<boolean>(false);
@@ -193,6 +198,21 @@ export default function GameScreen(): React.ReactElement {
   const replay = useRef((key: string): void => {
     sounds.current[key]?.replayAsync().catch(() => {});
   }).current;
+
+  // Load persistent best score once on mount. Falls back to 0 if absent or
+  // corrupt. Writes happen inline at the new-PB site below.
+  useEffect(() => {
+    let cancelled = false;
+    (async (): Promise<void> => {
+      const stored = await getItem<number>(StorageKeys.personalBest);
+      if (!cancelled && typeof stored === 'number' && stored > 0) {
+        bestScoreRef.current = stored;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load all sounds once on mount; clean up on unmount.
   // Capture sounds.current into a local so the cleanup closure references the
@@ -302,10 +322,12 @@ export default function GameScreen(): React.ReactElement {
   useEffect(() => {
     if (display.phase === 'dead' && prevPhaseRef.current === 'playing') {
       deathTimeRef.current = Date.now();
-      // Track best score — set wasNewBest BEFORE updating bestScore
+      // Track best score — set wasNewBest BEFORE updating bestScore.
+      // Persist new bests to AsyncStorage so they survive app kill.
       wasNewBestRef.current = display.score > 0 && display.score > bestScoreRef.current;
       if (wasNewBestRef.current) {
         bestScoreRef.current = display.score;
+        void setItem(StorageKeys.personalBest, display.score).catch(() => {});
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       logEvent({
@@ -608,99 +630,78 @@ export default function GameScreen(): React.ReactElement {
                       color={WALL_R}
                     />
 
-                    {/* Scanline texture — horizontal + vertical lines */}
-                    {/* Build Path for all scanlines to avoid too many JSX elements */}
-                    {/* Horizontal lines every 5px */}
+                    {/* Scanline texture — recoloured to PIPE_EDGE so the pipe
+                        stays in a single blue family. Stage 2.2 redesign:
+                        orange/cyan no longer appear on pipes. */}
                     <PipeScanlines
                       x={pipeLeft}
                       y={seg.y}
                       width={sx(PIPE_W)}
                       height={seg.h}
-                      edgeCol={COL_L}
+                      edgeCol={PIPE_EDGE}
                     />
 
-                    {/* Outer glow gradients — prototype: left outer = COL_R, right outer = COL_L */}
-                    {/* Left half: left (outer) edge glows COL_R */}
-                    <Rect x={pipeLeft} y={seg.y} width={sx(18)} height={seg.h}>
-                      <LinearGradient
-                        start={vec(pipeLeft, seg.y)}
-                        end={vec(pipeLeft + sx(18), seg.y)}
-                        colors={[COL_R + 'cc', COL_R + '00']}
-                      />
-                    </Rect>
+                    {/* Stage 2.2: outer-edge orange/cyan glow gradients and
+                        the hard 1px lane-coloured edges have been removed.
+                        Reduces the pipe's palette from 4 colours to 2 (navy
+                        body + sky-blue gap edge), freeing orange/cyan to mean
+                        only "left dot / right dot" in the visual language. */}
 
-                    {/* Right half: right (outer) edge glows COL_L */}
-                    <Rect
-                      x={pipeLeft + sx(PIPE_W) - sx(18)}
-                      y={seg.y}
-                      width={sx(18)}
-                      height={seg.h}
-                    >
-                      <LinearGradient
-                        start={vec(pipeLeft + sx(PIPE_W), seg.y)}
-                        end={vec(pipeLeft + sx(PIPE_W) - sx(18), seg.y)}
-                        colors={[COL_L + 'cc', COL_L + '00']}
-                      />
-                    </Rect>
-
-                    {/* Hard 1px outer edge lines — COL_R on left outer, COL_L on right outer */}
-                    <Rect
-                      x={pipeLeft}
-                      y={seg.y}
-                      width={sx(1)}
-                      height={seg.h}
-                      color={COL_R}
-                      opacity={0.6}
-                    />
-                    <Rect
-                      x={pipeLeft + sx(PIPE_W) - sx(1)}
-                      y={seg.y}
-                      width={sx(1)}
-                      height={seg.h}
-                      color={COL_L}
-                      opacity={0.6}
-                    />
-
-                    {/* Gap-facing cap bar (6px tall, rounded on gap side) */}
+                    {/* Gap-facing cap (Stage 2.2 redesign): unified solid gold
+                        kill-line with an inner glow that fades into the pipe
+                        body. Replaces the previous two-half bicolor cap that
+                        read as jarring/separate. Gold ties the cap into the
+                        existing milestone/score visual language and reads as
+                        "the goal" rather than "left dot's edge / right dot's
+                        edge". The 6px hard edge gives players a clear contact
+                        line for the death condition; the 14px inner glow above
+                        (top seg) or below (bottom seg) bleeds the cap into the
+                        navy body so it feels integrated, not stamped on. */}
                     {seg.isTop ? (
-                      /* Top segment: cap at bottom of segment */
+                      /* Top segment: glow fades upward into body, then 6px solid edge */
                       <>
-                        <RoundedRect
+                        <Rect
+                          x={pipeLeft}
+                          y={seg.y + seg.h - sx(20)}
+                          width={sx(PIPE_W)}
+                          height={sx(14)}
+                        >
+                          <LinearGradient
+                            start={vec(0, seg.y + seg.h - sx(20))}
+                            end={vec(0, seg.y + seg.h - sx(6))}
+                            colors={[PIPE_EDGE + '00', PIPE_EDGE + '99']}
+                          />
+                        </Rect>
+                        <Rect
                           x={pipeLeft}
                           y={seg.y + seg.h - sx(6)}
-                          width={halfW}
+                          width={sx(PIPE_W)}
                           height={sx(6)}
-                          r={sx(3)}
-                          color={COL_L + 'ee'}
-                        />
-                        <RoundedRect
-                          x={pipeLeft + halfW}
-                          y={seg.y + seg.h - sx(6)}
-                          width={halfW}
-                          height={sx(6)}
-                          r={sx(3)}
-                          color={COL_R + 'ee'}
+                          color={PIPE_EDGE}
                         />
                       </>
                     ) : (
-                      /* Bottom segment: cap at top of segment */
+                      /* Bottom segment: 6px solid edge, then glow fades downward into body */
                       <>
-                        <RoundedRect
+                        <Rect
                           x={pipeLeft}
                           y={seg.y}
-                          width={halfW}
+                          width={sx(PIPE_W)}
                           height={sx(6)}
-                          r={sx(3)}
-                          color={COL_L + 'ee'}
+                          color={PIPE_EDGE}
                         />
-                        <RoundedRect
-                          x={pipeLeft + halfW}
-                          y={seg.y}
-                          width={halfW}
-                          height={sx(6)}
-                          r={sx(3)}
-                          color={COL_R + 'ee'}
-                        />
+                        <Rect
+                          x={pipeLeft}
+                          y={seg.y + sx(6)}
+                          width={sx(PIPE_W)}
+                          height={sx(14)}
+                        >
+                          <LinearGradient
+                            start={vec(0, seg.y + sx(6))}
+                            end={vec(0, seg.y + sx(20))}
+                            colors={[PIPE_EDGE + '99', PIPE_EDGE + '00']}
+                          />
+                        </Rect>
                       </>
                     )}
 
