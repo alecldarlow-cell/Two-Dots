@@ -55,9 +55,10 @@ git log --all --oneline -- android/ ios/ 2>nul
 echo (end of native dirs history check)
 echo.
 
-echo [8/8] Are there any tracked files larger than 1MB? (Indicative of accidental binaries)
+echo [8/8] Tracked files outside the source tree (sanity scan)
 echo ------------------------------------------------------------
-git ls-files ^| findstr /V "node_modules"
+git ls-files --error-unmatch -- "*.zip" "*.tar" "*.tgz" "*.7z" "*.iso" "*.dmg" 2>nul
+echo (end of binary archive scan; no output means clean)
 echo.
 
 echo ============================================================

@@ -9,17 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 
 ## [Unreleased]
 
-### Added
-- `CHANGELOG.md` (this file).
-- `CONTRIBUTING.md` describing branch model, commit conventions, and release process.
-- `.github/PULL_REQUEST_TEMPLATE.md` with a PR checklist.
-- `git-audit.bat` script for verifying git hygiene before each release tag.
-
-### Changed
-- _(nothing yet)_
+### Removed
+- Dead `app/_layout.tsx` and `app/index.tsx` (an old debug stub from S2). The live entry point is `src/app/`, which `babel-preset-expo` auto-resolves via `EXPO_ROUTER_APP_ROOT`.
 
 ### Fixed
-- _(nothing yet)_
+- `git-audit.bat` section 8: the original `findstr /V` pipe failed when the script was launched from PowerShell. Replaced with a simpler binary-archive scan that's PowerShell-safe.
 
 ---
 
