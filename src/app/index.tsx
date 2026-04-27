@@ -708,12 +708,7 @@ export default function GameScreen(): React.ReactElement {
                           height={sx(6)}
                           color={PIPE_EDGE}
                         />
-                        <Rect
-                          x={pipeLeft}
-                          y={seg.y + sx(6)}
-                          width={sx(PIPE_W)}
-                          height={sx(14)}
-                        >
+                        <Rect x={pipeLeft} y={seg.y + sx(6)} width={sx(PIPE_W)} height={sx(14)}>
                           <LinearGradient
                             start={vec(0, seg.y + sx(6))}
                             end={vec(0, seg.y + sx(20))}
@@ -905,7 +900,10 @@ export default function GameScreen(): React.ReactElement {
         {display.milestonePop > 0 && display.phase === 'playing' && (
           <View
             pointerEvents="none"
-            style={[styles.milestoneContainer, { top: notchOffset + 110 - mDriftY, opacity: mAlpha }]}
+            style={[
+              styles.milestoneContainer,
+              { top: notchOffset + 110 - mDriftY, opacity: mAlpha },
+            ]}
           >
             <Text style={styles.milestoneText}>★ {display.score} ★</Text>
             {isTierBoundary && (
@@ -1425,7 +1423,10 @@ const styles = StyleSheet.create({
     // SCREEN_W/2 with margin on both Pixel 7 and narrower iOS screens).
     fontSize: sx(60),
     fontWeight: 'bold',
-    letterSpacing: 4,
+    // P1-14 polish (Stage 2.2): letterSpacing 4 → 2. The wider kerning made
+    // each character read independently; tightening groups TWO and DOTS so
+    // each word reads as a single unit. Cross-lane shadow ghost retained.
+    letterSpacing: 2,
     textAlign: 'center',
   },
   idleInstruction: {

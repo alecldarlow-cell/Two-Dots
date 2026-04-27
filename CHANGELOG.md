@@ -16,6 +16,7 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 ### Changed
 
 - `src/app/_layout.tsx`: Space Mono now loads from local `require()` instead of fetching from `raw.githubusercontent.com` at runtime. App now renders correct typography on first launch with no network — works in airplane mode and removes a flaky-wifi failure mode for App Store reviewers.
+- `src/app/index.tsx` `idleWord` style: `letterSpacing` reduced from 4 to 2 (Stage 2.2 P1-14 polish). At sx(60) bold the wider kerning made each character read independently; the tightened spacing groups TWO and DOTS so each word reads as a single unit on the idle screen. Cross-lane shadow ghost retained.
 
 ### Removed
 
