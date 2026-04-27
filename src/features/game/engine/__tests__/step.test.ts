@@ -194,12 +194,13 @@ describe('step', () => {
     });
 
     describe('WHEN tap comes after freeze window and count-up complete', () => {
-      it('THEN resets for a new run', () => {
+      it('THEN resets to idle (player must tap again to start playing)', () => {
         s.deathCountFrames = 0;
         s.scoreCountFrames = 0;
         s.score = 10;
         handleTap(s, LANE_L, 3000, VIS_H);
-        expect(s.phase).toBe('playing');
+        // Dead → idle (not directly to playing — player sees idle screen before next run)
+        expect(s.phase).toBe('idle');
         expect(s.score).toBe(0);
       });
     });

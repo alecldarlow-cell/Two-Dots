@@ -21,6 +21,7 @@ import type { Rng } from '@shared/utils/rng';
 import { gapSize, pipePauseMs, pipeSpeed, tierFor } from './tiers';
 
 export interface Pipe {
+  id: number;
   x: number;
   pauseUntil: number;
   gapCY: number;
@@ -38,6 +39,8 @@ export interface SpawnerState {
   lastGapCY: number | null;
   /** Last alternating side (-1 = up, +1 = down). Drives the tier 2-5 pattern. */
   lastSide: -1 | 1;
+  /** Monotonically increasing counter used to assign unique pipe IDs. */
+  pipeCount: number;
 }
 
 export function initSpawnerState(): SpawnerState {
@@ -45,6 +48,7 @@ export function initSpawnerState(): SpawnerState {
     lastGapCY: null,
     // Start neutral — first gate goes up (side = -1 after the first `-lastSide` flip).
     lastSide: 1,
+    pipeCount: 0,
   };
 }
 
@@ -182,6 +186,7 @@ export function spawnPipe(
   const safeCY = clampToReachable(rawCY, score, minY, maxY, spawner.lastGapCY);
   spawner.lastGapCY = safeCY;
   return {
+    id: spawner.pipeCount++,
     x: W - PIPE_W / 2,
     pauseUntil: now + pipePauseMs(score),
     gapCY: safeCY,

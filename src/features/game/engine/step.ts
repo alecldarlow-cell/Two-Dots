@@ -296,9 +296,10 @@ export function handleTap(s: GameState, tapX: number, now: number, visH: number)
   if (s.phase === 'dead') {
     // Ignore taps during the freeze window — particles are still playing.
     if (s.deathCountFrames > s.scoreCountFrames) return events;
+    // Reset game state and return to idle — player must tap once more to start.
+    // This gives a moment to breathe and sets up a clean idle screen before the next run.
     resetForNewRun(s);
-    startPlaying(s, now, visH);
-    events.push({ kind: 'tap-start' });
+    s.phase = 'idle';
     return events;
   }
 
@@ -394,6 +395,10 @@ export function stepDead(s: GameState): void {
   } else {
     s.scoreDisplay = s.score;
   }
+
+  // Advance visual counters (deathFlashL/R, flash, etc.) during the dead phase.
+  // stepPlaying is never called while dead, so we advance them here instead.
+  advanceVisualCounters(s);
 }
 
 /** Convenience helper re-exported for tests. */
