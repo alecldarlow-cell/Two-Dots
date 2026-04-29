@@ -200,13 +200,14 @@ window.JupiterTheme = {
     },
     {
       // Shear motes — small fast particles inside the cloud zone, rendered
-      // as horizontally-stretched ellipses (motion blur). Count, colour and
-      // night density tuned down (was 60 / bright cream / 0.5 night) so they
-      // read as faint flow streaks rather than scattered stars. Per particle
-      // cohesion pass (round 7 review).
+      // as horizontally-stretched ellipses with per-particle turbulent paths
+      // (sinusoidal vertical wobble + slight x-jitter). Count dropped 28→18
+      // and yPct range widened (0.35-0.92 → 0.20-0.95) so motes spread
+      // across the whole atmosphere rather than confining to a mid strip.
+      // Per motes pass (round 7).
       id: 'shearMotes',
       kind: 'shearMotes',
-      count: 28,
+      count: 18,
       densityCurve: [
         { t: 0.00, value: 0.55 },
         { t: 0.25, value: 0.85 },
@@ -215,11 +216,11 @@ window.JupiterTheme = {
       ],
       speed: 1.6,
       sizeRange: [0.6, 1.6],
-      yMinPct: 0.35,           // confined to band region
-      yMaxPct: 0.92,
+      yMinPct: 0.20,           // broader coverage — full atmosphere
+      yMaxPct: 0.95,
       colorCurve: [
         { t: 0.00, color: '#bc9070' }, // dawn — soft warm dust
-        { t: 0.25, color: '#e8d4a8' }, // day — soft cream tinted toward bands (was bright #fff0c8 — read as stars)
+        { t: 0.25, color: '#e8d4a8' }, // day — soft cream tinted toward bands
         { t: 0.50, color: '#e8a878' }, // dusk — warm catch-light
         { t: 0.75, color: '#5a4030' }, // night — dim
       ],

@@ -975,10 +975,11 @@ function Aurora({ spec, theme, t, w, gameH }) {
 }
 
 // ─── Shear motes (small fast particles inside cloud bands) ──────────────────
-// Render as horizontally-stretched ellipses (rx ≈ 4×ry) so they read as
-// motion-blur dashes caught in the zonal flow, NOT as scattered white pinpoint
-// stars. Per Jupiter particle cohesion pass (round 7 review — circles were
-// reading as stars/dust).
+// Per-mote turbulent path: horizontal drift + per-particle sinusoidal vertical
+// wobble (random phase, frequency, amplitude) so motes don't move in lockstep
+// — they swirl chaotically like particles caught in a storm rather than dust
+// on a conveyor belt. Per Jupiter motes pass (round 7 — turbulent-paths +
+// less-dense + broader-coverage feedback).
 function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
@@ -993,10 +994,26 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
     // Per-mote drift speed within ±50% of base
     const speedJ = 0.7 + rng() * 0.6;
     const drift = (nowMs * 0.05 * spec.speed * speedJ + rng() * 1000) % (w + 100);
-    const x = ((baseX + drift) % (w + 100)) - 50;
+    const xRaw = ((baseX + drift) % (w + 100)) - 50;
+    // Per-mote turbulent vertical wobble — sinusoidal with per-particle phase
+    // and frequency, layered with a slower secondary wave for chaos. Amplitude
+    // scaled so wobble stays within the band region (~12–24px peak-to-peak).
+    const wobblePhase = rng() * Math.PI * 2;
+    const wobbleFreq1 = 0.0008 + rng() * 0.0010;   // primary wave
+    const wobbleFreq2 = 0.0024 + rng() * 0.0030;   // secondary, faster
+    const wobbleAmp1 = 6 + rng() * 8;              // primary amplitude
+    const wobbleAmp2 = 2 + rng() * 4;              // secondary, smaller
+    const wobble =
+      Math.sin(nowMs * wobbleFreq1 + wobblePhase) * wobbleAmp1 +
+      Math.sin(nowMs * wobbleFreq2 + wobblePhase * 0.7) * wobbleAmp2;
+    const y = baseY + wobble;
+    // Slight horizontal speed variation comes from speedJ above; add tiny
+    // x-jitter so trails don't read as parallel lines.
+    const xJitter = Math.sin(nowMs * wobbleFreq1 * 0.6 + wobblePhase * 1.3) * 4;
+    const x = xRaw + xJitter;
     // Base size from spec; rendered as a horizontal dash 4× wider than tall.
     const r = spec.sizeRange[0] + rng() * (spec.sizeRange[1] - spec.sizeRange[0]);
-    motes.push({ x, y: baseY, r, o: (0.25 + rng() * 0.3) * density });
+    motes.push({ x, y, r, o: (0.25 + rng() * 0.3) * density });
   }
   return (
     <g>
