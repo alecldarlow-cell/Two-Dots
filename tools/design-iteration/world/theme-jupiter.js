@@ -142,26 +142,30 @@ window.JupiterTheme = {
     },
     {
       // nearBand2 — foreground band, fills the bottom of the frame.
-      // "Where the player is" — fastest scroll, most visible motion.
+      // "Where the player is." Distinguished from nearBand1 above by being
+      // SLOWER (lower drift), DARKER (deeper mahogany day-tone for contrast
+      // against nearBand1's #3a1810), and MORE TEXTURED (denser streaks)
+      // — same role as Earth's foreground hill or Moon's regolith plain.
+      // Per round-7 100% pass.
       id: 'nearBand2',
       kind: 'cloudBand',
       yPct: 0.79,
       heightPct: 0.21,
       parallax: 0.85,
-      turbulence: 0.75,        // most turbulent — eye-level shear
-      driftSpeed: 1.1,
-      streaks: 7,
+      turbulence: 0.75,
+      driftSpeed: 0.4,         // slower — feels "near", not racing past
+      streaks: 10,             // denser internal cloud detail
       colorCurve: [
-        { t: 0.00, color: '#3e2418' }, // dawn — warm dark brown (was #1a0e08, too black)
-        { t: 0.25, color: '#5a3a20' }, // day — warm mahogany (was #2a1408 — read as mountain silhouette)
-        { t: 0.50, color: '#4a1a10' }, // dusk — bloody rust (was #28080a)
-        { t: 0.75, color: '#180a08' }, // night — still dark but not pitch (was #040202)
+        { t: 0.00, color: '#2a1810' }, // dawn — deeper than nearBand1 above
+        { t: 0.25, color: '#3a2010' }, // day — darkest mahogany (anchors foreground)
+        { t: 0.50, color: '#321008' }, // dusk — deeper bloody rust
+        { t: 0.75, color: '#0c0606' }, // night — near-black foreground
       ],
       streakCurve: [
-        { t: 0.00, color: '#1a0c08' },
-        { t: 0.25, color: '#2a1808' },
-        { t: 0.50, color: '#280a08' },
-        { t: 0.75, color: '#080404' },
+        { t: 0.00, color: '#0a0604' },
+        { t: 0.25, color: '#1a0c04' },
+        { t: 0.50, color: '#180604' },
+        { t: 0.75, color: '#040202' },
       ],
     },
   ],
@@ -198,33 +202,11 @@ window.JupiterTheme = {
         { t: 0.75, color: '#4a3a30' }, // night — dim warm grey (lightning still dominates via density)
       ],
     },
-    {
-      // Shear motes — small fast particles inside the cloud zone, rendered
-      // as horizontally-stretched ellipses with per-particle turbulent paths
-      // (sinusoidal vertical wobble + slight x-jitter). Count dropped 28→18
-      // and yPct range widened (0.35-0.92 → 0.20-0.95) so motes spread
-      // across the whole atmosphere rather than confining to a mid strip.
-      // Per motes pass (round 7).
-      id: 'shearMotes',
-      kind: 'shearMotes',
-      count: 18,
-      densityCurve: [
-        { t: 0.00, value: 0.55 },
-        { t: 0.25, value: 0.85 },
-        { t: 0.50, value: 0.75 },
-        { t: 0.75, value: 0.20 }, // night — sparse so lightning dominates
-      ],
-      speed: 1.6,
-      sizeRange: [0.6, 1.6],
-      yMinPct: 0.20,           // broader coverage — full atmosphere
-      yMaxPct: 0.95,
-      colorCurve: [
-        { t: 0.00, color: '#bc9070' }, // dawn — soft warm dust
-        { t: 0.25, color: '#e8d4a8' }, // day — soft cream tinted toward bands
-        { t: 0.50, color: '#e8a878' }, // dusk — warm catch-light
-        { t: 0.75, color: '#5a4030' }, // night — dim
-      ],
-    },
+    // Shear motes removed in round-7 100% pass. The within-band streaks
+    // (now wavy + grey-tinted) carry the atmospheric-flow feel on their own,
+    // and the storm cells handle larger weather events — motes were redundant.
+    // ShearMotes component remains in the renderer for any future world that
+    // wants them.
     {
       // Aurora — subtle green/violet wash at top, night-only.
       // Fades in through dusk, peaks at night, gone by dawn.
@@ -277,10 +259,13 @@ window.JupiterTheme = {
       xPct: 0.5,
       yPct: 0.50,
       xCurve: [
-        { t: 0.00, value: -0.40 }, // dawn — far off-screen left
-        { t: 0.25, value: -0.25 }, // day — still off-screen, approaching
+        // Widened so GRS is visible across most of the cycle (parity with
+        // Earth's sun and Moon's earth-from-Moon). Centred dusk peak still
+        // the signature moment; day shows it on the left, night on the right.
+        { t: 0.00, value: -0.15 }, // dawn — just off-left, about to enter
+        { t: 0.25, value: 0.20 },  // day — visible on the left side
         { t: 0.50, value: 0.50 },  // dusk — centered (signature moment)
-        { t: 0.75, value: 1.05 },  // night — drifted off right edge
+        { t: 0.75, value: 0.85 },  // night — visible on the right side
       ],
       yCurve: [
         { t: 0.00, value: 0.50 },

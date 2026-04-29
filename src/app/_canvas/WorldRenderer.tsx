@@ -76,6 +76,40 @@ import {
   type Oklch,
 } from '@features/game/world/color';
 
+import {
+  mulberry32,
+  themeSeed,
+  SILHOUETTE_PATH_BUILDERS,
+  seedCraters,
+  craterRimBounds,
+  craterBowlBounds,
+  type Crater,
+  seedClouds,
+  CLOUD_CLIP_RECT,
+  type CloudSeed,
+  seedBirds,
+  birdScreenX,
+  computeBirdWingPoints,
+  birdStrokeWidth,
+  type BirdSeed,
+  seedGrassBlades,
+  computeBladePoints,
+  GRASS_LIGHT_STOPS,
+  GRASS_DARK_STOPS,
+  continentsSvgPath,
+  madagascarBounds,
+  northIceCapBounds,
+  southIceCapBounds,
+  TERMINATOR_OFFSET_FRAC,
+  TERMINATOR_OPACITY,
+  TERMINATOR_COLOR,
+  EARTH_HALO_RADIUS_MUL,
+  EARTH_HALO_COLOR,
+  EARTH_CONTINENT_COLOR,
+  EARTH_ICE_COLOR,
+  EARTH_ICE_OPACITY,
+} from '@features/game/world/geometry';
+
 // ─── Props ────────────────────────────────────────────────────────────────
 
 export interface WorldRendererProps {
@@ -144,29 +178,10 @@ function preprocessTheme(theme: WorldTheme): PreprocessedTheme {
   };
 }
 
-// ─── Seeded RNG (mulberry32) — deterministic per-theme positions ──────────
-
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let z = s;
-    z = Math.imul(z ^ (z >>> 15), z | 1);
-    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function themeSeed(themeId: string): number {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < themeId.length; i++) {
-    h ^= themeId.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h;
-}
-
 // ─── Static-per-theme geometry seeders ────────────────────────────────────
+// mulberry32 + themeSeed live in @features/game/world/geometry/prng — shared
+// with the iteration tool. Star/dust seeders stay here because they're
+// production-only helpers (not part of the round-6 drift surface).
 
 type StarSeed = { x: number; y: number; r: number; phase: number };
 
@@ -207,456 +222,107 @@ function seedDust(
   return out;
 }
 
-// Cloud composition: each cloud = 6–8 heavily-overlapping circles, clipped to
-// y < 0 in cloud-local coords so all bubble bottoms truncate at the same line
-// (round 6: clip-path flat-bottom). Without the clip, the envelope between
-// adjacent bubbles dips upward and the cloud bottom reads as scalloped.
-type CloudBubble = { bx: number; by: number; br: number };
-type CloudSeed = {
-  baseX: number;
-  baseY: number;
-  scale: number;
-  driftPhase: number;
-  bubbles: CloudBubble[];
-  alpha: number;
-};
-
-function seedClouds(
-  spec: Extract<ParticleSpec, { kind: 'clouds' }>,
-  seed: number,
-): CloudSeed[] {
-  const rng = mulberry32(seed ^ 0x33333333);
-  const out: CloudSeed[] = [];
-  for (let i = 0; i < spec.count; i++) {
-    const baseX = rng() * SCREEN_W * 1.4;
-    const baseY = 0.06 * VIS_H * SCALE + rng() * 0.28 * VIS_H * SCALE;
-    const driftPhase = rng() * 1000;
-    const scale = 0.85 + rng() * 0.55;
-    const alpha = 0.75 + rng() * 0.2;
-    // Bubble layout — 6-8 bubbles, base radius ~18-26 × scale, tight overlap
-    // (≈0.42× radius) so they fuse into one continuous silhouette.
-    const bubbleCount = 6 + Math.floor(rng() * 3);
-    const baseR = (18 + rng() * 8) * scale;
-    const stepX = baseR * 0.42;
-    const totalSpan = stepX * (bubbleCount - 1);
-    const bubbles: CloudBubble[] = [];
-    for (let b = 0; b < bubbleCount; b++) {
-      const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.3;
-      // Bigger in the middle, smaller at edges — classic cumulus dome.
-      const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
-      const sizeFactor = 1 - distFromCenter * 0.3 + (rng() - 0.5) * 0.15;
-      const br = baseR * sizeFactor;
-      // ALL bubbles share the same bottom: center at y = -br + 0.12br, so
-      // bottom sits at y = 0.12br (slightly below cloud-local y=0). The
-      // clip-path then uniformly truncates every bubble at y=0.
-      const by = -br + br * 0.12;
-      bubbles.push({ bx, by, br });
-    }
-    out.push({ baseX, baseY, scale, driftPhase, bubbles, alpha });
-  }
-  return out;
-}
-
-// Static clip path shared by all clouds — keeps only y ≤ 0 in cloud-local
-// coords, giving each cloud a geometrically flat bottom regardless of how
-// far below the baseline the bubble arcs would naturally extend.
+// Cloud bubble layout (CloudSeed type, seedClouds, CLOUD_CLIP_RECT) lives in
+// @features/game/world/geometry/clouds — shared with iteration tool.
+// Production builds the Skia clip path once at module load from the shared
+// rect dimensions.
 const CLOUD_CLIP_PATH = (() => {
   const p = Skia.Path.Make();
-  p.addRect({ x: -300, y: -300, width: 600, height: 300 });
+  p.addRect(CLOUD_CLIP_RECT);
   return p;
 })();
 
 // ─── Grass tufts (round 6) ────────────────────────────────────────────────
-// Three-blade clumps with curl on the singleHill silhouette top edge. Two-
-// tone (lighter front blade over darker side blades) for depth. ToD-aware
-// colours: vivid in day, muted dawn/dusk, near-black at night. Per-clump
-// scale + position jitter; ~18% gap probability creates visible clusters
-// and gaps. Optional 4th rogue blade per clump (20%) breaks the symmetric
-// 3-blade pattern.
-//
-// Static geometry — memoized per band/seed alongside silhouettePaths.
-// Per-frame variable: only the two layer colours (light/dark) sampled
-// from the curves below.
+// Blade specs (light/dark blade lists + colour stops + per-blade math) live
+// in @features/game/world/geometry/grass — shared with iteration tool.
+// Production builds two composite Skia paths from those specs at memo time
+// (one for the light layer, one for the dark layer) so per-frame rendering
+// is just two `<Path>` draws with curve-sampled colours.
 
-const GRASS_LIGHT_CURVE = preprocessHexCurve([
-  { t: 0.0, color: '#6a8458' }, // dawn — cool muted green
-  { t: 0.25, color: '#5aa040' }, // day  — vivid grass green
-  { t: 0.5, color: '#7a8038' }, // dusk — warm olive
-  { t: 0.75, color: '#0a1410' }, // night — near-black green
-]);
-
-const GRASS_DARK_CURVE = preprocessHexCurve([
-  { t: 0.0, color: '#3e5430' }, // dawn — deep moss
-  { t: 0.25, color: '#356528' }, // day  — saturated forest
-  { t: 0.5, color: '#4f5020' }, // dusk — dark olive
-  { t: 0.75, color: '#050a08' }, // night — almost black
-]);
+const GRASS_LIGHT_CURVE = preprocessHexCurve([...GRASS_LIGHT_STOPS]);
+const GRASS_DARK_CURVE = preprocessHexCurve([...GRASS_DARK_STOPS]);
 
 type GrassPaths = {
   light: ReturnType<typeof Skia.Path.Make>;
   dark: ReturnType<typeof Skia.Path.Make>;
 };
 
-function seedGrass(yPx: number, heightPx: number, seed: number): GrassPaths {
-  const rng = mulberry32(seed ^ 0x60ad60ad);
-  const span = SCREEN_W * 2.0;
-  const peakX = span * 0.42;
-  const peakY = heightPx * 0.55; // matches singleHillPath
-  const clumpSpacing = 22;
-
+function buildGrassPaths(heightPx: number, seed: number): GrassPaths {
+  const { light: lightBlades, dark: darkBlades } = seedGrassBlades(
+    SCREEN_W,
+    heightPx,
+    seed,
+  );
   const light = Skia.Path.Make();
   const dark = Skia.Path.Make();
-
-  // Append a single curved blade (two Q-curves forming a closed shape) to
-  // the given path. Curl shifts the mid control points perpendicular to
-  // the blade direction, giving each blade a clear soft arc.
-  function addBlade(
-    target: ReturnType<typeof Skia.Path.Make>,
-    xBase: number,
-    yBase: number,
-    angle: number,
-    length: number,
-    baseWidth: number,
-    curlDir: number,
-  ) {
-    const tipX = xBase + Math.sin(angle) * length;
-    const tipY = yBase - Math.cos(angle) * length;
-    const midX = xBase + Math.sin(angle) * length * 0.5;
-    const midY = yBase - Math.cos(angle) * length * 0.5;
-    const curlAmount = length * 0.15 * curlDir;
-    const curlX = Math.cos(angle) * curlAmount;
-    const curlY = Math.sin(angle) * curlAmount;
-    const perpX = Math.cos(angle) * baseWidth * 0.5;
-    const perpY = Math.sin(angle) * baseWidth * 0.5;
-    target.moveTo(xBase - baseWidth, yBase);
-    target.quadTo(midX + curlX - perpX, midY + curlY - perpY, tipX, tipY);
-    target.quadTo(midX + curlX + perpX, midY + curlY + perpY, xBase + baseWidth, yBase);
-    target.close();
+  for (const blade of lightBlades) {
+    const pts = computeBladePoints(blade);
+    light.moveTo(pts.baseLeft[0], pts.baseLeft[1]);
+    light.quadTo(pts.ctrl1[0], pts.ctrl1[1], pts.tip[0], pts.tip[1]);
+    light.quadTo(pts.ctrl2[0], pts.ctrl2[1], pts.baseRight[0], pts.baseRight[1]);
+    light.close();
   }
-
-  for (let x = 0; x <= span; x += clumpSpacing) {
-    if (rng() < 0.18) continue; // ~18% gaps — creates visible clusters and gaps
-    // Bell curve matches singleHillPath — blade bases sit on the silhouette top.
-    const dx = (x - peakX) / (span * 0.55);
-    const bell = 1 / (1 + dx * dx);
-    const tilt = x - peakX > 0 ? -dx * 0.04 * heightPx : 0;
-    const yEdge = yPx + heightPx - (heightPx - peakY) * bell + tilt;
-    const xJitter = (rng() - 0.5) * clumpSpacing * 0.4;
-    const xPos = x + xJitter;
-    const clumpScale = 0.7 + rng() * 0.7; // 0.7–1.4 — wider variation
-
-    // Center blade — tallest, mostly vertical, lighter shade (pops over sides).
-    const centerAngle = (rng() - 0.5) * 0.5; // ±~14° wobble
-    const centerH = (16 + rng() * 10) * clumpScale;
-    const centerBaseW = (1.8 + rng() * 0.6) * clumpScale;
-    const centerCurl = (rng() - 0.5) * 1.2;
-    addBlade(light, xPos, yEdge, centerAngle, centerH, centerBaseW, centerCurl);
-
-    // Left blade — angled out left, shorter, darker (recedes).
-    const leftAngle = -0.45 + (rng() - 0.5) * 0.45;
-    const leftH = (12 + rng() * 5) * clumpScale;
-    const leftBaseW = (1.3 + rng() * 0.4) * clumpScale;
-    const leftCurl = 0.5 + rng() * 0.5;
-    addBlade(dark, xPos - 2, yEdge, leftAngle, leftH, leftBaseW, leftCurl);
-
-    // Right blade — angled out right, shorter, darker.
-    const rightAngle = 0.45 + (rng() - 0.5) * 0.45;
-    const rightH = (12 + rng() * 5) * clumpScale;
-    const rightBaseW = (1.3 + rng() * 0.4) * clumpScale;
-    const rightCurl = -(0.5 + rng() * 0.5);
-    addBlade(dark, xPos + 2, yEdge, rightAngle, rightH, rightBaseW, rightCurl);
-
-    // Occasional rogue 4th blade — random angle, lighter, breaks 3-blade pattern.
-    if (rng() < 0.2) {
-      const rogueAngle = (rng() - 0.5) * 1.0;
-      const rogueH = (10 + rng() * 6) * clumpScale;
-      const rogueBaseW = (1.2 + rng() * 0.4) * clumpScale;
-      const rogueCurl = (rng() - 0.5) * 1.5;
-      const rogueOffset = (rng() - 0.5) * 4;
-      addBlade(light, xPos + rogueOffset, yEdge, rogueAngle, rogueH, rogueBaseW, rogueCurl);
-    }
+  for (const blade of darkBlades) {
+    const pts = computeBladePoints(blade);
+    dark.moveTo(pts.baseLeft[0], pts.baseLeft[1]);
+    dark.quadTo(pts.ctrl1[0], pts.ctrl1[1], pts.tip[0], pts.tip[1]);
+    dark.quadTo(pts.ctrl2[0], pts.ctrl2[1], pts.baseRight[0], pts.baseRight[1]);
+    dark.close();
   }
   return { light, dark };
 }
 
-type BirdSeed = {
-  baseX: number;
-  baseY: number;
-  driftPhase: number;
-  size: number;
-  flapPhase: number;
-  alpha: number;
-};
-
-function seedBirds(spec: Extract<ParticleSpec, { kind: 'birds' }>, seed: number): BirdSeed[] {
-  const rng = mulberry32(seed ^ 0x77777777);
-  const out: BirdSeed[] = [];
-  const sizeMul = spec.sizeMul;
-  for (let i = 0; i < spec.count; i++) {
-    out.push({
-      baseX: rng() * SCREEN_W * 1.2,
-      baseY: 0.18 * VIS_H * SCALE + rng() * 0.25 * VIS_H * SCALE,
-      driftPhase: rng() * 1000,
-      size: (4 + rng() * 3) * sizeMul,
-      flapPhase: rng() * Math.PI * 2,
-      alpha: 0.55 + rng() * 0.3,
-    });
-  }
-  return out;
-}
+// Bird seeds (BirdSeed type, seedBirds, birdScreenX, computeBirdWingPoints,
+// birdStrokeWidth) live in @features/game/world/geometry/birds — shared
+// with iteration tool. Production calls them at the BirdFlock render path.
 
 // ─── Procedural silhouette paths ──────────────────────────────────────────
+// Path generators (mountainsSvgPath, singleHillSvgPath, etc.) live in
+// @features/game/world/geometry/paths — shared with iteration tool. They
+// return SVG path strings in BAND-LOCAL coordinates (y=0 at top of band,
+// y=heightPx at bottom). Production parses them into Skia paths and the
+// BandRender wrapper applies translateY = yPx via Group transform.
 
-/**
- * Build a silhouette path filling [yPx, yPx+heightPx] across 2× canvas width,
- * with the top edge shaped by the given profile.
- *
- * Path is in screen pixels, anchored at (0, 0). Render applies translateX =
- * -((scrollX * parallax) mod SCREEN_W) for parallax scroll.
- */
-function buildSilhouettePath(
+function buildSilhouetteSkiaPath(
   profile: SilhouetteProfile,
-  yPx: number,
   heightPx: number,
   seed: number,
 ): ReturnType<typeof Skia.Path.Make> {
-  const p = Skia.Path.Make();
-  const tileW = SCREEN_W * 2;
-
-  if (profile === 'mountains') {
-    // Earth — peaked Bezier ridge with random peak/valley nodes.
-    // Round 6: peaks lowered (was 0.65-0.95 of band height, now 0.45-0.75) —
-    // gentler slopes, less aggressive silhouette.
-    const rng = mulberry32(seed);
-    const span = SCREEN_W * 2.5;
-    const numNodes = 5;
-    const nodes: Array<readonly [number, number]> = [];
-    for (let i = 0; i <= numNodes; i++) {
-      const x = (i / numNodes) * span;
-      const isPeak = i % 2 === 1;
-      const heightFrac = isPeak ? 0.45 + rng() * 0.3 : 0.15 + rng() * 0.2;
-      nodes.push([x, yPx + heightPx * (1 - heightFrac)]);
-    }
-    p.moveTo(nodes[0]![0], yPx + heightPx);
-    p.lineTo(nodes[0]![0], nodes[0]![1]);
-    for (let i = 1; i < nodes.length; i++) {
-      const p0 = nodes[i - 1]!;
-      const p1 = nodes[i]!;
-      const dx = p1[0] - p0[0];
-      const c1x = p0[0] + dx * 0.4;
-      const c1y = p0[1];
-      const c2x = p1[0] - dx * 0.4;
-      const c2y = p1[1];
-      p.cubicTo(c1x, c1y, c2x, c2y, p1[0], p1[1]);
-    }
-    const last = nodes[nodes.length - 1]!;
-    p.lineTo(last[0], yPx + heightPx);
-    p.close();
-    return p;
+  const builder = SILHOUETTE_PATH_BUILDERS[profile];
+  if (!builder) {
+    // Defensive — should be unreachable since SilhouetteProfile union enumerates
+    // all profile keys.
+    return Skia.Path.Make();
   }
-
-  if (profile === 'hills') {
-    // Earth — gentle low-frequency rolling sine (no peaks).
-    const rng = mulberry32(seed);
-    const j1 = rng() * 6;
-    const j2 = rng() * 6;
-    const points = 60;
-    const span = SCREEN_W * 2.4;
-    p.moveTo(0, yPx + heightPx);
-    for (let i = 0; i <= points; i++) {
-      const x = (i / points) * span;
-      const y =
-        Math.sin(x * 0.0035 + j1) * heightPx * 0.3 +
-        Math.sin(x * 0.011 + j2) * heightPx * 0.13 +
-        Math.sin(x * 0.045 + rng() * 6) * heightPx * 0.04 +
-        heightPx * 0.55;
-      p.lineTo(x, yPx + y);
-    }
-    p.lineTo(span, yPx + heightPx);
-    p.close();
-    return p;
-  }
-
-  if (profile === 'singleHill') {
-    // Earth — flat foreground rise (round 6). Bell curve with peak lowered
-    // (h*0.05 → h*0.55), surface ripple removed, 120 points for smoother lines.
-    // Pairs with the singleHill band's slowed parallax (0.30) and lower
-    // yPct/heightPct in the theme so the peak sits low on screen.
-    const span = SCREEN_W * 2.0;
-    const peakX = span * 0.42;
-    const peakY = heightPx * 0.55;
-    const points = 120;
-    p.moveTo(0, yPx + heightPx);
-    for (let i = 0; i <= points; i++) {
-      const x = (i / points) * span;
-      const dx = (x - peakX) / (span * 0.55);
-      const bell = 1 / (1 + dx * dx);
-      const tilt = x - peakX > 0 ? -dx * 0.04 * heightPx : 0;
-      const y = heightPx - (heightPx - peakY) * bell + tilt;
-      p.lineTo(x, yPx + y);
-    }
-    p.lineTo(span, yPx + heightPx);
-    p.close();
-    return p;
-  }
-
-  if (profile === 'soft-craters') {
-    // Moon — far ridge — single low-frequency octave, capped at 55% band height.
-    const step = 4;
-    p.moveTo(0, yPx + heightPx);
-    for (let x = 0; x <= tileW; x += step) {
-      const base = Math.sin(x * 0.012 + seed) * 0.5;
-      const wobble = Math.sin(x * 0.04 + seed * 1.7) * 0.15;
-      const yLocal = (0.5 + (base + wobble) * 0.5) * heightPx * 0.55;
-      p.lineTo(x, yPx + yLocal);
-    }
-    p.lineTo(tileW, yPx + heightPx);
-    p.close();
-    return p;
-  }
-
-  if (profile === 'cratered-horizon') {
-    // Moon — mid ridge (round 6). 96 points across 2.4× canvas width.
-    // Three-octave silhouette: large primary peaks (sin × 0.018) + medium
-    // variation (sin × 0.07) + fine surface detail (sin × 0.18). Base
-    // shifted up (h*0.40 vs 0.45) so peaks reach higher. Wider crater dip
-    // events (~every 200x) for sharper foreground crater feel. Higher
-    // resolution + the new amplitude mix eliminates the polygon-ish feel
-    // from the 36-point version.
-    const rng = mulberry32(seed);
-    const j1 = rng() * 6;
-    const j2 = rng() * 6;
-    const j3 = rng() * 6;
-    const points = 96;
-    const span = SCREEN_W * 2.4;
-    p.moveTo(0, yPx + heightPx);
-    for (let i = 0; i <= points; i++) {
-      const x = (i / points) * span;
-      const base =
-        Math.sin(x * 0.018 + j1) * heightPx * 0.55 +
-        Math.sin(x * 0.07 + j2) * heightPx * 0.2 +
-        Math.sin(x * 0.18 + j3) * heightPx * 0.06 +
-        heightPx * 0.4;
-      const crater = Math.sin(x * 0.005) > 0.85 ? -heightPx * 0.12 : 0;
-      p.lineTo(x, yPx + base + crater);
-    }
-    p.lineTo(span, yPx + heightPx);
-    p.close();
-    return p;
-  }
-
-  if (profile === 'storm-bands') {
-    // Jupiter — atmospheric ribbon with subtle flow undulation along the top
-    // edge. Amplitude is intentionally small (~6% of band height) so each
-    // band reads as a horizontal stripe, not a wave. The bottom of the band
-    // extends fully so when bands stack they tile cleanly with no gap.
-    const step = 6;
-    p.moveTo(0, yPx + heightPx);
-    for (let x = 0; x <= tileW; x += step) {
-      const flow =
-        Math.sin(x * 0.008 + seed) * 0.05 + Math.sin(x * 0.025 + seed * 1.4) * 0.025;
-      const yLocal = flow * heightPx;
-      p.lineTo(x, yPx + yLocal);
-    }
-    p.lineTo(tileW, yPx + heightPx);
-    p.close();
-    return p;
-  }
-
-  // Unreachable — all profiles handled above.
-  p.moveTo(0, yPx + heightPx);
-  p.lineTo(tileW, yPx + heightPx);
-  p.close();
-  return p;
+  const svg = builder(SCREEN_W, heightPx, seed);
+  return Skia.Path.MakeFromSVGString(svg) ?? Skia.Path.Make();
 }
 
 // ─── Crater seeds for foreground 'craters' band ───────────────────────────
-// Craters are STATIC features of the regolith (round 6) — they don't drift
-// with scroll. Renderer ignores band.parallax for the craters branch.
-//
-// Power-law size distribution (75% small / 20% medium / 5% large) gives the
-// moon-realistic mix; 25-attempt overlap rejection with 10% buffer prevents
-// pile-ups. Each crater renders as two ellipses: outer rim (lighter, 1.08×,
-// sun-catch halo) + inner bowl (offset up by 15% of ry, darker, suggests
-// depth from above-light viewing angle).
+// Crater data (Crater type + seedCraters) lives in
+// @features/game/world/geometry/craters — shared with iteration tool.
+// Production wraps each Crater in CraterRender which adds pre-built Skia
+// paths (rim + bowl ellipses) so we don't allocate per-frame.
 
-type Crater = {
-  x: number;
-  y: number;
-  rx: number;
-  ry: number;
-  opacity: number;
-  /** Pre-built Skia paths so we don't allocate per-frame (32 craters × 2
-   *  ovals = 64 path allocations every frame would otherwise hit GC on
-   *  mid-range Android). Built once at seed time. */
+type CraterRender = {
+  crater: Crater;
   rimPath: ReturnType<typeof Skia.Path.Make>;
   bowlPath: ReturnType<typeof Skia.Path.Make>;
 };
 
-function seedCraters(yPx: number, heightPx: number, seed: number): Crater[] {
-  const rng = mulberry32(seed ^ 0xdeadbeef);
-  const out: Crater[] = [];
-  const targetCount = 32;
-  for (let i = 0; i < targetCount; i++) {
-    const sizeRoll = rng();
-    let rx: number;
-    let ry: number;
-    if (sizeRoll < 0.75) {
-      rx = 6 + rng() * 8; // 6-14 (small)
-      ry = 2 + rng() * 2; // 2-4
-    } else if (sizeRoll < 0.95) {
-      rx = 14 + rng() * 14; // 14-28 (medium)
-      ry = 4 + rng() * 3; // 4-7
-    } else {
-      rx = 28 + rng() * 22; // 28-50 (large — rare)
-      ry = 7 + rng() * 5; // 7-12
-    }
-    // Up to 25 placements; skip if we can't avoid overlap (10% buffer).
-    let placed = false;
-    for (let attempt = 0; attempt < 25 && !placed; attempt++) {
-      const cx = rng() * SCREEN_W;
-      const cy = yPx + heightPx * 0.05 + rng() * heightPx * 0.9;
-      let overlaps = false;
-      for (const e of out) {
-        const dxc = cx - e.x;
-        const dyc = cy - e.y;
-        const dist = Math.sqrt(dxc * dxc + dyc * dyc);
-        const minDist = (rx + e.rx) * 1.1;
-        if (dist < minDist) {
-          overlaps = true;
-          break;
-        }
-      }
-      if (!overlaps) {
-        // Pre-build the two ellipse paths now — static across renders.
-        const rimPath = Skia.Path.Make();
-        rimPath.addOval({
-          x: cx - rx * 1.08,
-          y: cy - ry * 1.08,
-          width: rx * 1.08 * 2,
-          height: ry * 1.08 * 2,
-        });
-        const bowlPath = Skia.Path.Make();
-        bowlPath.addOval({
-          x: cx - rx * 0.85,
-          y: cy - ry * 0.15 - ry * 0.8,
-          width: rx * 0.85 * 2,
-          height: ry * 0.8 * 2,
-        });
-        out.push({
-          x: cx,
-          y: cy,
-          rx,
-          ry,
-          opacity: 0.55 + rng() * 0.35,
-          rimPath,
-          bowlPath,
-        });
-        placed = true;
-      }
-    }
-  }
-  return out;
+function buildCraterRenders(
+  yPx: number,
+  heightPx: number,
+  seed: number,
+): CraterRender[] {
+  const craters = seedCraters(SCREEN_W, yPx, heightPx, seed);
+  return craters.map((c) => {
+    const rimPath = Skia.Path.Make();
+    rimPath.addOval(craterRimBounds(c));
+    const bowlPath = Skia.Path.Make();
+    bowlPath.addOval(craterBowlBounds(c));
+    return { crater: c, rimPath, bowlPath };
+  });
 }
 
 // ─── Sub-renderers ────────────────────────────────────────────────────────
@@ -851,47 +517,20 @@ function BirdFlock({
 
   // P0-1: build one multi-subpath that batches every bird into a single
   // Path allocation per frame (vs. N paths/frame in the naive map approach).
-  // Stroke width is per-bird in the seed but Skia's Path doesn't carry per-
-  // subpath stroke; flatten to a representative size (mean of seeded sizes).
-  //
-  // Round 6 wing flap rewrite: wingtips oscillate UP/DOWN (signed tipLift,
-  // swings through zero) — body stays fixed. Each wing's control point is
-  // placed PERPENDICULAR to the tip→body line at a consistent magnitude
-  // (size × 0.45), so the arc magnitude stays consistent regardless of where
-  // the wing is in the flap cycle. Curl always points upward (negative y) —
-  // gives each wing a clear soft arc rather than a chevron straight line.
-  // Slowed to ~1.3 Hz (sin × 0.008) — more like real flight, less frantic.
+  // Wing geometry math lives in @features/game/world/geometry/birds —
+  // shared with iteration tool. computeBirdWingPoints handles signed
+  // wingtip oscillation + perpendicular control-point curl (round 6).
+  // Stroke width is per-bird in the seed but Skia's Path doesn't carry
+  // per-subpath stroke; flatten to a representative size (mean of seeded).
   const path = Skia.Path.Make();
   let widthSum = 0;
   for (const b of birds) {
-    const drift = (nowMs * 0.04 * spec.speed + b.driftPhase) % (SCREEN_W + 100);
-    const x = ((b.baseX + drift) % (SCREEN_W + 100)) - 50;
-    const tipLift = Math.sin(nowMs * 0.008 + b.flapPhase) * 0.7; // signed
-    const tipY = b.baseY + b.size * tipLift;
-    const curlMag = b.size * 0.45;
-
-    // Left wing: tip → body. Perpendicular to (body - tip), curl points up.
-    const lDx = b.size; // body.x - tip.x
-    const lDy = b.baseY - tipY;
-    const lLen = Math.sqrt(lDx * lDx + lDy * lDy);
-    const lPerpX = lDy / lLen;
-    const lPerpY = -lDx / lLen; // always negative (points up)
-    const lCtrlX = (x - b.size + x) / 2 + lPerpX * curlMag;
-    const lCtrlY = (tipY + b.baseY) / 2 + lPerpY * curlMag;
-
-    // Right wing: body → tip (mirror).
-    const rDx = b.size;
-    const rDy = tipY - b.baseY;
-    const rLen = Math.sqrt(rDx * rDx + rDy * rDy);
-    const rPerpX = rDy / rLen;
-    const rPerpY = -rDx / rLen;
-    const rCtrlX = (x + x + b.size) / 2 + rPerpX * curlMag;
-    const rCtrlY = (b.baseY + tipY) / 2 + rPerpY * curlMag;
-
-    path.moveTo(x - b.size, tipY);
-    path.quadTo(lCtrlX, lCtrlY, x, b.baseY);
-    path.quadTo(rCtrlX, rCtrlY, x + b.size, tipY);
-    widthSum += Math.max(0.9, b.size * 0.18);
+    const x = birdScreenX(b, SCREEN_W, spec.speed, nowMs);
+    const pts = computeBirdWingPoints(x, b, nowMs);
+    path.moveTo(pts.lTip[0], pts.lTip[1]);
+    path.quadTo(pts.lCtrl[0], pts.lCtrl[1], pts.body[0], pts.body[1]);
+    path.quadTo(pts.rCtrl[0], pts.rCtrl[1], pts.rTip[0], pts.rTip[1]);
+    widthSum += birdStrokeWidth(b);
   }
   const sw = widthSum / Math.max(1, birds.length);
   // Per-bird alpha varies in seed; use a representative average for the
@@ -929,7 +568,7 @@ function BandRender({
   preGradient?: ReadonlyArray<readonly [number, Oklch]>;
   silhouettePath?: ReturnType<typeof Skia.Path.Make>;
   grassPaths?: GrassPaths;
-  craters?: Crater[];
+  craters?: CraterRender[];
   t: number;
   scrollX: number;
 }): React.ReactElement {
@@ -939,9 +578,9 @@ function BandRender({
   const dx = -((scrollX * band.parallax) % SCREEN_W);
 
   if (band.kind === 'silhouette' && silhouettePath) {
-    // Grass tufts (round 6) — only on the closest foreground hill (singleHill
-    // profile). Render OUTSIDE the silhouette clip — blade tips extend above
-    // the silhouette top edge.
+    // Silhouette path + grass blade paths are BAND-LOCAL (y=0 at top of band)
+    // — wrap in translateY = yPx so they render at the correct canvas
+    // position. translateX = dx applies parallax scroll.
     const grassNode = grassPaths ? (
       <>
         <Path
@@ -961,15 +600,17 @@ function BandRender({
 
     // v0.5 — gradientCurve clips an internal vertical gradient to the silhouette
     // path. Top edge brighter (sun-catch), fading to base color at the bottom.
+    // Rect + LinearGradient use band-local y (0..heightPx) since they're
+    // inside the translateY group.
     if (preGradient) {
       const topCol = oklchToHex(sampleOklchCurve(preGradient, t));
       return (
-        <Group transform={[{ translateX: dx }]}>
+        <Group transform={[{ translateX: dx }, { translateY: yPx }]}>
           <Group clip={silhouettePath}>
-            <Rect x={0} y={yPx} width={SCREEN_W * 2} height={heightPx}>
+            <Rect x={0} y={0} width={SCREEN_W * 2} height={heightPx}>
               <LinearGradient
-                start={vec(0, yPx)}
-                end={vec(0, yPx + heightPx)}
+                start={vec(0, 0)}
+                end={vec(0, heightPx)}
                 colors={[topCol, col, col]}
                 positions={[0, 0.6, 1]}
               />
@@ -980,7 +621,7 @@ function BandRender({
       );
     }
     return (
-      <Group transform={[{ translateX: dx }]}>
+      <Group transform={[{ translateX: dx }, { translateY: yPx }]}>
         <Path path={silhouettePath} color={col} style="fill" antiAlias />
         {grassNode}
       </Group>
@@ -1010,7 +651,8 @@ function BandRender({
     // The band's underlying colour fill is rendered by the nearPlain band
     // beneath; this branch overlays just the crater pattern.
     //
-    // rimPath/bowlPath are pre-built in seedCraters — no per-frame allocation.
+    // CraterRender wraps geometry's Crater data with pre-built Skia paths
+    // (built once at memo time in buildCraterRenders) — no per-frame alloc.
     const baseOklch = sampleOklchCurve(preColor, t);
     const bowlCol = oklchToHex(baseOklch);
     // Rim: lerp 25% toward white. In oklch: lift L toward 1, drop C toward 0.
@@ -1021,20 +663,20 @@ function BandRender({
     ]);
     return (
       <Group>
-        {craters.map((c, i) => (
+        {craters.map((cr, i) => (
           <Group key={i}>
             <Path
-              path={c.rimPath}
+              path={cr.rimPath}
               color={rimCol}
               style="fill"
-              opacity={c.opacity * 0.4}
+              opacity={cr.crater.opacity * 0.4}
               antiAlias
             />
             <Path
-              path={c.bowlPath}
+              path={cr.bowlPath}
               color={bowlCol}
               style="fill"
-              opacity={c.opacity}
+              opacity={cr.crater.opacity}
               antiAlias
             />
           </Group>
@@ -1082,109 +724,63 @@ function EarthBody({
     return path;
   }, [cx, cy, r]);
 
-  // Combined continents path. Africa/Europe/S.America/N.America fragment +
-  // Madagascar (separate path because it's an oval, not a Q-curve outline).
-  const continentsPath = useMemo(() => {
-    const x = cx;
-    const y = cy;
-    const d = [
-      // Africa — taller than wide, distinct horn east, narrow Cape south.
-      `M ${x - r * 0.08},${y - r * 0.46}` +
-        ` L ${x + r * 0.14},${y - r * 0.44}` +
-        ` Q ${x + r * 0.22},${y - r * 0.36} ${x + r * 0.22},${y - r * 0.18}` +
-        ` Q ${x + r * 0.3},${y - r * 0.02} ${x + r * 0.26},${y + r * 0.1}` +
-        ` Q ${x + r * 0.14},${y + r * 0.2} ${x + r * 0.06},${y + r * 0.35}` +
-        ` Q ${x - r * 0.02},${y + r * 0.5} ${x - r * 0.06},${y + r * 0.58}` +
-        ` Q ${x - r * 0.18},${y + r * 0.48} ${x - r * 0.22},${y + r * 0.32}` +
-        ` Q ${x - r * 0.27},${y + r * 0.1} ${x - r * 0.25},${y - r * 0.12}` +
-        ` Q ${x - r * 0.22},${y - r * 0.32} ${x - r * 0.16},${y - r * 0.42}` +
-        ` Q ${x - r * 0.12},${y - r * 0.46} ${x - r * 0.08},${y - r * 0.46} Z`,
-      // Europe — Iberian bump west, Italian boot middle, eastward Eurasia.
-      `M ${x - r * 0.22},${y - r * 0.5}` +
-        ` Q ${x - r * 0.3},${y - r * 0.62} ${x - r * 0.15},${y - r * 0.66}` +
-        ` Q ${x + r * 0.05},${y - r * 0.72} ${x + r * 0.25},${y - r * 0.66}` +
-        ` Q ${x + r * 0.4},${y - r * 0.6} ${x + r * 0.42},${y - r * 0.5}` +
-        ` Q ${x + r * 0.34},${y - r * 0.46} ${x + r * 0.2},${y - r * 0.48}` +
-        ` L ${x + r * 0.08},${y - r * 0.44}` +
-        ` Q ${x + r * 0.04},${y - r * 0.4} ${x + r * 0},${y - r * 0.45}` +
-        ` L ${x - r * 0.1},${y - r * 0.46}` +
-        ` Q ${x - r * 0.18},${y - r * 0.44} ${x - r * 0.22},${y - r * 0.5} Z`,
-      // South America fragment — western limb. Wider top → narrow Patagonia.
-      `M ${x - r * 0.85},${y - r * 0.1}` +
-        ` Q ${x - r * 0.55},${y - r * 0.05} ${x - r * 0.48},${y + r * 0.08}` +
-        ` Q ${x - r * 0.5},${y + r * 0.25} ${x - r * 0.55},${y + r * 0.4}` +
-        ` Q ${x - r * 0.6},${y + r * 0.5} ${x - r * 0.65},${y + r * 0.42}` +
-        ` Q ${x - r * 0.62},${y + r * 0.25} ${x - r * 0.68},${y + r * 0.1}` +
-        ` Q ${x - r * 0.78},${y + r * 0} ${x - r * 0.85},${y - r * 0.1} Z`,
-      // North America fragment — upper-left. Hints at the continental mass.
-      `M ${x - r * 0.85},${y - r * 0.5}` +
-        ` Q ${x - r * 0.55},${y - r * 0.45} ${x - r * 0.42},${y - r * 0.3}` +
-        ` Q ${x - r * 0.4},${y - r * 0.18} ${x - r * 0.5},${y - r * 0.12}` +
-        ` Q ${x - r * 0.65},${y - r * 0.18} ${x - r * 0.78},${y - r * 0.3}` +
-        ` Q ${x - r * 0.88},${y - r * 0.4} ${x - r * 0.85},${y - r * 0.5} Z`,
-    ].join(' ');
-    return Skia.Path.MakeFromSVGString(d) ?? Skia.Path.Make();
-  }, [cx, cy, r]);
+  // Continent SVG path strings live in @features/game/world/geometry/continents
+  // — shared with iteration tool. Production parses to Skia paths once per
+  // (cx, cy, r) via useMemo.
+  const continentsPath = useMemo(
+    () => Skia.Path.MakeFromSVGString(continentsSvgPath(cx, cy, r)) ?? Skia.Path.Make(),
+    [cx, cy, r],
+  );
 
-  // Madagascar — small island east of southern Africa. Distinctive cue.
   const madagascarPath = useMemo(() => {
     const path = Skia.Path.Make();
-    path.addOval({
-      x: cx + r * 0.34 - r * 0.04,
-      y: cy + r * 0.22 - r * 0.1,
-      width: r * 0.04 * 2,
-      height: r * 0.1 * 2,
-    });
+    path.addOval(madagascarBounds(cx, cy, r));
     return path;
   }, [cx, cy, r]);
 
-  // Polar ice caps — north (rx=0.55, ry=0.18) and south (rx=0.5, ry=0.15).
   const iceCapsPath = useMemo(() => {
     const path = Skia.Path.Make();
-    path.addOval({
-      x: cx - r * 0.55,
-      y: cy - r * 0.95 - r * 0.18,
-      width: r * 0.55 * 2,
-      height: r * 0.18 * 2,
-    });
-    path.addOval({
-      x: cx - r * 0.5,
-      y: cy + r * 0.95 - r * 0.15,
-      width: r * 0.5 * 2,
-      height: r * 0.15 * 2,
-    });
+    path.addOval(northIceCapBounds(cx, cy, r));
+    path.addOval(southIceCapBounds(cx, cy, r));
     return path;
   }, [cx, cy, r]);
 
   const glow = sampleScalarCurve(celestial.glowCurve, t);
   const oceanCol = oklchToHex(sampleOklchCurve(preColor, t));
-  const continentCol = '#3a7a3e'; // matches iteration tool's static fallback
+  const haloR = r * EARTH_HALO_RADIUS_MUL;
+  const haloEdgeColor = EARTH_HALO_COLOR + '00'; // alpha 0 at edge
 
   return (
     <Group>
       {/* Atmospheric glow halo (light blue, fades to transparent) */}
-      <Circle cx={cx} cy={cy} r={r * 1.8} opacity={glow}>
+      <Circle cx={cx} cy={cy} r={haloR} opacity={glow}>
         <RadialGradient
           c={vec(cx, cy)}
-          r={r * 1.8}
-          colors={['#a8d0f0', '#a8d0f000']}
+          r={haloR}
+          colors={[EARTH_HALO_COLOR, haloEdgeColor]}
         />
       </Circle>
       {/* Ocean body */}
       <Circle cx={cx} cy={cy} r={r} color={oceanCol} />
       {/* Continents + Madagascar + ice caps + terminator — all clipped to body */}
       <Group clip={bodyClip}>
-        <Path path={continentsPath} color={continentCol} style="fill" antiAlias />
-        <Path path={madagascarPath} color={continentCol} style="fill" antiAlias />
+        <Path path={continentsPath} color={EARTH_CONTINENT_COLOR} style="fill" antiAlias />
+        <Path path={madagascarPath} color={EARTH_CONTINENT_COLOR} style="fill" antiAlias />
         <Path
           path={iceCapsPath}
-          color="#ffffff"
-          opacity={0.85}
+          color={EARTH_ICE_COLOR}
+          opacity={EARTH_ICE_OPACITY}
           style="fill"
           antiAlias
         />
         {/* Soft terminator — dark crescent on lower-right of the ocean body */}
-        <Circle cx={cx + r * 0.35} cy={cy + r * 0.05} r={r} color="#000000" opacity={0.22} />
+        <Circle
+          cx={cx + r * TERMINATOR_OFFSET_FRAC.x}
+          cy={cy + r * TERMINATOR_OFFSET_FRAC.y}
+          r={r}
+          color={TERMINATOR_COLOR}
+          opacity={TERMINATOR_OPACITY}
+        />
       </Group>
     </Group>
   );
@@ -1322,52 +918,54 @@ export function WorldRenderer({
         result.dust = seedDust(spec, seed);
       } else if (spec.kind === 'clouds') {
         result.cloudsSpec = spec;
-        result.clouds = seedClouds(spec, seed);
+        result.clouds = seedClouds(SCREEN_W, VIS_H * SCALE, spec.count, seed);
       } else if (spec.kind === 'birds') {
         result.birdsSpec = spec;
-        result.birds = seedBirds(spec, seed);
+        result.birds = seedBirds(SCREEN_W, VIS_H * SCALE, spec.count, spec.sizeMul, seed);
       }
     });
     return result;
   }, [theme, seed]);
 
-  // Silhouette paths and crater rims, keyed on band identity.
+  // Silhouette paths (band-local) keyed on band identity. Production wraps
+  // them in translateY = yPx at the render site.
   const silhouettePaths = useMemo(() => {
     const paths = new Map<string, ReturnType<typeof Skia.Path.Make>>();
     theme.bands.forEach((band) => {
       if (band.kind === 'silhouette') {
-        const yPx = band.yPct * VIS_H * SCALE;
         const heightPx = band.heightPct * VIS_H * SCALE;
         paths.set(
           band.id,
-          buildSilhouettePath(band.profile, yPx, heightPx, seed ^ themeSeed(band.id)),
+          buildSilhouetteSkiaPath(band.profile, heightPx, seed ^ themeSeed(band.id)),
         );
       }
     });
     return paths;
   }, [theme, seed]);
 
+  // Crater renders (canvas-absolute): geometry's Crater data wrapped with
+  // pre-built Skia paths for rim + bowl ellipses.
   const craters = useMemo(() => {
-    const out = new Map<string, Crater[]>();
+    const out = new Map<string, CraterRender[]>();
     theme.bands.forEach((band) => {
       if (band.kind === 'craters') {
         const yPx = band.yPct * VIS_H * SCALE;
         const heightPx = band.heightPct * VIS_H * SCALE;
-        out.set(band.id, seedCraters(yPx, heightPx, seed ^ themeSeed(band.id)));
+        out.set(band.id, buildCraterRenders(yPx, heightPx, seed ^ themeSeed(band.id)));
       }
     });
     return out;
   }, [theme, seed]);
 
-  // Grass tufts — only for the closest foreground band (singleHill profile).
-  // Static geometry, ToD-tinted at render time via GRASS_LIGHT/DARK_CURVE.
+  // Grass tufts (band-local) — only for the closest foreground band (singleHill
+  // profile). Static geometry, ToD-tinted at render time via GRASS curves.
+  // Wrapped in the same translateY = yPx Group as the silhouette path.
   const grassPaths = useMemo(() => {
     const out = new Map<string, GrassPaths>();
     theme.bands.forEach((band) => {
       if (band.kind === 'silhouette' && band.profile === 'singleHill') {
-        const yPx = band.yPct * VIS_H * SCALE;
         const heightPx = band.heightPct * VIS_H * SCALE;
-        out.set(band.id, seedGrass(yPx, heightPx, seed ^ themeSeed(band.id)));
+        out.set(band.id, buildGrassPaths(heightPx, seed ^ themeSeed(band.id)));
       }
     });
     return out;

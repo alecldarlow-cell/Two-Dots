@@ -835,6 +835,13 @@ function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
 function Lightning({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
+
+  // Find storm cells in the theme so bolts can originate from cloud bottoms
+  // rather than random sky positions. Falls back to old random placement
+  // if the theme has no stormClouds particle. Per round-7 anchored-lightning.
+  const stormSpec = (theme.particles || []).find((p) => p.kind === 'stormClouds');
+  const cloudCells = stormSpec ? computeStormCellPositions(stormSpec, w, gameH, nowMs) : [];
+
   const rng = mulberry32(909);
   const flashes = [];
   const cycleMs = 8000;
@@ -843,10 +850,25 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
   for (let i = 0; i < spec.count; i++) {
     const startT = rng();
     const duration = 0.02 + rng() * 0.04;       // 160-480ms of the loop
-    const cx = 60 + rng() * (w - 120);          // keep clear of edges
-    const cy = gameH * (0.50 + rng() * 0.30);   // strikes happen mid-to-lower bands
-    const boltLen = 80 + rng() * 110;
-    const baseRadius = 90 + rng() * 110;
+    const boltLen = 60 + rng() * 80;            // shorter bolts — sit just below cloud
+    const baseRadius = 80 + rng() * 80;
+
+    // Pick origin: anchor to a cloud cell when available, else random sky.
+    let cx, startY, endY;
+    if (cloudCells.length > 0) {
+      const cloudIdx = Math.floor(rng() * cloudCells.length);
+      const cloud = cloudCells[cloudIdx];
+      // Slight horizontal jitter from cloud centre so bolts emerge from
+      // varied points along the cloud's bottom edge, not always the centre.
+      cx = cloud.x + (rng() - 0.5) * cloud.baseR * 1.5;
+      // Bolt origin: just below the cloud's nominal bottom edge.
+      startY = cloud.y + cloud.cellHalfH * 0.6;
+      endY = startY + boltLen;
+    } else {
+      cx = 60 + rng() * (w - 120);
+      startY = gameH * (0.40 + rng() * 0.20);
+      endY = startY + boltLen;
+    }
 
     let dt = cyclePos - startT;
     if (dt < 0) dt += 1;
@@ -854,10 +876,8 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
       // Sharp attack (10%), exponential decay (90%) — feels like a real strike.
       const u = dt / duration;
       const intensity = u < 0.10 ? u / 0.10 : Math.pow(1 - (u - 0.10) / 0.90, 1.5);
-      // Each flash gets its own deterministic geometry seed so its bolt shape
-      // stays stable across frames during the brief flash duration.
       flashes.push({
-        cx, cy, baseRadius, boltLen,
+        cx, startY, endY, baseRadius,
         alpha: intensity * density,
         geomSeed: 909 + i * 137,
       });
@@ -887,8 +907,10 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
 
       {flashes.map((f, i) => {
         const r = mulberry32(f.geomSeed);
-        const startY = f.cy - f.boltLen * 0.5;
-        const endY = f.cy + f.boltLen * 0.5;
+        const startY = f.startY;
+        const endY = f.endY;
+        // Bloom centre = midpoint of the bolt; used for radial gradient placement.
+        const cy = (startY + endY) / 2;
 
         // Main bolt — jagged polyline anchored at start & end (cx), zigzag
         // through the middle. Tapered jitter (parabolic) so the bolt converges
@@ -939,10 +961,10 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
 
         return (
           <g key={i}>
-            {/* radial bloom */}
+            {/* radial bloom — centred on the bolt's midpoint */}
             <circle
               cx={f.cx}
-              cy={f.cy}
+              cy={cy}
               r={f.baseRadius * 1.8}
               fill={bloomFill}
               opacity={f.alpha}
@@ -1042,6 +1064,32 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   );
 }
 
+// Shared position helper for storm cells. Pure function of (spec, w, gameH,
+// nowMs); returns the centre (x, y), scale, base radius, and approximate
+// half-height of each cell at this moment. Decoupled from the cell's bubble
+// geometry (which uses a per-cell seed) so other components — e.g. Lightning
+// — can call this and agree with StormClouds on where each cell currently
+// lives without duplicating the bubble math. Per anchored-lightning refactor.
+function computeStormCellPositions(spec, w, gameH, nowMs) {
+  const rng = mulberry32(55);
+  const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.30) * gameH;
+  const yMax = (spec.yMaxPct != null ? spec.yMaxPct : 0.70) * gameH;
+  const positions = [];
+  for (let i = 0; i < spec.count; i++) {
+    const baseX = rng() * w * 1.4;
+    const baseY = yMin + rng() * (yMax - yMin);
+    const drift = (nowMs * 0.008 * (spec.speed || 1) + rng() * 1000) % (w + 240);
+    const x = ((baseX + drift) % (w + 240)) - 120;
+    const scale = 0.7 + rng() * 0.7;
+    const baseR = (14 + rng() * 7) * scale;
+    // Approximate cell half-height: bubbles extend roughly baseR above the
+    // centre and 0.5×baseR below, giving an envelope of ~1.5×baseR vertical.
+    const cellHalfH = baseR * 1.0;
+    positions.push({ x, y: baseY, scale, baseR, cellHalfH });
+  }
+  return positions;
+}
+
 // ─── Storm clouds (Jupiter) — illustrated cumulus with volume shading ───────
 // Each cell is a cumulus dome silhouette (5-7 overlapping circles) with a
 // vertical light→mid→dark linear gradient clipped inside. Result: defined
@@ -1058,51 +1106,36 @@ function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
   if (density < 0.05) return null;
   const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#b48868';
   const { lerpHex } = window.ThemeSchema;
-  // Three-tone shading derived from the band-tone tint. Light highlight at
-  // top, deep shadow at bottom — gives the cell volume.
   const lightTint = lerpHex(tint, '#fff5e0', 0.50);
   const darkTint  = lerpHex(tint, '#1a0a08', 0.45);
-  const rng = mulberry32(55);
 
-  const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.30) * gameH;
-  const yMax = (spec.yMaxPct != null ? spec.yMaxPct : 0.70) * gameH;
+  // Get canonical positions from shared helper. Each cell then uses a
+  // dedicated per-cell seed for bubble generation — keeps cell positions
+  // stable while bubbles can vary between cells.
+  const positions = computeStormCellPositions(spec, w, gameH, nowMs);
 
-  const clouds = [];
-  for (let i = 0; i < spec.count; i++) {
-    const baseX = rng() * w * 1.4;
-    const baseY = yMin + rng() * (yMax - yMin);
-    // Slow drift — cells crawl rather than march. Independent of band drift.
-    const drift = (nowMs * 0.008 * (spec.speed || 1) + rng() * 1000) % (w + 240);
-    const x = ((baseX + drift) % (w + 240)) - 120;
-
-    const scale = 0.7 + rng() * 0.7;
-    const cellOpacity = (0.85 + rng() * 0.12) * density;
-
-    // Cumulus dome via overlapping circles. Bigger in middle, smaller at
-    // edges — classic cumulus profile. Top edge undulates; bottom mostly
-    // aligned but no flat clip.
-    const bubbleCount = 5 + Math.floor(rng() * 3); // 5-7 bubbles
-    const baseR = (14 + rng() * 7) * scale;
-    const stepX = baseR * 0.55; // moderate overlap — bubbles fuse but silhouette is bumpy
+  const clouds = positions.map((pos, i) => {
+    const cellRng = mulberry32(155 + i * 31);
+    const cellOpacity = (0.85 + cellRng() * 0.12) * density;
+    const bubbleCount = 5 + Math.floor(cellRng() * 3); // 5-7 bubbles
+    const stepX = pos.baseR * 0.55;
     const totalSpan = stepX * (bubbleCount - 1);
     const bubbles = [];
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (let b = 0; b < bubbleCount; b++) {
-      const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.2;
+      const bx = b * stepX - totalSpan / 2 + (cellRng() - 0.5) * stepX * 0.2;
       const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
-      const sizeFactor = 1 - distFromCenter * 0.32 + (rng() - 0.5) * 0.10;
-      const br = baseR * sizeFactor;
-      // Top edge varies; smaller bubbles sit a touch lower for natural curve.
-      const by = -br * 0.18 + (rng() - 0.5) * br * 0.18;
+      const sizeFactor = 1 - distFromCenter * 0.32 + (cellRng() - 0.5) * 0.10;
+      const br = pos.baseR * sizeFactor;
+      const by = -br * 0.18 + (cellRng() - 0.5) * br * 0.18;
       bubbles.push({ bx, by, br });
       if (bx - br < minX) minX = bx - br;
       if (bx + br > maxX) maxX = bx + br;
       if (by - br < minY) minY = by - br;
       if (by + br > maxY) maxY = by + br;
     }
-
-    clouds.push({ x, y: baseY, bubbles, opacity: cellOpacity, minX, maxX, minY, maxY });
-  }
+    return { x: pos.x, y: pos.y, bubbles, opacity: cellOpacity, minX, maxX, minY, maxY };
+  });
 
   return (
     <g>
