@@ -637,23 +637,52 @@ function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
     const baseY = gameH * 0.18 + rng() * gameH * 0.25;
     const drift = (nowMs * 0.04 * spec.speed + rng() * 1000) % (w + 100);
     const x = ((baseX + drift) % (w + 100)) - 50;
-    // wing flap — phase per bird, ~3Hz
-    const wingPhase = nowMs * 0.005 + rng() * Math.PI * 2;
-    const wing = Math.sin(wingPhase) * 0.4 + 0.6; // 0.2 → 1.0
+    // Wing flap — wingtips oscillate up/down, body stays fixed. Slowed to
+    // ~1.3 Hz (was ~2 Hz) — more like real flight, less frantic.
+    const wingPhase = nowMs * 0.008 + rng() * Math.PI * 2;
+    const tipLift = Math.sin(wingPhase) * 0.7; // signed, swings through zero
     const size = (4 + rng() * 3) * sizeMul;
-    birds.push({ x, y: baseY, size, wing, o: (0.55 + rng() * 0.3) * density });
+    birds.push({ x, y: baseY, size, tipLift, o: (0.55 + rng() * 0.3) * density });
   }
   return (
     <g>
       {birds.map((b, i) => {
-        // Two wing strokes forming a "v"
-        const wingY = b.size * b.wing;
-        // Stroke width scales with size so big birds don't look like hairlines
+        // Wingtip y oscillates above/below body y. Body stays at b.y.
+        // Each wing's control point is placed PERPENDICULAR to the tip→body
+        // line by curlMag, so the arc magnitude stays consistent regardless
+        // of where the wing is in the flap cycle. Curl always points upward
+        // (negative y) — gives each wing a clear soft arc rather than a
+        // chevron straight line. Per Earth point 5 follow-up (round 6).
+        const tipY = b.y + b.size * b.tipLift;
         const sw = Math.max(0.9, b.size * 0.18);
+        const curlMag = b.size * 0.45;
+
+        // Left wing: tip → body
+        const lDx = b.size; // body.x - tip.x
+        const lDy = b.y - tipY;
+        const lLen = Math.sqrt(lDx * lDx + lDy * lDy);
+        const lPerpX = lDy / lLen; // perpendicular, normalised
+        const lPerpY = -lDx / lLen; // always negative (points up)
+        const lCtrlX = (b.x - b.size + b.x) / 2 + lPerpX * curlMag;
+        const lCtrlY = (tipY + b.y) / 2 + lPerpY * curlMag;
+
+        // Right wing: body → tip (mirror)
+        const rDx = b.size;
+        const rDy = tipY - b.y;
+        const rLen = Math.sqrt(rDx * rDx + rDy * rDy);
+        const rPerpX = rDy / rLen;
+        const rPerpY = -rDx / rLen;
+        const rCtrlX = (b.x + b.x + b.size) / 2 + rPerpX * curlMag;
+        const rCtrlY = (b.y + tipY) / 2 + rPerpY * curlMag;
+
         return (
           <path
             key={i}
-            d={`M ${b.x - b.size},${b.y} Q ${b.x - b.size * 0.4},${b.y - wingY} ${b.x},${b.y} Q ${b.x + b.size * 0.4},${b.y - wingY} ${b.x + b.size},${b.y}`}
+            d={
+              `M ${b.x - b.size},${tipY} ` +
+              `Q ${lCtrlX.toFixed(2)},${lCtrlY.toFixed(2)} ${b.x},${b.y} ` +
+              `Q ${rCtrlX.toFixed(2)},${rCtrlY.toFixed(2)} ${b.x + b.size},${tipY}`
+            }
             stroke={tint}
             strokeWidth={sw}
             fill="none"
