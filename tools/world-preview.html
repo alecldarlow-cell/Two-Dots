@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Two Dots — World Preview (Moon)</title>
+<style>
+  body {
+    margin: 0;
+    padding: 24px 16px;
+    background: #1a1a1f;
+    color: #ddd;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 500; }
+  h2 { font-size: 14px; margin: 32px 0 12px; font-weight: 500; color: #ccc; letter-spacing: 0.04em; text-transform: uppercase; }
+  p.sub { margin: 0 0 18px; color: #888; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px; }
+  .frame { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .frame .label { font-size: 11px; color: #aaa; letter-spacing: 0.04em; text-transform: uppercase; }
+  .frame .canvas {
+    border-radius: 32px;
+    overflow: hidden;
+    border: 1px solid #333;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .frame .canvas svg { display: block; width: 100%; height: 100%; }
+  .frame.gate-frame .canvas { width: 390px; height: 720px; border-radius: 44px; }
+  .frame.overview-frame .canvas { width: 320px; height: 500px; }
+  .scrub-row {
+    background: #232328;
+    border-radius: 8px;
+    padding: 12px 16px;
+    max-width: 520px;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .scrub-row label { font-size: 11px; color: #aaa; letter-spacing: 0.04em; text-transform: uppercase; }
+  .scrub-row input[type="range"] { flex: 1; }
+  .scrub-row .readout { font-size: 12px; color: #ddd; min-width: 50px; text-align: right; font-variant-numeric: tabular-nums; }
+  .legend { max-width: 720px; margin: 8px auto 0; color: #888; font-size: 11px; line-height: 1.6; }
+  .legend code { color: #ccc; background: #2a2a2f; padding: 1px 5px; border-radius: 3px; font-size: 10.5px; }
+  .changelog {
+    max-width: 720px;
+    margin: 0 auto 24px;
+    padding: 12px 16px;
+    background: #1f1f24;
+    border-left: 3px solid #557;
+    color: #aaa;
+    font-size: 11.5px;
+    line-height: 1.6;
+  }
+  .changelog strong { color: #ccc; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 1700px; margin: 0 auto;">
+  <h1>Moon — world preview (HTML stand-in for Skia render)</h1>
+  <p class="sub">
+    Reads the same locked <code>moonTheme</code> data as <code>themes/moon.ts</code>.
+    Same OKLCh interpolation, same procedural silhouettes, same particle seeding.
+    Browser gradient banding is sRGB by default (one of the documented Skia/CSS divergences).
+  </p>
+
+  <div class="changelog">
+    <strong>Round 2 changes (per design review):</strong>
+    silhouette profile divergence (soft-craters one octave capped at 55%; cratered-horizon three octaves + dip events);
+    foreground crater rims switched from stroke to filled darker shadows;
+    star alpha cutoff raised to 0.08 with product gating;
+    plain band haze gradient stops tightened to [0, 0.3];
+    Earth gains v0.5 <code>phaseCurve</code> with vertical-line terminator (first cut — elliptical follow-up if design rejects);
+    added 390×720 acceptance gate frames.
+  </div>
+
+  <h2>§6 acceptance gate — 390 × 720 (matches reference PNG aspect ratio)</h2>
+
+  <div class="row">
+    <div class="frame gate-frame"><div class="label">t = 0.00 · dawn</div><div class="canvas" id="gate-0"></div></div>
+    <div class="frame gate-frame"><div class="label">t = 0.25 · day</div><div class="canvas" id="gate-1"></div></div>
+    <div class="frame gate-frame"><div class="label">t = 0.50 · dusk</div><div class="canvas" id="gate-2"></div></div>
+    <div class="frame gate-frame"><div class="label">t = 0.75 · night</div><div class="canvas" id="gate-3"></div></div>
+  </div>
+
+  <h2>Live scrubber (390 × 720)</h2>
+
+  <div class="scrub-row">
+    <label>ToD</label>
+    <input type="range" id="scrub" min="0" max="1" step="0.005" value="0.25" />
+    <span class="readout" id="scrub-readout">0.250</span>
+  </div>
+
+  <div class="row">
+    <div class="frame gate-frame"><div class="label">scrubbed</div><div class="canvas" id="gate-live"></div></div>
+  </div>
+
+  <h2>Multi-ToD overview (320 × 500 — for at-a-glance review)</h2>
+
+  <div class="row">
+    <div class="frame overview-frame"><div class="label">t = 0.00</div><div class="canvas" id="overview-0"></div></div>
+    <div class="frame overview-frame"><div class="label">t = 0.25</div><div class="canvas" id="overview-1"></div></div>
+    <div class="frame overview-frame"><div class="label">t = 0.50</div><div class="canvas" id="overview-2"></div></div>
+    <div class="frame overview-frame"><div class="label">t = 0.75</div><div class="canvas" id="overview-3"></div></div>
+  </div>
+
+  <div class="legend">
+    <strong style="color:#ccc;">What this is:</strong>
+    Every visible element below — sky gradient, starfield, Earth-from-the-Moon
+    celestial (with phase terminator), parallax silhouettes, regolith plain
+    with haze, foreground filled crater shadows — is rendered from
+    <code>themes/moon.ts</code> using the same algorithms the Skia renderer
+    uses (see <code>src/app/_canvas/WorldRenderer.tsx</code>).
+    <br><br>
+    <strong style="color:#ccc;">Documented Skia/CSS divergences (don't reject on these):</strong>
+    OKLCh banding (browser sRGB will show more mid-tone banding through dawn/dusk than Skia OKLCh);
+    glow falloff (<code>radial-gradient</code> ramp ≠ Skia <code>BlurMask</code>);
+    silhouette antialiasing (Skia has explicit <code>antiAlias</code>).
+    Skia is the truth source; this preview is for placement and intent.
+  </div>
+</div>
+
+<script>
+// ─── OKLCh math (mirrors src/features/game/world/color.ts) ────────────────
+
+function srgbToLinear(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function linearToSrgb(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+
+function linearRgbToOklab(r, g, b) {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  const lc = Math.cbrt(l), mc = Math.cbrt(m), sc = Math.cbrt(s);
+  return [
+    0.2104542553 * lc + 0.7936177850 * mc - 0.0040720468 * sc,
+    1.9779984951 * lc - 2.4285922050 * mc + 0.4505937099 * sc,
+    0.0259040371 * lc + 0.7827717662 * mc - 0.8086757660 * sc,
+  ];
+}
+
+function oklabToLinearRgb(L, a, b) {
+  const lc = L + 0.3963377774 * a + 0.2158037573 * b;
+  const mc = L - 0.1055613458 * a - 0.0638541728 * b;
+  const sc = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = lc * lc * lc, m = mc * mc * mc, s = sc * sc * sc;
+  return [
+    +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ];
+}
+
+function oklabToOklch(L, a, b) {
+  const C = Math.hypot(a, b);
+  let H = Math.atan2(b, a) * 180 / Math.PI;
+  if (H < 0) H += 360;
+  return [L, C, H];
+}
+
+function oklchToOklab(L, C, H) {
+  const r = H * Math.PI / 180;
+  return [L, C * Math.cos(r), C * Math.sin(r)];
+}
+
+function hexToOklch(hex) {
+  let h = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const r = srgbToLinear(parseInt(h.slice(0, 2), 16) / 255);
+  const g = srgbToLinear(parseInt(h.slice(2, 4), 16) / 255);
+  const b = srgbToLinear(parseInt(h.slice(4, 6), 16) / 255);
+  const [L, A, B] = linearRgbToOklab(r, g, b);
+  return oklabToOklch(L, A, B);
+}
+
+function oklchToHex([L, C, H]) {
+  const [oL, oa, ob] = oklchToOklab(L, C, H);
+  const [r, g, b] = oklabToLinearRgb(oL, oa, ob);
+  const cl = c => Math.max(0, Math.min(1, linearToSrgb(c)));
+  const r8 = Math.round(cl(r) * 255), g8 = Math.round(cl(g) * 255), b8 = Math.round(cl(b) * 255);
+  const hex = n => n.toString(16).padStart(2, '0');
+  return '#' + hex(r8) + hex(g8) + hex(b8);
+}
+
+function lerpOklch(a, b, t) {
+  const L = a[0] + (b[0] - a[0]) * t;
+  const C = a[1] + (b[1] - a[1]) * t;
+  let h0 = a[2], h1 = b[2];
+  const dh = h1 - h0;
+  if (dh > 180) h1 -= 360;
+  else if (dh < -180) h1 += 360;
+  let H = h0 + (h1 - h0) * t;
+  if (H < 0) H += 360;
+  else if (H >= 360) H -= 360;
+  return [L, C, H];
+}
+
+function sampleHexCurve(stops, t) {
+  const tt = t - Math.floor(t);
+  const oklchStops = stops.map(s => [s.t, hexToOklch(s.color)]);
+  for (let i = 0; i < oklchStops.length; i++) {
+    const cur = oklchStops[i];
+    const next = oklchStops[i + 1] || [oklchStops[0][0] + 1, oklchStops[0][1]];
+    if (tt >= cur[0] && tt < next[0]) {
+      const local = (tt - cur[0]) / (next[0] - cur[0]);
+      return oklchToHex(lerpOklch(cur[1], next[1], local));
+    }
+  }
+  const last = oklchStops[oklchStops.length - 1], first = oklchStops[0];
+  const local = (tt - last[0]) / (first[0] + 1 - last[0]);
+  return oklchToHex(lerpOklch(last[1], first[1], local));
+}
+
+function sampleOklchCurve(stops, t) {
+  const tt = t - Math.floor(t);
+  const oklchStops = stops.map(s => [s.t, hexToOklch(s.color)]);
+  for (let i = 0; i < oklchStops.length; i++) {
+    const cur = oklchStops[i];
+    const next = oklchStops[i + 1] || [oklchStops[0][0] + 1, oklchStops[0][1]];
+    if (tt >= cur[0] && tt < next[0]) {
+      const local = (tt - cur[0]) / (next[0] - cur[0]);
+      return lerpOklch(cur[1], next[1], local);
+    }
+  }
+  const last = oklchStops[oklchStops.length - 1], first = oklchStops[0];
+  const local = (tt - last[0]) / (first[0] + 1 - last[0]);
+  return lerpOklch(last[1], first[1], local);
+}
+
+function sampleScalarCurve(stops, t) {
+  const tt = t - Math.floor(t);
+  for (let i = 0; i < stops.length; i++) {
+    const cur = stops[i];
+    const next = stops[i + 1] || { t: stops[0].t + 1, value: stops[0].value };
+    if (tt >= cur.t && tt < next.t) {
+      const local = (tt - cur.t) / (next.t - cur.t);
+      return cur.value + (next.value - cur.value) * local;
+    }
+  }
+  const last = stops[stops.length - 1], first = stops[0];
+  const local = (tt - last.t) / (first.t + 1 - last.t);
+  return last.value + (first.value - last.value) * local;
+}
+
+// ─── seeded RNG ────────────────────────────────────────────────────────────
+
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let z = s;
+    z = Math.imul(z ^ (z >>> 15), z | 1);
+    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function themeSeed(id) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+// ─── moon theme data (transcribed from themes/moon.ts; v0.5 includes phaseCurve) ─
+
+const moonTheme = {
+  id: 'moon',
+  sky: {
+    topCurve: [
+      { t: 0.00, color: '#1a1d3a' }, { t: 0.25, color: '#0d1638' },
+      { t: 0.50, color: '#221530' }, { t: 0.75, color: '#04050d' },
+    ],
+    midCurve: [
+      { t: 0.00, color: '#2c2647' }, { t: 0.25, color: '#1a2452' },
+      { t: 0.50, color: '#3a1f3a' }, { t: 0.75, color: '#080918' },
+    ],
+    bottomCurve: [
+      { t: 0.00, color: '#3d3552' }, { t: 0.25, color: '#2a3760' },
+      { t: 0.50, color: '#4a2a45' }, { t: 0.75, color: '#0e0f1f' },
+    ],
+  },
+  bands: [
+    { id: 'farRidge', kind: 'silhouette', yPct: 0.62, heightPct: 0.08, parallax: 0.10, profile: 'soft-craters',
+      colorCurve: [
+        { t: 0.00, color: '#34304a' }, { t: 0.25, color: '#272f50' },
+        { t: 0.50, color: '#3b2945' }, { t: 0.75, color: '#0f1226' },
+      ] },
+    { id: 'midRidge', kind: 'silhouette', yPct: 0.68, heightPct: 0.10, parallax: 0.22, profile: 'cratered-horizon',
+      colorCurve: [
+        { t: 0.00, color: '#2a2740' }, { t: 0.25, color: '#1d264a' },
+        { t: 0.50, color: '#311f3c' }, { t: 0.75, color: '#080a1a' },
+      ] },
+    { id: 'nearPlain', kind: 'plain', yPct: 0.78, heightPct: 0.22, parallax: 0.45,
+      colorCurve: [
+        { t: 0.00, color: '#5a5670' }, { t: 0.25, color: '#4a5479' },
+        { t: 0.50, color: '#564058' }, { t: 0.75, color: '#1a1c2e' },
+      ],
+      hazeCurve: [
+        { t: 0.00, color: '#6c5e74' }, { t: 0.25, color: '#5e6b8a' },
+        { t: 0.50, color: '#6a4a5c' }, { t: 0.75, color: '#22243a' },
+      ] },
+    { id: 'foreground', kind: 'craters', yPct: 0.86, heightPct: 0.14, parallax: 0.85,
+      colorCurve: [
+        { t: 0.00, color: '#3e3a52' }, { t: 0.25, color: '#323a5a' },
+        { t: 0.50, color: '#3a2a40' }, { t: 0.75, color: '#0c0d1c' },
+      ] },
+  ],
+  particles: [
+    { id: 'stars', kind: 'starfield', count: 80,
+      densityCurve: [
+        { t: 0.00, value: 0.4 }, { t: 0.25, value: 0.15 },
+        { t: 0.50, value: 0.5 }, { t: 0.75, value: 1.0 },
+      ], twinkle: true },
+    { id: 'dust', kind: 'horizontalDrift', count: 30,
+      densityCurve: [
+        { t: 0.00, value: 0.6 }, { t: 0.25, value: 0.5 },
+        { t: 0.50, value: 0.7 }, { t: 0.75, value: 0.4 },
+      ], speed: 0.3, sizeRange: [1, 2.5] },
+  ],
+  celestials: [
+    { id: 'earth', kind: 'planet', xPct: 0.78, yPct: 0.18, radius: 28,
+      colorCurve: [
+        { t: 0.00, color: '#5b8fc9' }, { t: 0.25, color: '#7aa9d9' },
+        { t: 0.50, color: '#4d7ab8' }, { t: 0.75, color: '#3a5e95' },
+      ],
+      glowCurve: [
+        { t: 0.00, value: 0.4 }, { t: 0.25, value: 0.6 },
+        { t: 0.50, value: 0.5 }, { t: 0.75, value: 0.3 },
+      ],
+      phaseCurve: [
+        { t: 0.00, value: 0.30 }, { t: 0.25, value: 0.55 },
+        { t: 0.50, value: 0.75 }, { t: 0.75, value: 0.95 },
+      ] },
+  ],
+};
+
+// ─── seeders + procedural geometry (parameterized on canvas size) ─────────
+
+const STARS_SPEC = moonTheme.particles.find(p => p.kind === 'starfield');
+const DUST_SPEC = moonTheme.particles.find(p => p.kind === 'horizontalDrift');
+const SEED = themeSeed('moon');
+
+function seedStars(W, H) {
+  const rng = mulberry32(SEED);
+  const out = [];
+  const skyBottom = 0.6 * H;
+  for (let i = 0; i < STARS_SPEC.count; i++) {
+    out.push({ x: rng() * W, y: rng() * skyBottom, r: 0.5 + rng() * 1.1, phase: rng() * Math.PI * 2 });
+  }
+  return out;
+}
+
+function seedDust(W, H) {
+  const rng = mulberry32(SEED ^ 0xa5a5a5a5);
+  const out = [];
+  const yMin = 0.7 * H, yMax = 0.85 * H;
+  for (let i = 0; i < DUST_SPEC.count; i++) {
+    out.push({
+      x: rng() * W, y: yMin + rng() * (yMax - yMin),
+      r: DUST_SPEC.sizeRange[0] + rng() * (DUST_SPEC.sizeRange[1] - DUST_SPEC.sizeRange[0]),
+    });
+  }
+  return out;
+}
+
+// Round-2: silhouette profile divergence (mirrors WorldRenderer.tsx)
+function silhouettePath(profile, W, yPx, heightPx, seed) {
+  const tileW = W * 2, step = 4;
+  let d = 'M 0,' + (yPx + heightPx) + ' ';
+  for (let x = 0; x <= tileW; x += step) {
+    let yLocal;
+    switch (profile) {
+      case 'soft-craters': {
+        const base = Math.sin(x * 0.012 + seed) * 0.5;
+        const wobble = Math.sin(x * 0.04 + seed * 1.7) * 0.15;
+        yLocal = (0.5 + (base + wobble) * 0.5) * heightPx * 0.55;
+        break;
+      }
+      case 'cratered-horizon': {
+        const o1 = Math.sin(x * 0.018 + seed) * 0.5;
+        const o2 = Math.sin(x * 0.05 + seed * 2.3) * 0.25;
+        const o3 = Math.sin(x * 0.13 + seed * 3.7) * 0.12;
+        const dipPhase = (x + seed * 31) % 90;
+        const dip = dipPhase < 14 ? -Math.sin(dipPhase / 14 * Math.PI) * 0.18 : 0;
+        yLocal = (0.5 + (o1 + o2 + o3 + dip)) * heightPx;
+        break;
+      }
+      case 'mountains': {
+        const o1 = Math.abs(Math.sin(x * 0.02 + seed)) * 0.7;
+        const o2 = Math.abs(Math.sin(x * 0.06 + seed * 2)) * 0.3;
+        yLocal = (0.3 + o1 * 0.6 + o2 * 0.2) * heightPx;
+        break;
+      }
+      default: yLocal = heightPx * 0.5;
+    }
+    d += 'L ' + x.toFixed(1) + ',' + (yPx + yLocal).toFixed(1) + ' ';
+  }
+  d += 'L ' + tileW + ',' + (yPx + heightPx) + ' Z';
+  return d;
+}
+
+function seedCraterRims(W, yPx, heightPx, seed) {
+  const rng = mulberry32(seed ^ 0xdeadbeef);
+  const out = [], count = 8, tileW = W * 2;
+  for (let i = 0; i < count; i++) {
+    out.push({ x: ((i + rng()) / count) * tileW, y: yPx + heightPx * (0.35 + rng() * 0.35), r: 14 + rng() * 22 });
+  }
+  return out;
+}
+
+// ─── frame renderer ───────────────────────────────────────────────────────
+
+function renderFrame(t, target, W, H, scrollX) {
+  scrollX = scrollX || 0;
+  const VIS_H = H;
+
+  // Per-frame seeds (cached per W,H combination if perf matters; we render
+  // 9 frames total so just recomputing).
+  const stars = seedStars(W, VIS_H);
+  const dust = seedDust(W, VIS_H);
+  const silPaths = {};
+  const rims = {};
+  moonTheme.bands.forEach(band => {
+    if (band.kind === 'silhouette') {
+      silPaths[band.id] = silhouettePath(band.profile, W, band.yPct * VIS_H, band.heightPct * VIS_H, SEED ^ themeSeed(band.id));
+    } else if (band.kind === 'craters') {
+      rims[band.id] = seedCraterRims(W, band.yPct * VIS_H, band.heightPct * VIS_H, SEED ^ themeSeed(band.id));
+    }
+  });
+
+  const skyTop = sampleHexCurve(moonTheme.sky.topCurve, t);
+  const skyMid = sampleHexCurve(moonTheme.sky.midCurve, t);
+  const skyBot = sampleHexCurve(moonTheme.sky.bottomCurve, t);
+
+  const starDensity = sampleScalarCurve(STARS_SPEC.densityCurve, t);
+  const dustDensity = sampleScalarCurve(DUST_SPEC.densityCurve, t);
+
+  const earth = moonTheme.celestials[0];
+  const earthBaseOklch = sampleOklchCurve(earth.colorCurve, t);
+  const earthCol = oklchToHex(earthBaseOklch);
+  const earthGlow = sampleScalarCurve(earth.glowCurve, t);
+  const earthPhase = earth.phaseCurve ? sampleScalarCurve(earth.phaseCurve, t) : 1;
+  const earthCx = earth.xPct * W, earthCy = earth.yPct * VIS_H;
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">';
+  svg += '<defs>';
+  svg += '<linearGradient id="sky-' + target + '" x1="0" y1="0" x2="0" y2="1">';
+  svg += '<stop offset="0" stop-color="' + skyTop + '"/>';
+  svg += '<stop offset="0.5" stop-color="' + skyMid + '"/>';
+  svg += '<stop offset="1" stop-color="' + skyBot + '"/>';
+  svg += '</linearGradient>';
+  svg += '<radialGradient id="halo-' + target + '" cx="0.5" cy="0.5" r="0.5">';
+  svg += '<stop offset="0" stop-color="' + earthCol + '" stop-opacity="' + (earthGlow * 0.55).toFixed(3) + '"/>';
+  svg += '<stop offset="1" stop-color="' + earthCol + '" stop-opacity="0"/>';
+  svg += '</radialGradient>';
+  // Phase shadow clipPath = body circle
+  svg += '<clipPath id="bodyclip-' + target + '"><circle cx="' + earthCx + '" cy="' + earthCy + '" r="' + earth.radius + '"/></clipPath>';
+  // Plain band haze gradient — Round-2: stops [0, 0.3], not [0, 1]
+  const plain = moonTheme.bands.find(b => b.kind === 'plain');
+  const plainCol = sampleHexCurve(plain.colorCurve, t);
+  const plainHaze = sampleHexCurve(plain.hazeCurve, t);
+  svg += '<linearGradient id="plain-' + target + '" x1="0" y1="0" x2="0" y2="1">';
+  svg += '<stop offset="0" stop-color="' + plainHaze + '"/>';
+  svg += '<stop offset="0.3" stop-color="' + plainCol + '"/>';
+  svg += '<stop offset="1" stop-color="' + plainCol + '"/>';
+  svg += '</linearGradient>';
+  svg += '</defs>';
+
+  // 1. sky
+  svg += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="url(#sky-' + target + ')"/>';
+
+  // 2. stars — Round-2: alpha = density × twinkle, gate at 0.08
+  stars.forEach(s => {
+    const twinkle = STARS_SPEC.twinkle ? 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(t * Math.PI * 4 + s.phase)) : 1;
+    const alpha = starDensity * twinkle;
+    if (alpha < 0.08) return;
+    svg += '<circle cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + s.r.toFixed(2) + '" fill="#ffffff" opacity="' + Math.min(1, alpha).toFixed(3) + '"/>';
+  });
+
+  // 3. celestial: halo + body + phase terminator (Round-2 v0.5)
+  const haloR = earth.radius * 2.4;
+  svg += '<circle cx="' + earthCx + '" cy="' + earthCy + '" r="' + haloR + '" fill="url(#halo-' + target + ')"/>';
+  svg += '<circle cx="' + earthCx + '" cy="' + earthCy + '" r="' + earth.radius + '" fill="' + earthCol + '"/>';
+  if (earthPhase < 0.99) {
+    // Shadow color = body OKLCh × 0.18 lightness
+    const shadowCol = oklchToHex([earthBaseOklch[0] * 0.18, earthBaseOklch[1] * 0.6, earthBaseOklch[2]]);
+    const terminatorX = earthCx + (2 * earthPhase - 1) * earth.radius;
+    const shadowW = (earthCx + earth.radius) - terminatorX;
+    svg += '<g clip-path="url(#bodyclip-' + target + ')">';
+    svg += '<rect x="' + terminatorX.toFixed(1) + '" y="' + (earthCy - earth.radius) + '" width="' + shadowW.toFixed(1) + '" height="' + (2 * earth.radius) + '" fill="' + shadowCol + '"/>';
+    svg += '</g>';
+  }
+
+  // 4. bands far→near
+  moonTheme.bands.forEach(band => {
+    const yPx = band.yPct * VIS_H, heightPx = band.heightPct * VIS_H;
+    const baseOklch = sampleOklchCurve(band.colorCurve, t);
+    const col = oklchToHex(baseOklch);
+    const dx = -((scrollX * band.parallax) % W);
+    if (band.kind === 'silhouette') {
+      svg += '<g transform="translate(' + dx.toFixed(1) + ',0)"><path d="' + silPaths[band.id] + '" fill="' + col + '"/></g>';
+    } else if (band.kind === 'plain') {
+      svg += '<rect x="0" y="' + yPx + '" width="' + W + '" height="' + heightPx + '" fill="url(#plain-' + target + ')"/>';
+    } else if (band.kind === 'craters') {
+      // Round-2: filled darker rim shadows, not strokes
+      const rimCol = oklchToHex([baseOklch[0] * 0.55, baseOklch[1] * 0.85, baseOklch[2]]);
+      svg += '<g transform="translate(' + dx.toFixed(1) + ',0)">';
+      svg += '<rect x="0" y="' + yPx + '" width="' + (W * 2) + '" height="' + heightPx + '" fill="' + col + '"/>';
+      rims[band.id].forEach(rim => {
+        svg += '<circle cx="' + rim.x.toFixed(1) + '" cy="' + rim.y.toFixed(1) + '" r="' + rim.r.toFixed(1) + '" fill="' + rimCol + '" opacity="0.65"/>';
+      });
+      svg += '</g>';
+    }
+  });
+
+  // 5. drift dust
+  dust.forEach(d => {
+    const x = ((d.x - scrollX * 0.6) % W + W) % W;
+    svg += '<circle cx="' + x.toFixed(1) + '" cy="' + d.y.toFixed(1) + '" r="' + d.r.toFixed(1) + '" fill="#ffffff" opacity="' + (dustDensity * 0.3).toFixed(3) + '"/>';
+  });
+
+  svg += '</svg>';
+  document.getElementById(target).innerHTML = svg;
+}
+
+// ─── render all frames ────────────────────────────────────────────────────
+
+const GATE_W = 390, GATE_H = 720;
+const OVERVIEW_W = 320, OVERVIEW_H = 500;
+
+renderFrame(0.00, 'gate-0', GATE_W, GATE_H);
+renderFrame(0.25, 'gate-1', GATE_W, GATE_H);
+renderFrame(0.50, 'gate-2', GATE_W, GATE_H);
+renderFrame(0.75, 'gate-3', GATE_W, GATE_H);
+renderFrame(0.25, 'gate-live', GATE_W, GATE_H);
+
+renderFrame(0.00, 'overview-0', OVERVIEW_W, OVERVIEW_H);
+renderFrame(0.25, 'overview-1', OVERVIEW_W, OVERVIEW_H);
+renderFrame(0.50, 'overview-2', OVERVIEW_W, OVERVIEW_H);
+renderFrame(0.75, 'overview-3', OVERVIEW_W, OVERVIEW_H);
+
+const scrub = document.getElementById('scrub');
+const readout = document.getElementById('scrub-readout');
+scrub.addEventListener('input', () => {
+  const v = parseFloat(scrub.value);
+  readout.textContent = v.toFixed(3);
+  renderFrame(v, 'gate-live', GATE_W, GATE_H);
+});
+</script>
+
+</body>
+</html>

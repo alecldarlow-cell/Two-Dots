@@ -12,6 +12,8 @@ export const StorageKeys = {
   personalBest: 'td.personal_best',
   displayName: 'td.display_name',
   currentSessionId: 'td.current_session_id',
+  // v0.3-worlds — selected planet id (Moon | Earth | Jupiter). See useCurrentPlanet.
+  currentPlanet: 'td.current_planet',
 } as const;
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys];

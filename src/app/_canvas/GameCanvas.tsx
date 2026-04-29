@@ -26,6 +26,7 @@ import React from 'react';
 import { Canvas, Circle, Group, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
 import { LANE_L, LANE_R, PIPE_W, W } from '@features/game/engine';
+import type { WorldTheme } from '@features/game/world';
 import {
   COL_L,
   COL_R,
@@ -41,6 +42,7 @@ import type { DisplaySnapshot } from '../_shared/snapshot';
 import { Dot } from './Dot';
 import { PipeScanlines } from './PipeScanlines';
 import { TitleBloom } from './TitleBloom';
+import { WorldRenderer } from './WorldRenderer';
 
 export interface GameCanvasProps {
   display: DisplaySnapshot;
@@ -54,6 +56,14 @@ export interface GameCanvasProps {
   pauseShimmerOpacity: number;
   goldWashAlpha: number;
   freezeAlpha: number;
+  // v0.3-worlds — when present, WorldRenderer mounts as the first child
+  // (behind divider/pipes/dots/particles). Optional to keep existing
+  // snapshot tests untouched; if absent, canvas renders as it did pre-v0.3.
+  worldTheme?: WorldTheme;
+  /** Time-of-day cycle ∈ [0,1]. 0=dawn, 0.25=day, 0.5=dusk, 0.75=night. */
+  worldTod?: number;
+  /** Parallax scroll offset in screen px. Bands scale by their `parallax`. */
+  worldScrollX?: number;
 }
 
 export function GameCanvas({
@@ -68,6 +78,9 @@ export function GameCanvas({
   pauseShimmerOpacity,
   goldWashAlpha,
   freezeAlpha,
+  worldTheme,
+  worldTod = 0.25,
+  worldScrollX = 0,
 }: GameCanvasProps): React.ReactElement {
   return (
     <Canvas
@@ -80,6 +93,16 @@ export function GameCanvas({
         height: GAME_H,
       }}
     >
+      {/* ── World (v0.3 planetary mode background — behind everything) ── */}
+      {worldTheme && (
+        <WorldRenderer
+          theme={worldTheme}
+          t={worldTod}
+          scrollX={worldScrollX}
+          nowMs={nowMs}
+        />
+      )}
+
       {/* ── Divider bilateral soft glow ── */}
       {/* Left glow: COL_L transparent at far-left, opaque near centre */}
       <Rect x={sx(W / 2 - 18)} y={0} width={sx(18)} height={GAME_H}>
