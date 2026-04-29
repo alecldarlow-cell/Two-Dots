@@ -51,10 +51,16 @@ import {
 } from './_shared/constants';
 import { styles } from './_shared/styles';
 import { GameCanvas } from './_canvas/GameCanvas';
+import { useCurrentPlanet } from './_hooks/useCurrentPlanet';
 import { useGameLoop } from './_hooks/useGameLoop';
 import { DeathScreen } from './_overlays/DeathScreen';
 import { IdleScreen } from './_overlays/IdleScreen';
 import { PlayingHUD } from './_overlays/PlayingHUD';
+
+// v0.3-worlds — planetary backgrounds are still in development. When false,
+// GameCanvas renders without the WorldRenderer (pre-v0.3 dark background).
+// Flip to true once the Earth/Jupiter theme designs are signed off.
+const WORLDS_ENABLED = false;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function GameScreen(): React.ReactElement {
@@ -62,6 +68,13 @@ export default function GameScreen(): React.ReactElement {
   // audio loading, the rAF physics+render loop, the death side-effect, and
   // the multi-touch handler. See _hooks/useGameLoop.ts for the full surface.
   const { display, handleTouch, bestScore, wasNewBest } = useGameLoop();
+
+  // v0.3-worlds — selected planetary mode (persisted to AsyncStorage). The
+  // theme registry currently only ships Moon, so this falls back to Moon
+  // until Earth + Jupiter design lands. Engine `gravityMul` wiring follows
+  // in a separate commit once the renderer side passes the side-by-side
+  // diff (spec §6).
+  const [worldTheme] = useCurrentPlanet();
 
   // ─── Derived render values ─────────────────────────────────────────────────
   const nowMs = Date.now();
@@ -231,6 +244,16 @@ export default function GameScreen(): React.ReactElement {
           pauseShimmerOpacity={pauseShimmerOpacity}
           goldWashAlpha={goldWashAlpha}
           freezeAlpha={freezeAlpha}
+          // v0.3-worlds — Moon background (sky + bands + celestial + stars).
+          // worldTod is static at 0.25 (day) for the first render; cycle
+          // animation lands in a follow-up once schema is locked. worldScrollX
+          // ticks gently from nowMs so parallax bands have a sense of motion.
+          // Gated behind WORLDS_ENABLED while themes are in design — when
+          // false, GameCanvas's `worldTheme && (...)` guard skips WorldRenderer
+          // and the canvas falls back to its pre-v0.3 dark background.
+          worldTheme={WORLDS_ENABLED ? worldTheme : undefined}
+          worldTod={0.25}
+          worldScrollX={nowMs * 0.04}
         />
 
         {/* ── Playing-phase HUD (live score + progress dots + milestone pop + pause) ── */}

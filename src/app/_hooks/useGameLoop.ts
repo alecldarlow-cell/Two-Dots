@@ -5,7 +5,7 @@
  *   - Per-component refs (sessionId, runIndex, deathTime, prevPhase,
  *     lastFrame accumulator, bestScore, wasNewBest, gameState).
  *   - Display snapshot state (the React-rendered projection of gsRef.current).
- *   - Audio loading and replay (expo-av, 16 preloaded WAVs).
+ *   - Audio loading and replay (expo-audio, 16 preloaded WAVs).
  *   - The fixed-timestep physics+render loop (rAF + accumulator + every-other-
  *     frame setDisplay).
  *   - The death side-effect (haptics, analytics run_end, score submission,
@@ -36,7 +36,9 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Audio } from 'expo-av';
+import { AppState } from 'react-native';
+import { Asset } from 'expo-asset';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 
@@ -98,14 +100,25 @@ export function useGameLoop(): GameLoopAPI {
   const gsRef = useRef<GameState>(initState());
   const [display, setDisplay] = useState<DisplaySnapshot>(() => snap(gsRef.current));
 
-  // ─── Audio (expo-av) ─────────────────────────────────────────────────────────
+  // ─── Audio (expo-audio) ──────────────────────────────────────────────────────
   // All sounds stored in a single ref-keyed map so the replay function is
   // stable and safe to call from both the physics loop and touch handlers.
-  const sounds = useRef<Record<string, Audio.Sound>>({});
+  const sounds = useRef<Record<string, AudioPlayer>>({});
 
   // Stable replay — accesses sounds.current at call time; never stale.
+  // expo-audio has no `replayAsync()`; equivalent is seek-to-zero + play.
+  // seekTo returns a Promise but we fire-and-forget — calling .play()
+  // immediately after still produces a from-start replay because the native
+  // seek completes before the audio thread services the play command.
   const replay = useRef((key: string): void => {
-    sounds.current[key]?.replayAsync().catch(() => {});
+    const player = sounds.current[key];
+    if (!player) return;
+    try {
+      void player.seekTo(0);
+      player.play();
+    } catch {
+      // Player may be mid-teardown on unmount; ignore.
+    }
   }).current;
 
   // Load persistent best score once on mount. Falls back to 0 if absent or
@@ -123,12 +136,45 @@ export function useGameLoop(): GameLoopAPI {
     };
   }, []);
 
+  // ─── Background/foreground handling ──────────────────────────────────────────
+  // Two things happen when the app is sent to background:
+  //   1. We set `gsRef.current.paused = true` if a run is in progress, which
+  //      the engine respects (stepPlaying is a no-op when paused — see
+  //      step.ts:85). This freezes physics so the dots don't fall during
+  //      resume; any non-centre tap on return unpauses (step.ts:313-315).
+  //   2. We reset `lastFrameRef` and the physics accumulator so that even if
+  //      the engine state somehow continued, the first frame after resume
+  //      would compute zero catch-up physics. Belt and braces.
+  // Idle and dead phases don't need pausing — they're already not stepping
+  // physics — but resetting the timestamps is harmless.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') {
+        if (gsRef.current.phase === 'playing') {
+          gsRef.current.paused = true;
+        }
+        lastFrameRef.current = 0;
+        accRef.current = 0;
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   // Load all sounds once on mount; clean up on unmount.
   // Capture sounds.current into a local so the cleanup closure references the
   // same map ESLint can prove won't change. (sounds is initialized once via
   // useRef so .current is stable, but lint can't see that.)
+  //
+  // expo-audio gotcha: unlike expo-av's Audio.Sound.createAsync (which
+  // resolved bundled require()'d assets internally), expo-audio's
+  // createAudioPlayer reads source.uri synchronously and silently creates
+  // a no-op player if the URI isn't resolvable. For bundled assets in a
+  // preview/production build the localUri is only populated AFTER
+  // Asset.downloadAsync() completes — without it, every player loads
+  // nothing and playback is silent. We pre-download all assets, then
+  // construct players from the resolved Asset instances.
   useEffect(() => {
-    Audio.setAudioModeAsync({ playsInSilentModeIOS: true }).catch(() => {});
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     const soundsMap = sounds.current;
     const sources: Record<string, number> = {
       jumpL: require('../../../assets/sounds/jump_l.wav'),
@@ -148,15 +194,29 @@ export function useGameLoop(): GameLoopAPI {
       closeCall: require('../../../assets/sounds/close_call.wav'),
       death: require('../../../assets/sounds/death.wav'),
     };
-    Object.entries(sources).forEach(([key, src]) => {
-      Audio.Sound.createAsync(src, { shouldPlay: false })
-        .then(({ sound }) => {
-          soundsMap[key] = sound;
-        })
-        .catch(() => {});
-    });
+    let cancelled = false;
+    void (async () => {
+      for (const [key, src] of Object.entries(sources)) {
+        if (cancelled) return;
+        try {
+          const asset = Asset.fromModule(src);
+          await asset.downloadAsync();
+          if (cancelled) return;
+          soundsMap[key] = createAudioPlayer(asset);
+        } catch {
+          // Asset download or player creation failed; skip this sound silently.
+        }
+      }
+    })();
     return () => {
-      Object.values(soundsMap).forEach((s) => s.unloadAsync().catch(() => {}));
+      cancelled = true;
+      Object.values(soundsMap).forEach((p) => {
+        try {
+          p.remove();
+        } catch {
+          // Already removed; ignore.
+        }
+      });
     };
   }, []);
 
