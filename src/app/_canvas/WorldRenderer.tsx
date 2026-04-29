@@ -1,25 +1,36 @@
 /**
- * WorldRenderer — Skia-side renderer for the planetary-mode schema (v0.5).
+ * WorldRenderer — Skia-side renderer for the planetary-mode schema (v0.6).
  *
  * Reads a frozen WorldTheme + the current ToD `t` and draws (in z-order):
  *
  *   1. Sky               full-bleed 3-stop linear gradient (top/mid/bottom curves)
- *   2. Celestials        sun / moon / planet / storm-eye. Optional xCurve/yCurve
- *                        arc using rawT; color/glow/phase use eased t.
- *                        glow=0 hides body+halo entirely.
+ *   2. Celestials        sun / moon / planet / earth / storm-eye. Optional
+ *                        xCurve/yCurve arc using rawT; color/glow use eased t.
+ *                        glow=0 hides body+halo entirely (light sources only).
+ *                        kind:'earth' takes a dedicated stylised render path
+ *                        (ocean + Africa/Europe/Americas/Madagascar continents
+ *                        + ice caps + halo + soft terminator).
  *   3. Stars             fixed seeded positions; alpha = density × twinkle
  *                        (cutoff 0.08); optional sizeMul.
- *   4. Clouds            multi-bubble cumulus, sky-tinted, drifting (Earth)
- *   5. Birds             chevron Q-curves with wing-flap (Earth)
+ *   4. Clouds            multi-bubble cumulus with clip-path flat bottom (round
+ *                        6) — bubbles share by = -br + 0.12br, clipped to y<0.
+ *   5. Birds             Q-curve wings with signed wingtip oscillation +
+ *                        perpendicular curl (round 6) — body fixed, tips
+ *                        swing through zero; control points placed perp to
+ *                        tip→body line at consistent magnitude.
  *   6. Bands far→near    silhouette / plain / craters. Silhouettes optionally
  *                        clip an internal vertical gradient (gradientCurve).
- *   7. Drift dust        horizontalDrift particles (Moon)
+ *                        singleHill profile gets grass tufts overlaid (round 6).
+ *                        Craters are STATIC — band.parallax is ignored for
+ *                        the craters branch. Two-shade rim+bowl depth (round 6).
+ *   7. Drift dust        horizontalDrift particles (legacy — Moon's lunar dust
+ *                        was removed in round 6; profile preserved for future).
  *
  * Mounted as the FIRST child of the existing Skia <Canvas> in GameCanvas.tsx.
  *
- * v0.5 posture:
+ * v0.5 posture (still applies):
  *   - Static-per-planet geometry memoized via useMemo on theme identity:
- *     star/dust/cloud/bird seeds, silhouette paths, crater rims.
+ *     star/dust/cloud/bird seeds, silhouette paths, grass tufts, craters.
  *   - ToD interpolation runs in JS at React render time (oklch — see ./color.ts).
  *     Worklet migration is a follow-up commit when `t` is wired to a Reanimated
  *     SharedValue from the game clock. Math is pure and worklet-safe.
@@ -575,6 +586,11 @@ type Crater = {
   rx: number;
   ry: number;
   opacity: number;
+  /** Pre-built Skia paths so we don't allocate per-frame (32 craters × 2
+   *  ovals = 64 path allocations every frame would otherwise hit GC on
+   *  mid-range Android). Built once at seed time. */
+  rimPath: ReturnType<typeof Skia.Path.Make>;
+  bowlPath: ReturnType<typeof Skia.Path.Make>;
 };
 
 function seedCraters(yPx: number, heightPx: number, seed: number): Crater[] {
@@ -612,7 +628,30 @@ function seedCraters(yPx: number, heightPx: number, seed: number): Crater[] {
         }
       }
       if (!overlaps) {
-        out.push({ x: cx, y: cy, rx, ry, opacity: 0.55 + rng() * 0.35 });
+        // Pre-build the two ellipse paths now — static across renders.
+        const rimPath = Skia.Path.Make();
+        rimPath.addOval({
+          x: cx - rx * 1.08,
+          y: cy - ry * 1.08,
+          width: rx * 1.08 * 2,
+          height: ry * 1.08 * 2,
+        });
+        const bowlPath = Skia.Path.Make();
+        bowlPath.addOval({
+          x: cx - rx * 0.85,
+          y: cy - ry * 0.15 - ry * 0.8,
+          width: rx * 0.85 * 2,
+          height: ry * 0.8 * 2,
+        });
+        out.push({
+          x: cx,
+          y: cy,
+          rx,
+          ry,
+          opacity: 0.55 + rng() * 0.35,
+          rimPath,
+          bowlPath,
+        });
         placed = true;
       }
     }
@@ -677,9 +716,13 @@ function CelestialBody({
   t: number;
   rawT: number;
 }): React.ReactElement | null {
-  // Caller is responsible for not invoking this with kind: 'storm-eye' —
-  // those are rendered separately AFTER bands (see WorldRenderer below).
-  // Putting the filter here would conflict with the useMemo hook order.
+  // Caller dispatches by kind:
+  //   - kind: 'storm-eye' → StormEye (rendered AFTER bands so the GRS overlays
+  //     the SEB; see WorldRenderer below).
+  //   - kind: 'earth'     → EarthBody (dedicated continents/ice/halo path).
+  //   - kind: 'sun' | 'moon' | 'planet' → this function.
+  // Putting those filters here would conflict with hook order, so dispatch
+  // happens in the parent before the component is invoked.
 
   // Position: xCurve/yCurve (raw t) take precedence over static xPct/yPct.
   // Computed BEFORE the early-return so rules-of-hooks holds for useMemo below.
@@ -961,11 +1004,13 @@ function BandRender({
   }
 
   if (band.kind === 'craters' && craters) {
-    // Round 6: two-shade depth illusion — lighter rim halo + darker bowl
-    // offset slightly upward (suggests depth from above-light viewing).
-    // Craters are STATIC: we don't apply the parallax transform here. The
-    // band's underlying colour fill is rendered by the nearPlain band
+    // Round 6: two-shade depth illusion — lighter rim halo (sun-catch) +
+    // darker bowl offset slightly upward (suggests depth from above-light
+    // viewing). Craters are STATIC: we don't apply the parallax transform.
+    // The band's underlying colour fill is rendered by the nearPlain band
     // beneath; this branch overlays just the crater pattern.
+    //
+    // rimPath/bowlPath are pre-built in seedCraters — no per-frame allocation.
     const baseOklch = sampleOklchCurve(preColor, t);
     const bowlCol = oklchToHex(baseOklch);
     // Rim: lerp 25% toward white. In oklch: lift L toward 1, drop C toward 0.
@@ -976,30 +1021,24 @@ function BandRender({
     ]);
     return (
       <Group>
-        {craters.map((c, i) => {
-          // Outer rim — slight halo, lighter than the bowl. Sun-catch effect.
-          const rimPath = Skia.Path.Make();
-          rimPath.addOval({
-            x: c.x - c.rx * 1.08,
-            y: c.y - c.ry * 1.08,
-            width: c.rx * 1.08 * 2,
-            height: c.ry * 1.08 * 2,
-          });
-          // Inner bowl — darker, offset upward to suggest depth.
-          const bowlPath = Skia.Path.Make();
-          bowlPath.addOval({
-            x: c.x - c.rx * 0.85,
-            y: c.y - c.ry * 0.15 - c.ry * 0.8,
-            width: c.rx * 0.85 * 2,
-            height: c.ry * 0.8 * 2,
-          });
-          return (
-            <Group key={i}>
-              <Path path={rimPath} color={rimCol} style="fill" opacity={c.opacity * 0.4} antiAlias />
-              <Path path={bowlPath} color={bowlCol} style="fill" opacity={c.opacity} antiAlias />
-            </Group>
-          );
-        })}
+        {craters.map((c, i) => (
+          <Group key={i}>
+            <Path
+              path={c.rimPath}
+              color={rimCol}
+              style="fill"
+              opacity={c.opacity * 0.4}
+              antiAlias
+            />
+            <Path
+              path={c.bowlPath}
+              color={bowlCol}
+              style="fill"
+              opacity={c.opacity}
+              antiAlias
+            />
+          </Group>
+        ))}
       </Group>
     );
   }
