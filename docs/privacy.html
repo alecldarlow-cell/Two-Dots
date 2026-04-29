@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Two Dots — Privacy Policy</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1.25rem 4rem;
+      color: #222;
+      line-height: 1.55;
+      background: #fdfdfd;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 0.25rem;
+    }
+    h2 {
+      font-size: 1.15rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      color: #111;
+    }
+    .meta {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    code {
+      background: #f0f0f0;
+      padding: 0.1em 0.3em;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    a {
+      color: #0a58ca;
+    }
+    ul {
+      padding-left: 1.25rem;
+    }
+    li {
+      margin-bottom: 0.4rem;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #eee;
+      color: #777;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Two Dots — Privacy Policy</h1>
+  <p class="meta">Effective date: 29 April 2026 &middot; Applies to: Two Dots mobile game (package <code>com.newco.twodots</code>) on Google Play and the Apple App Store.</p>
+
+  <h2>Plain-English summary</h2>
+  <p>
+    Two Dots is a single-player arcade game. To make your high score persist when you reopen the app, the game generates an anonymous identifier on your device and sends it, along with your scores and a small set of game-event records, to our backend (Supabase). We do not collect your name, email, location, contacts, photos, payment information, or any data that personally identifies you. We do not share data with advertising networks or third-party trackers. We do not run advertisements in the app.
+  </p>
+
+  <h2>What data we collect</h2>
+  <ul>
+    <li><strong>Anonymous device identifier</strong> — a random UUID generated on your device the first time you open the app. It is stored locally on your device (in app storage) and sent with score submissions so we can attribute scores back to your device. It is <em>not</em> the Android Advertising ID, the iOS IDFA, or any hardware identifier. It cannot be used to identify you outside this app.</li>
+    <li><strong>Scores</strong> — the numeric score, the difficulty tier reached, and which side (left or right dot) caused the death.</li>
+    <li><strong>Game-event records</strong> — short events such as run-start, run-end, retry, and tier-transition timestamps. Used to understand which difficulty tiers players reach and how often they retry — feeds product decisions about pacing and difficulty.</li>
+    <li><strong>Session identifier</strong> — a random UUID that groups events from a single app-open session. Resets when you close and reopen the app.</li>
+  </ul>
+
+  <h2>What data we do NOT collect</h2>
+  <ul>
+    <li>Your name, email address, phone number, postal address, or any account credentials.</li>
+    <li>Your location (no GPS, no IP-based geolocation).</li>
+    <li>Your contacts, calendar, photos, microphone, or camera.</li>
+    <li>Your payment information.</li>
+    <li>Your device's advertising identifier (Android Advertising ID / iOS IDFA).</li>
+    <li>Any data from other apps installed on your device.</li>
+    <li>Browsing history.</li>
+  </ul>
+
+  <h2>How the data is used</h2>
+  <ul>
+    <li>To persist your personal best score across sessions and devices.</li>
+    <li>To enable a future global leaderboard feature (the data layer is in place; the leaderboard UI is not shipped in this version of the app).</li>
+    <li>To inform product decisions about difficulty tuning and pacing in aggregate (we look at distributions, not individuals).</li>
+  </ul>
+
+  <h2>Where the data is stored</h2>
+  <p>
+    Data is stored in <a href="https://supabase.com" rel="noopener">Supabase</a>, a managed Postgres database service. The data is transmitted over HTTPS. Access to the database is restricted by Row Level Security policies that prevent any user's data from being read or modified by another user.
+  </p>
+
+  <h2>Third parties</h2>
+  <p>
+    We do not share your data with advertising networks, analytics SDKs, or any third party for marketing, profiling, or sale. Supabase is the only third-party processor and acts solely as our database host. No third-party SDKs (Firebase, AdMob, Crashlytics, Facebook SDK, etc.) are bundled into the app.
+  </p>
+
+  <h2>Advertising</h2>
+  <p>
+    Two Dots does not display advertisements at the time of writing. If advertisements are introduced in a future version, this policy will be updated and re-published before that version ships.
+  </p>
+
+  <h2>In-app purchases</h2>
+  <p>
+    Two Dots does not contain in-app purchases.
+  </p>
+
+  <h2>Children's privacy</h2>
+  <p>
+    Two Dots is rated for all ages. We do not knowingly collect any personally identifying information about children, and the data we do collect (an anonymous device UUID and game-event timestamps) cannot be used to identify any individual child. The app contains no chat, no user-to-user messaging, no user-generated content, and no link-out to external sites or social media.
+  </p>
+
+  <h2>Data retention</h2>
+  <p>
+    Score and event records are retained indefinitely so personal-best scores can persist across device wipes and re-installs. You can request deletion of all data associated with your device at any time by emailing the contact address below.
+  </p>
+
+  <h2>Your rights</h2>
+  <p>
+    You may request a copy of all data associated with your device's anonymous identifier, or request its deletion, by emailing the contact address below. Because we do not collect any data that links the device identifier to you personally, you will need to provide the device identifier itself (currently surfaced in a future "Settings" screen — for v0.1.0 please contact us and we will help you locate it).
+  </p>
+  <p>
+    If you are in the European Economic Area, the United Kingdom, or another jurisdiction with data-protection laws, you may also have the right to lodge a complaint with your local supervisory authority.
+  </p>
+
+  <h2>Changes to this policy</h2>
+  <p>
+    If this policy changes materially (new data types collected, new third parties, advertising introduced, etc.), the new version will be published at this same URL with an updated effective date, and the change will be summarised in the app's release notes for the version in which it takes effect.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions, deletion requests, or data-subject requests: <a href="mailto:alecreeder@gmail.com">alecreeder@gmail.com</a>.
+  </p>
+
+  <footer>
+    Two Dots is published by Alec Reeder as a personal project. The game's source code lives at <a href="https://github.com/alecldarlow-cell/Two-Dots" rel="noopener">github.com/alecldarlow-cell/Two-Dots</a>. This privacy policy is published from the repository at <code>docs/privacy.html</code>.
+  </footer>
+</body>
+</html>
