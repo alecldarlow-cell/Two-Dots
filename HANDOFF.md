@@ -76,7 +76,7 @@ From `UX_AUDIT.md`:
 | `deploy-android.bat` / `run-deploy.vbs`                               | `npx expo run:android` wrappers                                                           |
 | `reconnect-adb.bat`                                                   | Wi-Fi ADB pair + connect helper. Now prompts for connection port (Android 11+ aware).     |
 | `git-audit.bat`                                                       | Git hygiene audit. Run before tagging a release.                                          |
-| `package.json`                                                        | `expo-av ~14.0.0` for audio (NOT `expo-audio` — see gotchas)                              |
+| `package.json`                                                        | `expo-audio ~1.1.x` for audio (migrated from `expo-av` during the SDK 54 upgrade)         |
 | `app.config.ts`                                                       | Expo config — bundle ID `com.newco.twodots`, icons, splash, plugins                       |
 | `eas.json`                                                            | EAS profiles (dev/preview/prod). `projectId` empty until `eas init`                       |
 | `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`, `004_analytics_kpi_views.sql` (superseded), `005_kpi_functions_and_invoker_views.sql` (current public-aggregate surface for the dashboard) |
@@ -116,7 +116,7 @@ requestAnimationFrame → loop()
 
 ### Audio
 
-`expo-av` (`Audio.Sound`). All 16 sounds preloaded into a `useRef` map. Replay via `replayAsync()`.
+`expo-audio` (`createAudioPlayer`). All 16 sounds preloaded into a `useRef` map. Replay via `seekTo(0)` + `play()` (expo-audio has no equivalent of expo-av's `replayAsync`). **Critical gotcha:** bundled `require()`-ed assets must be passed through `Asset.fromModule(src).downloadAsync()` before `createAudioPlayer`, otherwise the native module silently creates a no-op player and audio is completely silent. expo-av handled this internally; expo-audio does not.
 
 **As of Stage 2.2:** the `sine()` envelope in `generate-sounds.js` now has a 5ms release ramp (eliminates the click on every sound). Frequencies tuned to:
 
@@ -196,11 +196,11 @@ Then remove the cast. Until then it's a marked TODO comment on that line.
 
 ### `expo-doctor` warning about Skia version
 
-`@shopify/react-native-skia@1.3.10` is newer than Expo SDK 51's expected `1.2.3`. **Intentional** — required APIs. Ignore the warning. Do not downgrade.
+Resolved by the SDK 54 upgrade — Skia is now on the SDK-pinned 2.x line. No manual override needed.
 
-### `expo-av` not `expo-audio`
+### `expo-audio` migration (now active — was previously `expo-av`)
 
-`expo-audio ~0.1.0` has broken Android autolinking in SDK 51. Stay on `expo-av ~14.0.0`.
+The SDK 51 advice to "stay on `expo-av`" is **obsolete**. As of SDK 54 we run `expo-audio ~1.1.x`. The migration carries one footgun documented above (Audio section): bundled assets must be `downloadAsync()`-ed before `createAudioPlayer` or playback is silent.
 
 ### Audio click-fix is in the script but not yet in the WAVs
 
