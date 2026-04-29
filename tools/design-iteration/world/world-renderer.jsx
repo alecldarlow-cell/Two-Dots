@@ -1007,21 +1007,26 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   );
 }
 
-// ─── Storm clouds (Jupiter) — amorphous storm cells riding the band region ─
-// Visually distinct from Earth's cumulus CloudField:
-//   - No flat-bottom clip-path (Jupiter has no horizon for clouds to "sit" on)
-//   - No symmetric cumulus dome — bubbles scattered with no big-middle bias
-//   - Elongated horizontally (~3× wider than tall) — stretched by zonal jets
-//   - Many small ovals (10-14 per cell) for chaotic, smoky silhouette
-//   - Configurable yMinPct/yMaxPct so cells ride the band region, not upper sky
-//   - Subtle per-bubble alpha jitter so the cell doesn't read as a flat stamp
+// ─── Storm clouds (Jupiter) — illustrated cumulus with volume shading ───────
+// Each cell is a cumulus dome silhouette (5-7 overlapping circles) with a
+// vertical light→mid→dark linear gradient clipped inside. Result: defined
+// cloud outline with cream highlight on top, mid-tone middle, deep shadow
+// underneath — the look from the v3 review reference image. Drops the
+// radial-fade-to-transparent of v3 (rendered as "barely visible") and the
+// bubble-cluster of v1/v2 (rendered as "pebble piles").
 //
-// Per Jupiter Option B (round 7 review of Option A — Earth CloudField recolour
-// read as kitsch).
+// No flat-bottom clip — cumulus floats in atmosphere rather than sitting on
+// a horizon. Wider than tall (zonal stretch). yMin/yMaxPct configurable.
+// Per Jupiter particle cohesion v4 (round 7 — illustrated cumulus reference).
 function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
-  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#3a2818';
+  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#b48868';
+  const { lerpHex } = window.ThemeSchema;
+  // Three-tone shading derived from the band-tone tint. Light highlight at
+  // top, deep shadow at bottom — gives the cell volume.
+  const lightTint = lerpHex(tint, '#fff5e0', 0.50);
+  const darkTint  = lerpHex(tint, '#1a0a08', 0.45);
   const rng = mulberry32(55);
 
   const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.30) * gameH;
@@ -1031,59 +1036,67 @@ function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
   for (let i = 0; i < spec.count; i++) {
     const baseX = rng() * w * 1.4;
     const baseY = yMin + rng() * (yMax - yMin);
-    // Slow drift so cells crawl rather than march. Independent of band drift.
+    // Slow drift — cells crawl rather than march. Independent of band drift.
     const drift = (nowMs * 0.008 * (spec.speed || 1) + rng() * 1000) % (w + 240);
     const x = ((baseX + drift) % (w + 240)) - 120;
 
     const scale = 0.7 + rng() * 0.7;
-    const cellOpacity = (0.55 + rng() * 0.25) * density;
+    const cellOpacity = (0.85 + rng() * 0.12) * density;
 
-    // Cell dimensions — wider than tall (zonal stretch).
-    const cellW = (70 + rng() * 90) * scale;
-    const cellH = (22 + rng() * 26) * scale;
-
-    // Many small ovals scattered through the cell envelope. Bubbles are now
-    // smaller and more numerous (was 10-14 of size 8-22, now 18-24 of size
-    // 4-12) so they pack densely enough to fuse into a continuous silhouette
-    // rather than reading as a countable cluster. Tighter alpha range
-    // (0.45-0.70 vs 0.15-0.85) further reduces internal structure.
-    const bubbleCount = 18 + Math.floor(rng() * 7);
+    // Cumulus dome via overlapping circles. Bigger in middle, smaller at
+    // edges — classic cumulus profile. Top edge undulates; bottom mostly
+    // aligned but no flat clip.
+    const bubbleCount = 5 + Math.floor(rng() * 3); // 5-7 bubbles
+    const baseR = (14 + rng() * 7) * scale;
+    const stepX = baseR * 0.55; // moderate overlap — bubbles fuse but silhouette is bumpy
+    const totalSpan = stepX * (bubbleCount - 1);
     const bubbles = [];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (let b = 0; b < bubbleCount; b++) {
-      const bx = (rng() - 0.5) * cellW;
-      const by = (rng() - 0.5) * cellH;
-      const brx = (4 + rng() * 8) * scale;
-      const bry = brx * (0.45 + rng() * 0.35);
-      const alpha = 0.45 + rng() * 0.25;
-      bubbles.push({ bx, by, brx, bry, alpha });
+      const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.2;
+      const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
+      const sizeFactor = 1 - distFromCenter * 0.32 + (rng() - 0.5) * 0.10;
+      const br = baseR * sizeFactor;
+      // Top edge varies; smaller bubbles sit a touch lower for natural curve.
+      const by = -br * 0.18 + (rng() - 0.5) * br * 0.18;
+      bubbles.push({ bx, by, br });
+      if (bx - br < minX) minX = bx - br;
+      if (bx + br > maxX) maxX = bx + br;
+      if (by - br < minY) minY = by - br;
+      if (by + br > maxY) maxY = by + br;
     }
 
-    // Underlying haze ellipse — single soft fill beneath the bubbles. Glues
-    // the cluster into one cohesive silhouette and prevents the eye from
-    // counting individual bubbles. Sits at low alpha so it doesn't dominate.
-    const hazeRx = cellW * 0.55;
-    const hazeRy = cellH * 0.60;
-
-    clouds.push({ x, y: baseY, bubbles, opacity: cellOpacity, hazeRx, hazeRy });
+    clouds.push({ x, y: baseY, bubbles, opacity: cellOpacity, minX, maxX, minY, maxY });
   }
 
   return (
     <g>
+      <defs>
+        {clouds.map((c, i) => (
+          <linearGradient key={`g${i}`} id={`stormcell-grad-${theme.id}-${i}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={lightTint} />
+            <stop offset="55%"  stopColor={tint} />
+            <stop offset="100%" stopColor={darkTint} />
+          </linearGradient>
+        ))}
+        {clouds.map((c, i) => (
+          <clipPath key={`cl${i}`} id={`stormcell-clip-${theme.id}-${i}`}>
+            {c.bubbles.map((b, j) => (
+              <circle key={j} cx={b.bx} cy={b.by} r={b.br} />
+            ))}
+          </clipPath>
+        ))}
+      </defs>
       {clouds.map((c, i) => (
         <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.opacity}>
-          {/* haze underlayer — fuses the bubble cluster into one shape */}
-          <ellipse cx={0} cy={0} rx={c.hazeRx} ry={c.hazeRy} fill={tint} opacity={0.30} />
-          {c.bubbles.map((b, j) => (
-            <ellipse
-              key={j}
-              cx={b.bx}
-              cy={b.by}
-              rx={b.brx}
-              ry={b.bry}
-              fill={tint}
-              opacity={b.alpha}
-            />
-          ))}
+          <rect
+            x={c.minX - 2}
+            y={c.minY - 2}
+            width={c.maxX - c.minX + 4}
+            height={c.maxY - c.minY + 4}
+            fill={`url(#stormcell-grad-${theme.id}-${i})`}
+            clipPath={`url(#stormcell-clip-${theme.id}-${i})`}
+          />
         </g>
       ))}
     </g>

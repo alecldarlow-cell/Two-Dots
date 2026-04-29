@@ -140,8 +140,13 @@ export const moonTheme = {
 
   celestials: [
     {
+      // v0.6 — kind: 'earth' triggers the Earth-from-Moon stylised render
+      // path (blue ocean + Africa/Europe/Americas/Madagascar continents +
+      // polar ice caps + atmospheric halo + soft terminator).
+      // phaseCurve dropped — the dedicated path bakes a static terminator
+      // that reads as Earth at a glance, no narrative phase needed.
       id: 'earth',
-      kind: 'planet',
+      kind: 'earth',
       xPct: 0.78,
       yPct: 0.18,
       radius: 28,
@@ -156,14 +161,6 @@ export const moonTheme = {
         { t: 0.25, value: 0.6 },
         { t: 0.5, value: 0.5 },
         { t: 0.75, value: 0.3 },
-      ],
-      // v0.5 — Earth-from-Moon phase. Authored as narrative arc (crescent at
-      // dawn → near-full at lunar night), not real celestial mechanics.
-      phaseCurve: [
-        { t: 0.0, value: 0.3 },
-        { t: 0.25, value: 0.55 },
-        { t: 0.5, value: 0.75 },
-        { t: 0.75, value: 0.95 },
       ],
     },
   ],

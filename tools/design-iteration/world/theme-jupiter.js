@@ -66,44 +66,25 @@ window.JupiterTheme = {
   },
 
   bands: [
+    // Reduced from 6 to 4 in round 7 (layer-count audit). Cut farBand1 (top
+    // narrow cream deck) and midBand1 (primary ochre belt). Remaining bands
+    // retuned to tile evenly across the band region with each ~20% of canvas.
+    // Generous sky strip (0–0.22) above the topmost band gives aurora and
+    // GRS-approach more visual room.
     {
-      // farBand1 — highest, palest cream deck. Reads as distant cloud tops
-      // catching the sun.
-      id: 'farBand1',
-      kind: 'cloudBand',
-      yPct: 0.18,
-      heightPct: 0.10,
-      parallax: 0.05,
-      turbulence: 0.45,        // boosted — distant cream zone with curling tops
-      driftSpeed: 0.4,
-      streaks: 3,
-      colorCurve: [
-        { t: 0.00, color: '#a07858' }, // dawn — dusty
-        { t: 0.25, color: '#f0d4a0' }, // day — bright pale cream (more contrast)
-        { t: 0.50, color: '#c88858' }, // dusk — warm
-        { t: 0.75, color: '#2a1c1a' }, // night
-      ],
-      streakCurve: [
-        { t: 0.00, color: '#7a5640' },
-        { t: 0.25, color: '#8a6038' },
-        { t: 0.50, color: '#7a3820' },
-        { t: 0.75, color: '#1a0e10' },
-      ],
-    },
-    {
-      // farBand2 — cream-ochre boundary zone
+      // farBand2 — distant ochre/cream zone (now topmost band)
       id: 'farBand2',
       kind: 'cloudBand',
-      yPct: 0.27,
-      heightPct: 0.10,
+      yPct: 0.22,
+      heightPct: 0.20,
       parallax: 0.10,
-      turbulence: 0.55,        // strong scalloped boundary
+      turbulence: 0.45,
       driftSpeed: -0.5,        // counter-drift sells shear
       streaks: 4,
       colorCurve: [
         { t: 0.00, color: '#7a5230' }, // dawn
-        { t: 0.25, color: '#a06830' }, // day — deeper ochre, more saturation
-        { t: 0.50, color: '#8a4830' }, // dusk
+        { t: 0.25, color: '#d4a070' }, // day — warmer cream-ochre (lifted from #a06830 — was too dark for topmost)
+        { t: 0.50, color: '#a86038' }, // dusk
         { t: 0.75, color: '#1c1010' }, // night
       ],
       streakCurve: [
@@ -114,41 +95,18 @@ window.JupiterTheme = {
       ],
     },
     {
-      // midBand1 — primary ochre belt
-      id: 'midBand1',
+      // midBand2 — rust/cream belt, hosts the GRS visually at yPct 0.50
+      id: 'midBand2',
       kind: 'cloudBand',
-      yPct: 0.36,
-      heightPct: 0.13,
-      parallax: 0.20,
-      turbulence: 0.60,        // turbulent — closer to viewer
+      yPct: 0.41,
+      heightPct: 0.20,
+      parallax: 0.32,
+      turbulence: 0.55,
       driftSpeed: 0.7,
       streaks: 5,
       colorCurve: [
-        { t: 0.00, color: '#5a3820' }, // dawn — deep rust
-        { t: 0.25, color: '#704018' }, // day — deeper ochre/rust contrast
-        { t: 0.50, color: '#702818' }, // dusk — deep red-brown
-        { t: 0.75, color: '#180a0a' }, // night
-      ],
-      streakCurve: [
-        { t: 0.00, color: '#2a1810' },
-        { t: 0.25, color: '#3a2010' },
-        { t: 0.50, color: '#3a1008' },
-        { t: 0.75, color: '#000000' },
-      ],
-    },
-    {
-      // midBand2 — rust band, often where GRS sits visually
-      id: 'midBand2',
-      kind: 'cloudBand',
-      yPct: 0.48,
-      heightPct: 0.14,
-      parallax: 0.32,
-      turbulence: 0.65,
-      driftSpeed: -0.9,
-      streaks: 6,
-      colorCurve: [
         { t: 0.00, color: '#4a2818' }, // dawn
-        { t: 0.25, color: '#e0b070' }, // day — pale cream zone (high contrast vs midBand1)
+        { t: 0.25, color: '#e0b070' }, // day — pale cream zone
         { t: 0.50, color: '#a04020' }, // dusk
         { t: 0.75, color: '#100808' }, // night
       ],
@@ -160,18 +118,18 @@ window.JupiterTheme = {
       ],
     },
     {
-      // nearBand1 — deep brown turbulent zone
+      // nearBand1 — deep brown turbulent belt
       id: 'nearBand1',
       kind: 'cloudBand',
-      yPct: 0.61,
-      heightPct: 0.17,
+      yPct: 0.60,
+      heightPct: 0.20,
       parallax: 0.50,
-      turbulence: 0.70,
-      driftSpeed: 1.1,
-      streaks: 7,
+      turbulence: 0.65,
+      driftSpeed: -0.9,
+      streaks: 6,
       colorCurve: [
         { t: 0.00, color: '#2e1810' }, // dawn — deep brown
-        { t: 0.25, color: '#3a1810' }, // day — deep mahogany (was burnt umber, too light)
+        { t: 0.25, color: '#3a1810' }, // day — deep mahogany
         { t: 0.50, color: '#3e1008' }, // dusk — bloody rust
         { t: 0.75, color: '#0a0404' }, // night
       ],
@@ -183,16 +141,16 @@ window.JupiterTheme = {
       ],
     },
     {
-      // nearBand2 — closest band, fills the bottom of the frame.
-      // This is "where the player is" — fastest scroll, most visible motion.
+      // nearBand2 — foreground band, fills the bottom of the frame.
+      // "Where the player is" — fastest scroll, most visible motion.
       id: 'nearBand2',
       kind: 'cloudBand',
-      yPct: 0.78,
-      heightPct: 0.22,
+      yPct: 0.79,
+      heightPct: 0.21,
       parallax: 0.85,
-      turbulence: 0.80,        // most turbulent — eye-level shear
-      driftSpeed: -1.4,
-      streaks: 8,
+      turbulence: 0.75,        // most turbulent — eye-level shear
+      driftSpeed: 1.1,
+      streaks: 7,
       colorCurve: [
         { t: 0.00, color: '#3e2418' }, // dawn — warm dark brown (was #1a0e08, too black)
         { t: 0.25, color: '#5a3a20' }, // day — warm mahogany (was #2a1408 — read as mountain silhouette)
@@ -229,11 +187,15 @@ window.JupiterTheme = {
         { t: 0.50, value: 0.75 },  // dusk
         { t: 0.75, value: 0.30 },  // night — sparse, lightning dominates
       ],
+      // Mid-tone for cumulus body; renderer derives lightTint (highlight) and
+      // darkTint (shadow) from this via lerpHex. Tones lifted from the v3
+      // dark-thunderhead palette so the cells are actually visible against
+      // the warm Jovian bands.
       colorCurve: [
-        { t: 0.00, color: '#6a3a28' }, // dawn — deep rust
-        { t: 0.25, color: '#4a3828' }, // day — dark warm grey/brown thunderhead
-        { t: 0.50, color: '#c8703a' }, // dusk — warm orange catching last light
-        { t: 0.75, color: '#1a0e0e' }, // night — near-black smoke
+        { t: 0.00, color: '#8a5a40' }, // dawn — warm rust-tan
+        { t: 0.25, color: '#b48868' }, // day — warm cream-tan
+        { t: 0.50, color: '#c88058' }, // dusk — warm burning orange
+        { t: 0.75, color: '#4a3a30' }, // night — dim warm grey (lightning still dominates via density)
       ],
     },
     {

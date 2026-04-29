@@ -185,6 +185,39 @@ Surfaced for the new chat to confirm with the user before committing time:
 
 ---
 
+## Drift mitigation — architectural intent
+
+The two-codebase setup (HTML/SVG iteration tool + Skia production renderer)
+is the root cause of task 1 existing at all. After task 1 lands, the
+follow-up (tracked separately) is to extract the pure-function geometry
+layer — silhouette path generators, crater/grass/cloud seeders, Earth
+continent path strings, bird wing math — into
+`src/features/game/world/geometry/` and have BOTH renderers consume it.
+
+Considered alternatives:
+
+- **WebView the iteration tool as the production background.** Zero drift
+  by construction. Rejected: SVG-with-32-craters-and-7-multi-bubble-clouds
+  measurably underperforms Skia, especially on mid-range Android. Plus
+  ~30–50MB WebView memory overhead, slower app startup, postMessage
+  bridge complexity. The v0.5 spec chose Skia for a reason.
+- **Keep porting per round.** What got us to task 1. Cost is real every round.
+
+Extraction tradeoff: once-off refactor (~2–3 hours) buys ~80% reduction in
+per-round drift cost. Pure math drift becomes mathematically impossible.
+The SVG↔Skia render-primitive wrapping stays separate but is mostly
+mechanical and rarely changes. Round 7 numerical tweaks become 5-minute
+edits in one file that show up in both renderers automatically.
+
+Why after task 1, not instead-of: refactoring untested code is risky —
+land round-6-correct behaviour first, verify it, then extract with a
+known-good baseline. Also, the extraction is most valuable when there
+are multiple working examples to factor commonalities from.
+
+See task 1.5 in the task list for the full extraction scope.
+
+---
+
 ## Recommended first move
 
 Task 1 (engine catch-up). It's gating, and parts of it (theme TS diffs)
