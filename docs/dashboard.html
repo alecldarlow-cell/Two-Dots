@@ -130,8 +130,10 @@
 // ─── Configuration ─────────────────────────────────────────────────────────
 // These are the same EXPO_PUBLIC_* values used by the app at runtime. The
 // anon key is safe to ship publicly — RLS is the security boundary, and the
-// kpi_* views expose only aggregates, never row data. See migration
-// 004_analytics_kpi_views.sql for the full grant model.
+// kpi_* RPC functions expose only aggregates, never row data. See migration
+// 005_kpi_functions_and_invoker_views.sql for the full grant model (the
+// originals in migration 004 were views; they were superseded because
+// SECURITY DEFINER views fail Supabase's security_definer_view linter).
 //
 // Fill in from your .env locally. When this dashboard is deployed via
 // GitHub Pages alongside privacy.html, these values are baked in at commit
@@ -139,7 +141,11 @@
 const SUPABASE_URL = window.SUPABASE_URL || 'https://biwhjzebrmhvtkjaqsay.supabase.co';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpd2hqemVicm1odnRramFxc2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDMzMzMsImV4cCI6MjA4OTUxOTMzM30.-8LnQ0zAKQ0KQREpFpDPo8dcNP4e-MtJX18QKmlB8gU';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// NB: must NOT be named `supabase` — the @supabase/supabase-js@2 UMD bundle
+// declares its own top-level `supabase` binding (let/const), which would
+// collide with this one in the global lexical environment and abort the
+// entire <script> block with a SyntaxError before load() can run.
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function fmt(n) {
   if (n == null) return '—';
@@ -164,7 +170,7 @@ async function load() {
 
   // Overview KPIs
   try {
-    const { data, error } = await supabase.from('kpi_overview').select('*').single();
+    const { data, error } = await sb.rpc('kpi_overview').single();
     if (error) throw error;
     if (data) {
       setText('kpi-runs', fmt(data.total_runs));
@@ -185,7 +191,7 @@ async function load() {
 
   // Retention
   try {
-    const { data, error } = await supabase.from('kpi_retention').select('*').single();
+    const { data, error } = await sb.rpc('kpi_retention').single();
     if (error) throw error;
     if (data) {
       setText('kpi-d1', data.d1_retention_pct != null ? fmt(data.d1_retention_pct) : '—');
@@ -200,10 +206,11 @@ async function load() {
 
   // Drop-off by tier (chart)
   try {
-    const { data, error } = await supabase.from('kpi_drop_off_by_tier').select('*').order('tier');
+    const { data, error } = await sb.rpc('kpi_drop_off_by_tier');
     if (error) throw error;
-    const labels = (data || []).map(r => 'T' + r.tier);
-    const counts = (data || []).map(r => r.deaths);
+    const sorted = (data || []).slice().sort((a, b) => a.tier - b.tier);
+    const labels = sorted.map(r => 'T' + r.tier);
+    const counts = sorted.map(r => r.deaths);
     const ctx = document.getElementById('tier-chart').getContext('2d');
     new Chart(ctx, {
       type: 'bar',

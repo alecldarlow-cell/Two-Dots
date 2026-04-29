@@ -79,7 +79,8 @@ From `UX_AUDIT.md`:
 | `package.json`                                                        | `expo-av ~14.0.0` for audio (NOT `expo-audio` — see gotchas)                              |
 | `app.config.ts`                                                       | Expo config — bundle ID `com.newco.twodots`, icons, splash, plugins                       |
 | `eas.json`                                                            | EAS profiles (dev/preview/prod). `projectId` empty until `eas init`                       |
-| `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`                           |
+| `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`, `004_analytics_kpi_views.sql` (superseded), `005_kpi_functions_and_invoker_views.sql` (current public-aggregate surface for the dashboard) |
+| `docs/dashboard.html`                                                 | Static read-only KPI dashboard. Calls `supabase.rpc('kpi_overview' \| 'kpi_retention' \| 'kpi_drop_off_by_tier')`. Anon key + URL baked in; safe because RLS on `analytics_events` is service-role-only and the RPC functions only return aggregates. **Footgun:** local variable holding the client must NOT be named `supabase` — collides with the `@supabase/supabase-js@2` UMD's top-level `let supabase`. We use `sb`. |
 | `PLAN.md`                                                             | Sequenced roadmap of remaining stages                                                     |
 | `BUG_AUDIT.md`                                                        | Stage 2.1 audit log                                                                       |
 | `UX_AUDIT.md`                                                         | Stage 2.2 audit log                                                                       |
@@ -258,7 +259,18 @@ Three tables, all with RLS enabled:
 - **`scores`** — `id`, `device_id FK`, `session_id`, `score`, `tier`, `death_side`, `created_at`
 - **`analytics_events`** — `id`, `device_id FK`, `session_id`, `run_index`, `event_type`, `payload JSONB`, `created_at`
 
-Migrations in `supabase/migrations/`. Connection via `.env` (gitignored):
+Two leaderboard views over `scores` + `devices` (publicly readable, `WITH (security_invoker = on)` since migration 005):
+
+- **`personal_bests`** — one row per device with best score / best tier / total runs / last played
+- **`top_scores`** — top-100 leaderboard with rank
+
+Three RPC functions over `analytics_events` (`SECURITY DEFINER`, `EXECUTE` granted to `anon`, `search_path = ''` pinned — see migration 005). They are the *only* public read surface for analytics; the underlying table is service-role-read-only:
+
+- **`kpi_overview()`** — singleton row: total_runs, total_devices, total_sessions, retry_rate_pct, mean_run_length_ms, mean_close_calls_per_run
+- **`kpi_drop_off_by_tier()`** — death histogram by tier (1–8)
+- **`kpi_retention()`** — D1 / D7 retention plus eligible-cohort sizes
+
+Migrations in `supabase/migrations/` (currently 001–005). Connection via `.env` (gitignored):
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
