@@ -4,6 +4,8 @@ The Phase 1 gate for Two Dots is **70%+ unprompted retry behaviour in 20–30 pe
 
 Run these in the Supabase SQL editor against the production database after at least 20 testers have played through a handful of sessions each.
 
+> **For the live read of these metrics** see `docs/dashboard.html`, which calls three `SECURITY DEFINER` SQL functions (`kpi_overview`, `kpi_retention`, `kpi_drop_off_by_tier`) defined in migration 005. Those functions are aggregates-only and `EXECUTE`-granted to `anon`, so the dashboard can read them with the public Supabase URL + anon key without ever exposing per-event row data. The queries below are for ad-hoc deeper analysis when the dashboard's headline numbers prompt a question.
+
 ## The headline metric — unprompted retry rate
 
 "Unprompted" is defined as: a `retry_tapped` event occurring within 30 seconds of the preceding `run_end`. Longer gaps are treated as the tester having walked away and come back — prompted, not unprompted.
