@@ -404,14 +404,19 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
   d += ` L ${topPts[topPts.length - 1][0]},${hExtended}`;
   d += ' Z';
 
-  // Interior shear streaks — drifted slightly faster than the band itself.
-  // Subtler than v1 (was strokeWidth up to 2.5 + opacity to 0.36 — read as
-  // drawn lines on the band rather than atmospheric flow). Now sw 0.6-1.3,
-  // opacity 0.10-0.20.
+  // Interior shear streaks — wavy paths (sine undulation) in muted grey-tinted
+  // colour. Was straight band-tinted lines that read as drawn pinstripes; now
+  // gentle waves desaturated toward neutral grey, more like cloud striations
+  // than band pigment. Per streak shape+colour pass (round 7).
   const streakColor = band.streakCurve ? sampleColorCurve(band.streakCurve, t) : null;
   const streakCount = band.streaks || 0;
   const streaks = [];
   if (streakCount > 0 && streakColor) {
+    // Desaturate band-tinted streak colour toward atmospheric grey-haze.
+    // 55% lerp toward #808078 strips most of the band's pigment so streaks
+    // read as cloud detail rather than darker band.
+    const { lerpHex } = window.ThemeSchema;
+    const greyTint = lerpHex(streakColor, '#808078', 0.55);
     const streakDrift = (nowMs * (band.driftSpeed || 0) * 0.03) % w;
     for (let i = 0; i < streakCount; i++) {
       const yPct = 0.25 + (i / streakCount) * 0.55 + rng() * 0.1;
@@ -419,7 +424,20 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
       const length = w * (0.4 + rng() * 0.6);
       const opacity = 0.10 + rng() * 0.10;
       const sw = 0.6 + rng() * 0.7;
-      streaks.push({ x: sxStreak, y: h * yPct, len: length, opacity, sw });
+      // Wavy path — gentle sin undulation along the streak's length.
+      const phase = rng() * Math.PI * 2;
+      const ampY = 1.2 + rng() * 1.8;             // peak vertical deviation
+      const wavelength = length / (1.5 + rng() * 1.5); // 1.5-3 waves over length
+      const y0 = h * yPct;
+      const segments = 24;
+      let pd = '';
+      for (let j = 0; j <= segments; j++) {
+        const tp = j / segments;
+        const xj = sxStreak + tp * length;
+        const wave = Math.sin((tp * length) / wavelength * Math.PI * 2 + phase) * ampY;
+        pd += (j === 0 ? 'M ' : 'L ') + xj.toFixed(1) + ',' + (y0 + wave).toFixed(1) + ' ';
+      }
+      streaks.push({ d: pd.trim(), opacity, sw, color: greyTint });
     }
   }
 
@@ -429,7 +447,7 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
       {streaks.length > 0 && (
         <g>
           {streaks.map((s, i) => (
-            <line key={i} x1={s.x} y1={s.y} x2={s.x + s.len} y2={s.y} stroke={streakColor} strokeWidth={s.sw} opacity={s.opacity} strokeLinecap="round" />
+            <path key={i} d={s.d} stroke={s.color} strokeWidth={s.sw} fill="none" opacity={s.opacity} strokeLinecap="round" strokeLinejoin="round" />
           ))}
         </g>
       )}
