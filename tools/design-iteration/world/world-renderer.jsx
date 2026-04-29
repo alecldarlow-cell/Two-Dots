@@ -334,68 +334,151 @@ function renderGrassTufts(band, h, sx, t, w) {
   );
 }
 
-// 'storm-bands' specialised renderer — for gas-giant atmospheric bands.
-// Each band is a solid-fill region with a turbulent top edge (festoons, curls,
-// four-octave organic noise) extending down to the bottom of the canvas. The
-// theme's bands are painted top-to-bottom in array order, so each one over-
-// paints the previous's lower portion — its turbulent top edge thereby becomes
-// the boundary against the band above. No internal silhouette, no alpha
-// gradient: clean defined bands with organic edges, mirroring real Jupiter's
-// cloud-band structure (the visible interest lives at zone-belt boundaries,
-// not inside the bands). Per Jupiter point 1 (round 7 — review of v1
-// alpha-feathered renderer which lost band identity).
-function StormBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
+// ─── Cloud band (Jupiter) — horizontal stripe with shear/turbulence ─────────
+// Each band is a flat stripe with an undulating top AND bottom edge driven by
+// 3 octaves of horizontal noise. Internal eddies (flat ovals) and shear streaks
+// (thin lines drifting at a different rate than the band itself) suggest
+// cyclonic flow and laminar shear without being literal. Per-band driftSpeed
+// is independent of player scrollX, so adjacent bands slip past each other —
+// that's the literal "banded shear lines" signature. Per Jupiter point 1+2+5
+// (round 7 — Claude Design baseline merge, replaces v2 StormBand).
+function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
   const color = sampleColorCurve(band.colorCurve, t);
-  const yTop = band.yPct * gameH;
+  const y = band.yPct * gameH;
   const h = band.heightPct * gameH;
   const sx = scrollX * band.parallax * scrollSpeed;
+  // Optional drift — bands slide horizontally on their own (independent of
+  // player scroll) at different rates to sell the shear.
+  const driftPx = (nowMs * (band.driftSpeed || 0) * 0.02) % w;
+  const totalX = sx + driftPx;
 
   const seed =
-    band.id === 'upperPolarHaze' ? 1111 :
-    band.id === 'ntrZone'        ? 2233 :
-    band.id === 'nebBelt'        ? 3344 :
-    band.id === 'equatorialZone' ? 4455 :
-    band.id === 'sebBelt'        ? 5566 :
-    band.id === 'lowerZone'      ? 6677 : 9012;
+    band.id === 'farBand1'  ? 1100 :
+    band.id === 'farBand2'  ? 1200 :
+    band.id === 'midBand1'  ? 1300 :
+    band.id === 'midBand2'  ? 1400 :
+    band.id === 'nearBand1' ? 1500 :
+    band.id === 'nearBand2' ? 1600 : 1700;
   const rng = mulberry32(seed);
+
+  // Build TOP and BOTTOM edges as polylines with multi-octave noise. The
+  // bottom edge (which becomes the boundary against the band BELOW it) gets
+  // a slightly larger amplitude than the top, since that's where adjacent
+  // bands push into one another (storm-front silhouette of band overlap).
+  // Frequencies are tuned LOW + horizontally stretched: Jupiter's jet streams
+  // smear features into wide horizontal swirls, not tall hills.
+  const points = 96;
+  const span = w * 2.2;
+  const offset = -(totalX % w);
+  const ampTop = (band.turbulence != null ? band.turbulence : 0.25) * h * 0.85;
+  const ampBot = (band.turbulence != null ? band.turbulence : 0.25) * h * 1.05;
+
   const j1 = rng() * 6;
   const j2 = rng() * 6;
   const j3 = rng() * 6;
   const j4 = rng() * 6;
+  const j5 = rng() * 6;
+  const j6 = rng() * 6;
 
-  // Turbulent top edge — 4-octave wave gives organic festoon-style undulation.
-  // Amplitudes scale with band height so wider bands get proportionally
-  // larger wobble. Total max ~17% of band height.
-  const points = 240;
-  const span = w * 1.4;
-  const offset = -(sx % w);
-  const startX = -w * 0.2;
-
-  const pts = [];
+  const topPts = [];
   for (let i = 0; i <= points; i++) {
-    const x = startX + (i / points) * span;
-    const xs = x + offset;
-    const wave =
-      Math.sin(xs * 0.0090 + j1) * h * 0.090 + // long swell — broad arcs across screen
-      Math.sin(xs * 0.0320 + j2) * h * 0.045 + // medium — primary festoons
-      Math.sin(xs * 0.0900 + j3) * h * 0.022 + // small detail
-      Math.sin(xs * 0.2400 + j4) * h * 0.010;  // fine grain
-    pts.push([xs, yTop + wave]);
+    const x = (i / points) * span;
+    const o1 = Math.sin(x * 0.0035 + j1) * ampTop * 0.55;
+    const o2 = Math.sin(x * 0.012 + j2) * ampTop * 0.30;
+    const o3 = Math.sin(x * 0.045 + j3) * ampTop * 0.15;
+    const yEdge = (o1 + o2 + o3) + ampTop;
+    topPts.push([x + offset, yEdge]);
   }
 
-  // Closed path: bottom-left → up to turbulent edge → across the edge →
-  // down to bottom-right → close. Fills from the turbulent top edge to the
-  // canvas bottom; bands listed AFTER this one paint over our lower portion,
-  // so the visible slice is bounded by our top edge above and theirs below.
-  let d = `M ${pts[0][0].toFixed(1)},${gameH}`;
-  d += ` L ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-  for (let i = 1; i < pts.length; i++) {
-    d += ` L ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
+  const botPts = [];
+  for (let i = 0; i <= points; i++) {
+    const x = (i / points) * span;
+    const o1 = Math.sin(x * 0.0030 + j4) * ampBot * 0.55;
+    const o2 = Math.sin(x * 0.010 + j5) * ampBot * 0.30;
+    const o3 = Math.sin(x * 0.040 + j6) * ampBot * 0.15;
+    const yEdge = h - ampBot + (o1 + o2 + o3);
+    botPts.push([x + offset, yEdge]);
   }
-  d += ` L ${pts[pts.length - 1][0].toFixed(1)},${gameH}`;
+
+  // Closed path: top edge L→R, then bottom edge R→L.
+  let d = `M ${topPts[0][0]},${topPts[0][1]}`;
+  for (let i = 1; i < topPts.length; i++) d += ` L ${topPts[i][0]},${topPts[i][1]}`;
+  for (let i = botPts.length - 1; i >= 0; i--) d += ` L ${botPts[i][0]},${botPts[i][1]}`;
   d += ' Z';
 
-  return <path d={d} fill={color} />;
+  // Internal eddies — small flat ovals embedded in the band, in shades ±10%
+  // off the band's color. Suggest cyclonic curls without being literal.
+  const eddyCount = Math.floor((band.turbulence || 0.25) * 8);
+  const eddies = [];
+  if (eddyCount > 0) {
+    const eddyDrift = (nowMs * (band.driftSpeed || 0) * 0.025) % w;
+    for (let i = 0; i < eddyCount; i++) {
+      const ex = ((i / eddyCount) * w + rng() * 80 - eddyDrift) % w;
+      const exWrapped = ex < 0 ? ex + w : ex;
+      const ey = h * (0.30 + rng() * 0.45);
+      const erx = 18 + rng() * 28;
+      const ery = erx * (0.25 + rng() * 0.20);  // very flat ovals
+      const lighten = rng() > 0.5;
+      eddies.push({ cx: exWrapped, cy: ey, rx: erx, ry: ery, lighten, opacity: 0.15 + rng() * 0.18 });
+    }
+  }
+
+  // Interior shear streaks — thin lighter/darker horizontal lines that drift
+  // at a slightly different speed than the band itself, suggesting flow.
+  const streakColor = band.streakCurve ? sampleColorCurve(band.streakCurve, t) : null;
+  const streakCount = band.streaks || 0;
+  const streaks = [];
+  if (streakCount > 0 && streakColor) {
+    const streakDrift = (nowMs * (band.driftSpeed || 0) * 0.03) % w;
+    for (let i = 0; i < streakCount; i++) {
+      const yPct = 0.25 + (i / streakCount) * 0.55 + rng() * 0.1;
+      const sxStreak = ((rng() * w * 2) - streakDrift) % (w * 2) - w * 0.2;
+      const length = w * (0.4 + rng() * 0.6);
+      const opacity = 0.18 + rng() * 0.18;
+      const sw = 1 + rng() * 1.5;
+      streaks.push({ x: sxStreak, y: h * yPct, len: length, opacity, sw });
+    }
+  }
+
+  // Optional internal vertical gradient — top of band slightly different from
+  // bottom (lit/shaded). Adds depth so bands aren't flat colour fills.
+  if (band.gradientCurve) {
+    const topColor = sampleColorCurve(band.gradientCurve, t);
+    const gradId = `cbgrad-${theme.id}-${band.id}`;
+    const clipId = `cbclip-${theme.id}-${band.id}`;
+    return (
+      <g transform={`translate(0, ${y})`}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={topColor} />
+            <stop offset="100%" stopColor={color} />
+          </linearGradient>
+          <clipPath id={clipId}>
+            <path d={d} />
+          </clipPath>
+        </defs>
+        <rect x={0} y={0} width={w} height={h} fill={`url(#${gradId})`} clipPath={`url(#${clipId})`} />
+        <g clipPath={`url(#${clipId})`}>
+          {streaks.map((s, i) => (
+            <line key={i} x1={s.x} y1={s.y} x2={s.x + s.len} y2={s.y} stroke={streakColor} strokeWidth={s.sw} opacity={s.opacity} strokeLinecap="round" />
+          ))}
+        </g>
+      </g>
+    );
+  }
+
+  return (
+    <g transform={`translate(0, ${y})`}>
+      <path d={d} fill={color} />
+      {streaks.length > 0 && (
+        <g>
+          {streaks.map((s, i) => (
+            <line key={i} x1={s.x} y1={s.y} x2={s.x + s.len} y2={s.y} stroke={streakColor} strokeWidth={s.sw} opacity={s.opacity} strokeLinecap="round" />
+          ))}
+        </g>
+      )}
+    </g>
+  );
 }
 
 function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
@@ -763,6 +846,106 @@ function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
   );
 }
 
+// ─── Lightning flashes (Jupiter night) ──────────────────────────────────────
+// Rare, deep within the bands. Implemented as a quick alpha pulse on a
+// localized soft-radial. Fires randomly based on density curve. Per Jupiter
+// point 5 (round 7 — Claude Design baseline merge).
+function Lightning({ spec, theme, t, w, gameH, nowMs }) {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const rng = mulberry32(909);
+  const flashes = [];
+  const cycleMs = 8000; // 8s schedule loop
+  const cyclePos = (nowMs % cycleMs) / cycleMs;
+  for (let i = 0; i < spec.count; i++) {
+    const startT = rng();
+    const duration = 0.02 + rng() * 0.04; // very short — 160-480ms of an 8s loop
+    const cx = rng() * w;
+    const cy = (gameH * 0.45) + rng() * gameH * 0.35;
+    const radius = 60 + rng() * 100;
+    let dt = cyclePos - startT;
+    if (dt < 0) dt += 1;
+    if (dt < duration) {
+      // Fast attack, slower decay
+      const u = dt / duration;
+      const intensity = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
+      flashes.push({ cx, cy, radius, alpha: intensity * density });
+    }
+  }
+  if (flashes.length === 0) return null;
+  return (
+    <g>
+      {flashes.map((f, i) => (
+        <g key={i}>
+          <defs>
+            <radialGradient id={`light-${theme.id}-${i}`} cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%" stopColor="#fff8d8" stopOpacity="1" />
+              <stop offset="40%" stopColor="#ffe488" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#ffe488" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx={f.cx} cy={f.cy} r={f.radius} fill={`url(#light-${theme.id}-${i})`} opacity={f.alpha} />
+          {/* tiny bright core */}
+          <circle cx={f.cx} cy={f.cy} r={3} fill="#ffffff" opacity={f.alpha * 0.9} />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+// ─── Aurora glow (Jupiter night, top of sky) ────────────────────────────────
+// Subtle vertical gradient overlay — green/violet wash at top of frame,
+// strongest at night. Pure additive bloom (mixBlendMode: screen), no animation
+// needed. Per Jupiter point 5 (round 7 — Claude Design baseline merge).
+function Aurora({ spec, theme, t, w, gameH }) {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const colorTop = sampleColorCurve(spec.colorTopCurve, t);
+  const colorBot = sampleColorCurve(spec.colorBotCurve, t);
+  const id = `aurora-${theme.id}`;
+  return (
+    <g style={{ mixBlendMode: 'screen' }}>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={colorTop} stopOpacity={0.65 * density} />
+          <stop offset="60%" stopColor={colorBot} stopOpacity={0.25 * density} />
+          <stop offset="100%" stopColor={colorBot} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x={0} y={0} width={w} height={gameH * 0.55} fill={`url(#${id})`} />
+    </g>
+  );
+}
+
+// ─── Shear motes (small fast particles inside cloud bands) ──────────────────
+// Per Jupiter point 5 (round 7 — Claude Design baseline merge).
+function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#fff8e0';
+  const rng = mulberry32(404);
+  const motes = [];
+  const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.4) * gameH;
+  const yMax = (spec.yMaxPct != null ? spec.yMaxPct : 0.85) * gameH;
+  for (let i = 0; i < spec.count; i++) {
+    const baseY = yMin + rng() * (yMax - yMin);
+    const baseX = rng() * w * 1.4;
+    // Per-mote drift speed within ±50% of base
+    const speedJ = 0.7 + rng() * 0.6;
+    const drift = (nowMs * 0.05 * spec.speed * speedJ + rng() * 1000) % (w + 100);
+    const x = ((baseX + drift) % (w + 100)) - 50;
+    const r = spec.sizeRange[0] + rng() * (spec.sizeRange[1] - spec.sizeRange[0]);
+    motes.push({ x, y: baseY, r, o: (0.3 + rng() * 0.4) * density });
+  }
+  return (
+    <g>
+      {motes.map((m, i) => (
+        <circle key={i} cx={m.x} cy={m.y} r={m.r} fill={tint} opacity={m.o} />
+      ))}
+    </g>
+  );
+}
+
 // ─── Celestial body (sun, moon, earth-from-space, etc.) ──────────────────────
 function Celestial({ spec, theme, t, positionT, w, gameH }) {
   const color = sampleColorCurve(spec.colorCurve, t);
@@ -954,6 +1137,45 @@ function Celestial({ spec, theme, t, positionT, w, gameH }) {
     );
   }
 
+  // Great Red Spot — large oval drifting across with internal swirl arcs.
+  // Treat as a celestial because it arcs (xCurve drives it from off-screen-left
+  // → centered at dusk → off-screen-right at night). Per Jupiter point 3
+  // (round 7 — Claude Design baseline merge). Renders ON TOP of the cloud
+  // bands via a separate post-band pass in WorldRenderer below.
+  if (spec.kind === 'gasGiantSpot') {
+    const rim = spec.rimCurve ? sampleColorCurve(spec.rimCurve, t) : color;
+    const clipId = id + '-clip';
+    const rx = r * (spec.aspectRatio || 1.4);
+    const ry = r;
+    return (
+      <g opacity={glow}>
+        <defs>
+          <radialGradient id={id} cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stopColor={color} stopOpacity="1" />
+            <stop offset="65%" stopColor={color} stopOpacity="0.85" />
+            <stop offset="100%" stopColor={rim} stopOpacity="0.7" />
+          </radialGradient>
+          <clipPath id={clipId}>
+            <ellipse cx={x} cy={y} rx={rx} ry={ry} />
+          </clipPath>
+        </defs>
+        {/* Soft outer halo — bleeds into surrounding bands */}
+        <ellipse cx={x} cy={y} rx={rx * 1.25} ry={ry * 1.25} fill={color} opacity={0.18} />
+        {/* Body */}
+        <ellipse cx={x} cy={y} rx={rx} ry={ry} fill={`url(#${id})`} />
+        {/* Internal swirl — concentric arcs suggesting rotation */}
+        <g clipPath={`url(#${clipId})`} fill="none" stroke={rim} strokeLinecap="round">
+          <ellipse cx={x} cy={y} rx={rx * 0.78} ry={ry * 0.62} strokeWidth={1.2} opacity={0.45} />
+          <ellipse cx={x - rx * 0.05} cy={y + ry * 0.05} rx={rx * 0.55} ry={ry * 0.42} strokeWidth={1.1} opacity={0.38} />
+          <ellipse cx={x + rx * 0.08} cy={y - ry * 0.03} rx={rx * 0.32} ry={ry * 0.24} strokeWidth={0.9} opacity={0.32} />
+          <ellipse cx={x} cy={y} rx={rx * 0.12} ry={ry * 0.10} strokeWidth={0.8} opacity={0.4} />
+        </g>
+        {/* Bright eye highlight */}
+        <ellipse cx={x - rx * 0.15} cy={y - ry * 0.18} rx={rx * 0.12} ry={ry * 0.08} fill="#ffe8d0" opacity={0.25} />
+      </g>
+    );
+  }
+
   // Default: sun / generic disc
   return (
     <g>
@@ -986,10 +1208,10 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
     >
       {visible('sky') && <SkyBand theme={theme} t={t} w={w} h={gameH} />}
 
-      {/* celestials sit between sky and silhouettes — except storm-eye
+      {/* celestials sit between sky and silhouettes — except gasGiantSpot
           (Jupiter's Great Red Spot), which lives IN the cloud layer rather
-          than behind it. We render it after the bands below. */}
-      {visible('celestials') && theme.celestials.filter((c) => c.kind !== 'storm-eye').map((c) => (
+          than behind it. We render that one after the bands below. */}
+      {visible('celestials') && theme.celestials.filter((c) => c.kind !== 'gasGiantSpot').map((c) => (
         <Celestial key={c.id} spec={c} theme={theme} t={t} positionT={positionT} w={w} gameH={gameH} />
       ))}
 
@@ -1003,6 +1225,11 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
         <CloudField key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
+      {/* aurora — Jupiter night-only screen-blended overlay above the sky */}
+      {visible('particles') && theme.particles.filter(p => p.kind === 'aurora').map((p) => (
+        <Aurora key={p.id} spec={p} theme={theme} t={t} w={w} gameH={gameH} />
+      ))}
+
       {/* birds in upper-mid sky, behind silhouettes */}
       {visible('particles') && theme.particles.filter(p => p.kind === 'birds').map((p) => (
         <BirdFlock key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
@@ -1012,11 +1239,6 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
       {theme.bands.map((band) => {
         if (!visible(band.id)) return null;
         if (band.kind === 'silhouette') {
-          // Gas-giant bands take a specialised renderer (alpha-feathered
-          // overlap, no silhouette path). Per Jupiter point 1 (round 7).
-          if (band.profile === 'storm-bands') {
-            return <StormBand key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} />;
-          }
           return <SilhouetteBand key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} />;
         }
         if (band.kind === 'plain') {
@@ -1024,6 +1246,11 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
         }
         if (band.kind === 'craters') {
           return <CraterField key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} />;
+        }
+        if (band.kind === 'cloudBand') {
+          // Jupiter atmospheric bands — top + bottom turbulent edges, internal
+          // eddies and shear streaks, independent driftSpeed.
+          return <CloudBand key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} nowMs={nowMs} />;
         }
         return null;
       })}
@@ -1033,10 +1260,20 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
         <DustField key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
-      {/* storm-eye celestials (Jupiter's Great Red Spot) — drawn LAST so they
-          sit on top of the atmospheric bands as a cloud-layer feature. */}
-      {visible('celestials') && theme.celestials.filter((c) => c.kind === 'storm-eye').map((c) => (
+      {/* shear motes — fast small particles inside cloud bands (Jupiter) */}
+      {visible('particles') && theme.particles.filter(p => p.kind === 'shearMotes').map((p) => (
+        <ShearMotes key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
+      ))}
+
+      {/* gasGiantSpot (Jupiter's Great Red Spot) — drawn after the cloud bands
+          so it sits on top of them as a cloud-layer feature. */}
+      {visible('celestials') && theme.celestials.filter((c) => c.kind === 'gasGiantSpot').map((c) => (
         <Celestial key={c.id} spec={c} theme={theme} t={t} positionT={positionT} w={w} gameH={gameH} />
+      ))}
+
+      {/* lightning flashes (Jupiter night) — sit on top of bands and GRS */}
+      {visible('particles') && theme.particles.filter(p => p.kind === 'lightning').map((p) => (
+        <Lightning key={p.id} spec={p} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
     </svg>
   );
