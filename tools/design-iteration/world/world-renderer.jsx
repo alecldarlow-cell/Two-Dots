@@ -216,6 +216,48 @@ function stormBandsPath(w, h, scrollX, seed) {
   return d;
 }
 
+// Grass tuft generator — small triangles along the top edge of the singleHill
+// silhouette. ToD-aware colour, parallax-scrolling. Per Earth foreground
+// review (round 6 — "looks bland").
+function renderGrassTufts(band, h, sx, t, w) {
+  // Hardcoded grass colour curve — vivid green in day, muted dawn/dusk, dark
+  // at night. Authored separate from the band's earth-brown colorCurve.
+  const grassCurve = [
+    { t: 0.00, color: '#5a7050' }, // dawn — cool muted green
+    { t: 0.25, color: '#4a8a3a' }, // day  — vivid grass green
+    { t: 0.50, color: '#6a7038' }, // dusk — warm olive
+    { t: 0.75, color: '#0a1410' }, // night — near-black green
+  ];
+  const grassColor = sampleColorCurve(grassCurve, t);
+  const span = w * 2.0;
+  const offset = -(sx % w);
+  const peakX = span * 0.42;
+  const peakY = h * 0.55; // matches singleHillPath
+  const rng = mulberry32(7777);
+  const tuftSpacing = 9;
+  const tufts = [];
+  for (let x = 0; x <= span; x += tuftSpacing) {
+    if (rng() < 0.10) continue; // ~10% gaps for natural variation
+    const dx = (x - peakX) / (span * 0.55);
+    const bell = 1 / (1 + dx * dx);
+    const tilt = (x - peakX) > 0 ? -dx * 0.04 * h : 0;
+    const yEdge = h - (h - peakY) * bell + tilt;
+    const tuftHeight = 3 + rng() * 5; // 3-8px
+    const tuftWidth = 2 + rng() * 2;  // 2-4px
+    const xPos = x + offset;
+    tufts.push(
+      `${xPos - tuftWidth / 2},${yEdge} ${xPos},${yEdge - tuftHeight} ${xPos + tuftWidth / 2},${yEdge}`
+    );
+  }
+  return (
+    <g fill={grassColor}>
+      {tufts.map((points, i) => (
+        <polygon key={i} points={points} />
+      ))}
+    </g>
+  );
+}
+
 function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
   const color = sampleColorCurve(band.colorCurve, t);
   const y = band.yPct * gameH;
@@ -243,6 +285,9 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
     softCraterPath;
   const d = pathFn(w, h, sx, seed);
 
+  // Grass tufts — only for the closest foreground band (singleHill profile).
+  const grassTufts = band.profile === 'singleHill' ? renderGrassTufts(band, h, sx, t, w) : null;
+
   // Optional internal vertical gradient (lighter top edge, darker base —
   // adds depth so the silhouette doesn't read as a flat shape).
   if (band.gradientCurve) {
@@ -262,6 +307,7 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
           </clipPath>
         </defs>
         <rect x={0} y={0} width={w} height={h} fill={`url(#${gradId})`} clipPath={`url(#${clipId})`} />
+        {grassTufts}
       </g>
     );
   }
@@ -269,6 +315,7 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
   return (
     <g transform={`translate(0, ${y})`}>
       <path d={d} fill={color} />
+      {grassTufts}
     </g>
   );
 }
