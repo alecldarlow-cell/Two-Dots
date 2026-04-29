@@ -722,9 +722,12 @@ function Celestial({ spec, theme, t, positionT, w, gameH }) {
     );
   }
 
-  // Earth-from-space: blue ocean + green continent patches + atmospheric glow
+  // Earth-from-space: blue ocean + recognisable continents + ice caps + halo.
+  // Africa-Europe view (the iconic Earth-from-Moon angle). Per Moon point 6
+  // (round 6 review) — replaces the abstract blob continents with shapes
+  // that read as Earth at a glance.
   if (spec.kind === 'earth') {
-    const continent = spec.continentCurve ? sampleColorCurve(spec.continentCurve, t) : '#5a8a4e';
+    const continent = spec.continentCurve ? sampleColorCurve(spec.continentCurve, t) : '#3a7a3e';
     const clipId = id + '-clip';
     return (
       <g>
@@ -741,19 +744,95 @@ function Celestial({ spec, theme, t, positionT, w, gameH }) {
         <circle cx={x} cy={y} r={r * 1.8} fill={`url(#${id})`} opacity={glow} />
         {/* Ocean body */}
         <circle cx={x} cy={y} r={r} fill={color} />
-        {/* Continent patches — clipped to body. Stylized blob shapes. */}
-        <g clipPath={`url(#${clipId})`} fill={continent}>
-          {/* Africa-ish */}
-          <path d={`M ${x - r * 0.1},${y - r * 0.4} q ${r * 0.25},${r * 0.1} ${r * 0.2},${r * 0.5} q -${r * 0.05},${r * 0.3} -${r * 0.3},${r * 0.2} q -${r * 0.2},-${r * 0.15} -${r * 0.15},-${r * 0.45} q ${r * 0.05},-${r * 0.2} ${r * 0.25},-${r * 0.1} z`} />
-          {/* Eurasia smear */}
-          <path d={`M ${x + r * 0.1},${y - r * 0.55} q ${r * 0.4},-${r * 0.05} ${r * 0.55},${r * 0.1} q ${r * 0.05},${r * 0.2} -${r * 0.2},${r * 0.18} q -${r * 0.4},${r * 0.0} -${r * 0.45},-${r * 0.1} z`} />
-          {/* Small island/Australia-ish */}
-          <ellipse cx={x + r * 0.45} cy={y + r * 0.35} rx={r * 0.22} ry={r * 0.12} />
-          {/* Polar tip */}
-          <path d={`M ${x - r * 0.5},${y + r * 0.4} q ${r * 0.3},${r * 0.05} ${r * 0.45},-${r * 0.05} q -${r * 0.1},${r * 0.2} -${r * 0.4},${r * 0.18} z`} />
+        {/* Land + ice caps — all clipped to body so excess gets trimmed at edge */}
+        <g clipPath={`url(#${clipId})`}>
+          {/* Africa — sharper proportions: taller than wide, distinct horn
+              on the east, narrowing to a clear southern point (Cape).
+              West coast roughly straight along the Atlantic. */}
+          <path
+            fill={continent}
+            d={`M ${x - r * 0.08},${y - r * 0.46}
+                L ${x + r * 0.14},${y - r * 0.44}
+                Q ${x + r * 0.22},${y - r * 0.36} ${x + r * 0.22},${y - r * 0.18}
+                Q ${x + r * 0.30},${y - r * 0.02} ${x + r * 0.26},${y + r * 0.10}
+                Q ${x + r * 0.14},${y + r * 0.20} ${x + r * 0.06},${y + r * 0.35}
+                Q ${x - r * 0.02},${y + r * 0.50} ${x - r * 0.06},${y + r * 0.58}
+                Q ${x - r * 0.18},${y + r * 0.48} ${x - r * 0.22},${y + r * 0.32}
+                Q ${x - r * 0.27},${y + r * 0.10} ${x - r * 0.25},${y - r * 0.12}
+                Q ${x - r * 0.22},${y - r * 0.32} ${x - r * 0.16},${y - r * 0.42}
+                Q ${x - r * 0.12},${y - r * 0.46} ${x - r * 0.08},${y - r * 0.46} Z`}
+          />
+          {/* Europe — bigger and more peninsula-defined. Iberian bump on
+              the west, Italian boot dipping middle, eastward Eurasia. */}
+          <path
+            fill={continent}
+            d={`M ${x - r * 0.22},${y - r * 0.5}
+                Q ${x - r * 0.30},${y - r * 0.62} ${x - r * 0.15},${y - r * 0.66}
+                Q ${x + r * 0.05},${y - r * 0.72} ${x + r * 0.25},${y - r * 0.66}
+                Q ${x + r * 0.40},${y - r * 0.60} ${x + r * 0.42},${y - r * 0.50}
+                Q ${x + r * 0.34},${y - r * 0.46} ${x + r * 0.20},${y - r * 0.48}
+                L ${x + r * 0.08},${y - r * 0.44}
+                Q ${x + r * 0.04},${y - r * 0.40} ${x + r * 0.00},${y - r * 0.45}
+                L ${x - r * 0.10},${y - r * 0.46}
+                Q ${x - r * 0.18},${y - r * 0.44} ${x - r * 0.22},${y - r * 0.5} Z`}
+          />
+          {/* South America fragment — dropped on the western limb. Tapers
+              from wider top (Brazil/Amazon) to narrow southern tip
+              (Patagonia). Body clip trims the leftmost portion. */}
+          <path
+            fill={continent}
+            d={`M ${x - r * 0.85},${y - r * 0.10}
+                Q ${x - r * 0.55},${y - r * 0.05} ${x - r * 0.48},${y + r * 0.08}
+                Q ${x - r * 0.50},${y + r * 0.25} ${x - r * 0.55},${y + r * 0.40}
+                Q ${x - r * 0.60},${y + r * 0.50} ${x - r * 0.65},${y + r * 0.42}
+                Q ${x - r * 0.62},${y + r * 0.25} ${x - r * 0.68},${y + r * 0.10}
+                Q ${x - r * 0.78},${y + r * 0.00} ${x - r * 0.85},${y - r * 0.10} Z`}
+          />
+          {/* North America fragment — upper-left, partial. Hints at the
+              continental mass without trying to draw the whole thing. */}
+          <path
+            fill={continent}
+            d={`M ${x - r * 0.85},${y - r * 0.50}
+                Q ${x - r * 0.55},${y - r * 0.45} ${x - r * 0.42},${y - r * 0.30}
+                Q ${x - r * 0.40},${y - r * 0.18} ${x - r * 0.50},${y - r * 0.12}
+                Q ${x - r * 0.65},${y - r * 0.18} ${x - r * 0.78},${y - r * 0.30}
+                Q ${x - r * 0.88},${y - r * 0.40} ${x - r * 0.85},${y - r * 0.50} Z`}
+          />
+          {/* Madagascar — small island east of southern Africa. Tiny but
+              distinctive; instantly cues "Earth" to map-readers. */}
+          <ellipse
+            cx={x + r * 0.34}
+            cy={y + r * 0.22}
+            rx={r * 0.04}
+            ry={r * 0.10}
+            fill={continent}
+          />
+          {/* North polar ice cap */}
+          <ellipse
+            cx={x}
+            cy={y - r * 0.95}
+            rx={r * 0.55}
+            ry={r * 0.18}
+            fill="rgba(255,255,255,0.85)"
+          />
+          {/* South polar ice cap */}
+          <ellipse
+            cx={x}
+            cy={y + r * 0.95}
+            rx={r * 0.5}
+            ry={r * 0.15}
+            fill="rgba(255,255,255,0.85)"
+          />
         </g>
-        {/* Soft terminator — dark crescent on opposite side of glow */}
-        <circle cx={x + r * 0.35} cy={y + r * 0.05} r={r} fill="#000" opacity="0.22" clipPath={`url(#${clipId})`} />
+        {/* Soft terminator — dark crescent on far side of the sun */}
+        <circle
+          cx={x + r * 0.35}
+          cy={y + r * 0.05}
+          r={r}
+          fill="#000"
+          opacity="0.22"
+          clipPath={`url(#${clipId})`}
+        />
       </g>
     );
   }
