@@ -137,17 +137,22 @@ export function useGameLoop(): GameLoopAPI {
   }, []);
 
   // ─── Background/foreground handling ──────────────────────────────────────────
-  // When the app goes to background, rAF is suspended and `lastFrameRef` keeps
-  // the timestamp of the last frame before suspension. On resume, the first
-  // frame computes `dt = now - lastFrameRef` which can be many seconds. Even
-  // with the 100ms catch-up cap, that's still ~6 physics steps of "lost" time
-  // applied in one frame — enough to land a mid-air dot on a pipe before the
-  // user can react. We reset both the frame timestamp and the accumulator on
-  // backgrounding so the first frame after resume runs zero catch-up physics
-  // and the dots stay where the user left them.
+  // Two things happen when the app is sent to background:
+  //   1. We set `gsRef.current.paused = true` if a run is in progress, which
+  //      the engine respects (stepPlaying is a no-op when paused — see
+  //      step.ts:85). This freezes physics so the dots don't fall during
+  //      resume; any non-centre tap on return unpauses (step.ts:313-315).
+  //   2. We reset `lastFrameRef` and the physics accumulator so that even if
+  //      the engine state somehow continued, the first frame after resume
+  //      would compute zero catch-up physics. Belt and braces.
+  // Idle and dead phases don't need pausing — they're already not stepping
+  // physics — but resetting the timestamps is harmless.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
+        if (gsRef.current.phase === 'playing') {
+          gsRef.current.paused = true;
+        }
         lastFrameRef.current = 0;
         accRef.current = 0;
       }

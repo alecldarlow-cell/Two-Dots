@@ -16,10 +16,20 @@
  *
  * Bands (far → near):
  *   0 sky        full-bleed gradient, time-of-day driven
- *   1 farRidge   distant cratered horizon (lowest contrast silhouette)
- *   2 midRidge   mid silhouette, more defined crater profile
- *   3 nearPlain  the regolith plain — where dots/pipes sit visually
- *   4 foreground crater rims, scattered boulders, fastest scroll
+ *   1 midRidge   mid silhouette, more defined crater profile
+ *   2 nearPlain  the regolith plain — where dots/pipes sit visually
+ *   3 foreground crater field covering the full plain — fastest scroll
+ *
+ * Round-6 deltas vs prior:
+ *   - farRidge band removed (read as flat noise, not depth).
+ *   - midRidge raised + thickened (yPct 0.68→0.61, heightPct 0.10→0.17) so it
+ *     reads as proper mountains without dominating the sky.
+ *   - foreground crater field extended to cover the full regolith plain
+ *     (yPct 0.86→0.78, heightPct 0.14→0.22) — matches nearPlain footprint.
+ *   - lunar dust particle removed (no atmosphere; was reading as misplaced stars).
+ *   - earth celestial uses kind:'earth' (renderer's Earth-specific path with
+ *     stylised continents + ice caps + halo). phaseCurve dropped — the 'earth'
+ *     renderer path doesn't terminate.
  */
 
 import type { WorldTheme } from '../types';
@@ -56,25 +66,15 @@ export const moonTheme = {
   },
 
   bands: [
+    // farRidge band removed (round 6) — read as flat noise rather than depth.
     {
-      id: 'farRidge',
-      kind: 'silhouette',
-      yPct: 0.62,
-      heightPct: 0.08,
-      parallax: 0.1,
-      profile: 'soft-craters',
-      colorCurve: [
-        { t: 0.0, color: '#34304a' },
-        { t: 0.25, color: '#272f50' },
-        { t: 0.5, color: '#3b2945' },
-        { t: 0.75, color: '#0f1226' },
-      ],
-    },
-    {
+      // Mid ridge — yPct 0.61 / heightPct 0.17 (round 6). Reads as proper
+      // mountains without dominating the sky. Path generator rewritten in
+      // the iteration tool for less polygon feel; renderer port pending.
       id: 'midRidge',
       kind: 'silhouette',
-      yPct: 0.68,
-      heightPct: 0.1,
+      yPct: 0.61,
+      heightPct: 0.17,
       parallax: 0.22,
       profile: 'cratered-horizon',
       colorCurve: [
@@ -104,10 +104,13 @@ export const moonTheme = {
       ],
     },
     {
+      // Crater field — extended (round 6) to cover the full regolith plain
+      // (yPct 0.78, heightPct 0.22; matches nearPlain). Renderer port:
+      // 32-crater field, two-shade depth, power-law sizing.
       id: 'foreground',
       kind: 'craters',
-      yPct: 0.86,
-      heightPct: 0.14,
+      yPct: 0.78,
+      heightPct: 0.22,
       parallax: 0.85,
       colorCurve: [
         { t: 0.0, color: '#3e3a52' },
@@ -131,19 +134,8 @@ export const moonTheme = {
       ],
       twinkle: true,
     },
-    {
-      id: 'dust',
-      kind: 'horizontalDrift',
-      count: 30,
-      densityCurve: [
-        { t: 0.0, value: 0.6 },
-        { t: 0.25, value: 0.5 },
-        { t: 0.5, value: 0.7 },
-        { t: 0.75, value: 0.4 },
-      ],
-      speed: 0.3,
-      sizeRange: [1, 2.5],
-    },
+    // Lunar dust horizontalDrift particle removed (round 6): Moon has no
+    // atmosphere, and the white particles read as misplaced stars on the regolith.
   ],
 
   celestials: [

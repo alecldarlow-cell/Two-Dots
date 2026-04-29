@@ -194,41 +194,72 @@ window.JupiterTheme = {
       driftSpeed: -1.4,
       streaks: 8,
       colorCurve: [
-        { t: 0.00, color: '#1a0e08' }, // dawn — near-black brown
-        { t: 0.25, color: '#2a1408' }, // day — deepest mahogany at base of frame
-        { t: 0.50, color: '#28080a' }, // dusk
-        { t: 0.75, color: '#040202' }, // night
+        { t: 0.00, color: '#3e2418' }, // dawn — warm dark brown (was #1a0e08, too black)
+        { t: 0.25, color: '#5a3a20' }, // day — warm mahogany (was #2a1408 — read as mountain silhouette)
+        { t: 0.50, color: '#4a1a10' }, // dusk — bloody rust (was #28080a)
+        { t: 0.75, color: '#180a08' }, // night — still dark but not pitch (was #040202)
       ],
       streakCurve: [
-        { t: 0.00, color: '#080404' },
-        { t: 0.25, color: '#0e0604' },
-        { t: 0.50, color: '#100404' },
-        { t: 0.75, color: '#000000' },
+        { t: 0.00, color: '#1a0c08' },
+        { t: 0.25, color: '#2a1808' },
+        { t: 0.50, color: '#280a08' },
+        { t: 0.75, color: '#080404' },
       ],
     },
   ],
 
   particles: [
     {
-      // Shear motes — small fast particles inside the cloud zone, sell motion
+      // Storm cells — Jupiter-specific amorphous cloud cells (different
+      // particle kind from Earth's 'clouds'). Many small ovals scattered with
+      // no cumulus dome, elongated horizontally to feel stretched by the
+      // zonal flow, no flat-bottom clip. Sit in the band region (not upper
+      // sky) so they read as discrete storms riding ON the atmosphere.
+      id: 'stormCells',
+      kind: 'stormClouds',
+      count: 6,
+      speed: 0.55,
+      // Ride the mid-to-near-band region — drifting through where the eye
+      // already lives, not floating in the narrow strip above band 0.
+      yMinPct: 0.32,
+      yMaxPct: 0.72,
+      densityCurve: [
+        { t: 0.00, value: 0.65 },  // dawn — visible
+        { t: 0.25, value: 0.95 },  // day — full
+        { t: 0.50, value: 0.75 },  // dusk
+        { t: 0.75, value: 0.30 },  // night — sparse, lightning dominates
+      ],
+      colorCurve: [
+        { t: 0.00, color: '#6a3a28' }, // dawn — deep rust
+        { t: 0.25, color: '#4a3828' }, // day — dark warm grey/brown thunderhead
+        { t: 0.50, color: '#c8703a' }, // dusk — warm orange catching last light
+        { t: 0.75, color: '#1a0e0e' }, // night — near-black smoke
+      ],
+    },
+    {
+      // Shear motes — small fast particles inside the cloud zone, rendered
+      // as horizontally-stretched ellipses (motion blur). Count, colour and
+      // night density tuned down (was 60 / bright cream / 0.5 night) so they
+      // read as faint flow streaks rather than scattered stars. Per particle
+      // cohesion pass (round 7 review).
       id: 'shearMotes',
       kind: 'shearMotes',
-      count: 60,
+      count: 28,
       densityCurve: [
-        { t: 0.00, value: 0.7 },
-        { t: 0.25, value: 1.0 },
-        { t: 0.50, value: 0.9 },
-        { t: 0.75, value: 0.5 },
+        { t: 0.00, value: 0.55 },
+        { t: 0.25, value: 0.85 },
+        { t: 0.50, value: 0.75 },
+        { t: 0.75, value: 0.20 }, // night — sparse so lightning dominates
       ],
       speed: 1.6,
       sizeRange: [0.6, 1.6],
       yMinPct: 0.35,           // confined to band region
       yMaxPct: 0.92,
       colorCurve: [
-        { t: 0.00, color: '#d8a878' },
-        { t: 0.25, color: '#fff0c8' }, // day — bright cream catches light
-        { t: 0.50, color: '#ffb888' },
-        { t: 0.75, color: '#604030' }, // night — dim
+        { t: 0.00, color: '#bc9070' }, // dawn — soft warm dust
+        { t: 0.25, color: '#e8d4a8' }, // day — soft cream tinted toward bands (was bright #fff0c8 — read as stars)
+        { t: 0.50, color: '#e8a878' }, // dusk — warm catch-light
+        { t: 0.75, color: '#5a4030' }, // night — dim
       ],
     },
     {
@@ -278,7 +309,7 @@ window.JupiterTheme = {
       id: 'greatRedSpot',
       kind: 'gasGiantSpot',
       radius: 70,                // ry; rx = radius × aspectRatio
-      aspectRatio: 1.6,           // wider than tall — canonical GRS shape
+      aspectRatio: 1.35,          // wider than tall but eased from 1.6 (round 7 review — too stretched at frame size)
       // Sits roughly at midBand2 height
       xPct: 0.5,
       yPct: 0.50,

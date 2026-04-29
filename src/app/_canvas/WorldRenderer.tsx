@@ -298,6 +298,8 @@ function buildSilhouettePath(
 
   if (profile === 'mountains') {
     // Earth — peaked Bezier ridge with random peak/valley nodes.
+    // Round 6: peaks lowered (was 0.65-0.95 of band height, now 0.45-0.75) —
+    // gentler slopes, less aggressive silhouette.
     const rng = mulberry32(seed);
     const span = SCREEN_W * 2.5;
     const numNodes = 5;
@@ -305,7 +307,7 @@ function buildSilhouettePath(
     for (let i = 0; i <= numNodes; i++) {
       const x = (i / numNodes) * span;
       const isPeak = i % 2 === 1;
-      const heightFrac = isPeak ? 0.65 + rng() * 0.3 : 0.15 + rng() * 0.2;
+      const heightFrac = isPeak ? 0.45 + rng() * 0.3 : 0.15 + rng() * 0.2;
       nodes.push([x, yPx + heightPx * (1 - heightFrac)]);
     }
     p.moveTo(nodes[0]![0], yPx + heightPx);
@@ -349,20 +351,21 @@ function buildSilhouettePath(
   }
 
   if (profile === 'singleHill') {
-    // Earth — one asymmetric rounded hump occupying most of the frame.
-    const rng = mulberry32(seed);
+    // Earth — flat foreground rise (round 6). Bell curve with peak lowered
+    // (h*0.05 → h*0.55), surface ripple removed, 120 points for smoother lines.
+    // Pairs with the singleHill band's slowed parallax (0.30) and lower
+    // yPct/heightPct in the theme so the peak sits low on screen.
     const span = SCREEN_W * 2.0;
     const peakX = span * 0.42;
-    const peakY = heightPx * 0.05;
-    const points = 80;
+    const peakY = heightPx * 0.55;
+    const points = 120;
     p.moveTo(0, yPx + heightPx);
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * span;
       const dx = (x - peakX) / (span * 0.55);
       const bell = 1 / (1 + dx * dx);
       const tilt = x - peakX > 0 ? -dx * 0.04 * heightPx : 0;
-      const ripple = Math.sin(x * 0.018 + rng() * 4) * heightPx * 0.02;
-      const y = heightPx - (heightPx - peakY) * bell + tilt + ripple;
+      const y = heightPx - (heightPx - peakY) * bell + tilt;
       p.lineTo(x, yPx + y);
     }
     p.lineTo(span, yPx + heightPx);

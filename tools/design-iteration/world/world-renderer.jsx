@@ -335,20 +335,27 @@ function renderGrassTufts(band, h, sx, t, w) {
 }
 
 // ─── Cloud band (Jupiter) — horizontal stripe with shear/turbulence ─────────
-// Each band is a flat stripe with an undulating top AND bottom edge driven by
-// 3 octaves of horizontal noise. Internal eddies (flat ovals) and shear streaks
-// (thin lines drifting at a different rate than the band itself) suggest
-// cyclonic flow and laminar shear without being literal. Per-band driftSpeed
-// is independent of player scrollX, so adjacent bands slip past each other —
-// that's the literal "banded shear lines" signature. Per Jupiter point 1+2+5
-// (round 7 — Claude Design baseline merge, replaces v2 StormBand).
+// Each band is a solid fill with a single turbulent top edge that fills DOWN
+// to the canvas bottom (Moon/Earth silhouette pattern). Bands paint in array
+// order, so each one's lower portion gets overpainted by the next band's top
+// — resulting in continuous atmospheric coverage with no sky leak between
+// bands. The visible boundary between band[i] and band[i+1] is band[i+1]'s
+// turbulent top, naturally festoon-like.
+//
+// Per-band driftSpeed scrolls the band horizontally independent of player
+// scroll; alternating signs across bands produce the "banded shear" signature.
+// Subtle interior streaks drift at a slightly different rate than the band
+// itself for a hint of laminar flow.
+//
+// Per Jupiter point 1+2+5 + post-merge geometry fix (round 7).
 function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
   const color = sampleColorCurve(band.colorCurve, t);
   const y = band.yPct * gameH;
   const h = band.heightPct * gameH;
+  // Distance from band top down to canvas bottom — path fills this whole
+  // strip so the next band overpaints cleanly with no sky leak.
+  const hExtended = gameH - y;
   const sx = scrollX * band.parallax * scrollSpeed;
-  // Optional drift — bands slide horizontally on their own (independent of
-  // player scroll) at different rates to sell the shear.
   const driftPx = (nowMs * (band.driftSpeed || 0) * 0.02) % w;
   const totalX = sx + driftPx;
 
@@ -361,70 +368,46 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
     band.id === 'nearBand2' ? 1600 : 1700;
   const rng = mulberry32(seed);
 
-  // Build TOP and BOTTOM edges as polylines with multi-octave noise. The
-  // bottom edge (which becomes the boundary against the band BELOW it) gets
-  // a slightly larger amplitude than the top, since that's where adjacent
-  // bands push into one another (storm-front silhouette of band overlap).
-  // Frequencies are tuned LOW + horizontally stretched: Jupiter's jet streams
-  // smear features into wide horizontal swirls, not tall hills.
+  // Top edge — single 3-octave wave for organic festoon-style undulation.
+  // Amplitude tightened from 0.85 → 0.45 of band height: bands now read as
+  // zones with curling cloud-tops, not sausages.
   const points = 96;
-  const span = w * 2.2;
-  const offset = -(totalX % w);
-  const ampTop = (band.turbulence != null ? band.turbulence : 0.25) * h * 0.85;
-  const ampBot = (band.turbulence != null ? band.turbulence : 0.25) * h * 1.05;
+  const span = w * 2.4;
+  // Normalised offset in (-w, 0] regardless of totalX sign. JS modulo keeps
+  // the sign of the dividend, so without the (+w)%w step a negative totalX
+  // (which happens when band.driftSpeed is negative and outpaces scroll) would
+  // yield a POSITIVE offset and leave an uncovered strip on the left edge of
+  // the canvas — visible as a vertical seam where the band below shows through.
+  const offset = -(((totalX % w) + w) % w);
+  const ampTop = (band.turbulence != null ? band.turbulence : 0.25) * h * 0.45;
 
   const j1 = rng() * 6;
   const j2 = rng() * 6;
   const j3 = rng() * 6;
-  const j4 = rng() * 6;
-  const j5 = rng() * 6;
-  const j6 = rng() * 6;
 
   const topPts = [];
   for (let i = 0; i <= points; i++) {
     const x = (i / points) * span;
     const o1 = Math.sin(x * 0.0035 + j1) * ampTop * 0.55;
-    const o2 = Math.sin(x * 0.012 + j2) * ampTop * 0.30;
-    const o3 = Math.sin(x * 0.045 + j3) * ampTop * 0.15;
+    const o2 = Math.sin(x * 0.012  + j2) * ampTop * 0.30;
+    const o3 = Math.sin(x * 0.045  + j3) * ampTop * 0.15;
     const yEdge = (o1 + o2 + o3) + ampTop;
     topPts.push([x + offset, yEdge]);
   }
 
-  const botPts = [];
-  for (let i = 0; i <= points; i++) {
-    const x = (i / points) * span;
-    const o1 = Math.sin(x * 0.0030 + j4) * ampBot * 0.55;
-    const o2 = Math.sin(x * 0.010 + j5) * ampBot * 0.30;
-    const o3 = Math.sin(x * 0.040 + j6) * ampBot * 0.15;
-    const yEdge = h - ampBot + (o1 + o2 + o3);
-    botPts.push([x + offset, yEdge]);
-  }
-
-  // Closed path: top edge L→R, then bottom edge R→L.
-  let d = `M ${topPts[0][0]},${topPts[0][1]}`;
+  // Closed path: top-edge → down to canvas bottom → close. Fills band-local
+  // y from turbulent top edge to hExtended (canvas bottom). Subsequent bands
+  // overpaint the overflow.
+  let d = `M ${topPts[0][0]},${hExtended}`;
+  d += ` L ${topPts[0][0]},${topPts[0][1]}`;
   for (let i = 1; i < topPts.length; i++) d += ` L ${topPts[i][0]},${topPts[i][1]}`;
-  for (let i = botPts.length - 1; i >= 0; i--) d += ` L ${botPts[i][0]},${botPts[i][1]}`;
+  d += ` L ${topPts[topPts.length - 1][0]},${hExtended}`;
   d += ' Z';
 
-  // Internal eddies — small flat ovals embedded in the band, in shades ±10%
-  // off the band's color. Suggest cyclonic curls without being literal.
-  const eddyCount = Math.floor((band.turbulence || 0.25) * 8);
-  const eddies = [];
-  if (eddyCount > 0) {
-    const eddyDrift = (nowMs * (band.driftSpeed || 0) * 0.025) % w;
-    for (let i = 0; i < eddyCount; i++) {
-      const ex = ((i / eddyCount) * w + rng() * 80 - eddyDrift) % w;
-      const exWrapped = ex < 0 ? ex + w : ex;
-      const ey = h * (0.30 + rng() * 0.45);
-      const erx = 18 + rng() * 28;
-      const ery = erx * (0.25 + rng() * 0.20);  // very flat ovals
-      const lighten = rng() > 0.5;
-      eddies.push({ cx: exWrapped, cy: ey, rx: erx, ry: ery, lighten, opacity: 0.15 + rng() * 0.18 });
-    }
-  }
-
-  // Interior shear streaks — thin lighter/darker horizontal lines that drift
-  // at a slightly different speed than the band itself, suggesting flow.
+  // Interior shear streaks — drifted slightly faster than the band itself.
+  // Subtler than v1 (was strokeWidth up to 2.5 + opacity to 0.36 — read as
+  // drawn lines on the band rather than atmospheric flow). Now sw 0.6-1.3,
+  // opacity 0.10-0.20.
   const streakColor = band.streakCurve ? sampleColorCurve(band.streakCurve, t) : null;
   const streakCount = band.streaks || 0;
   const streaks = [];
@@ -434,37 +417,10 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
       const yPct = 0.25 + (i / streakCount) * 0.55 + rng() * 0.1;
       const sxStreak = ((rng() * w * 2) - streakDrift) % (w * 2) - w * 0.2;
       const length = w * (0.4 + rng() * 0.6);
-      const opacity = 0.18 + rng() * 0.18;
-      const sw = 1 + rng() * 1.5;
+      const opacity = 0.10 + rng() * 0.10;
+      const sw = 0.6 + rng() * 0.7;
       streaks.push({ x: sxStreak, y: h * yPct, len: length, opacity, sw });
     }
-  }
-
-  // Optional internal vertical gradient — top of band slightly different from
-  // bottom (lit/shaded). Adds depth so bands aren't flat colour fills.
-  if (band.gradientCurve) {
-    const topColor = sampleColorCurve(band.gradientCurve, t);
-    const gradId = `cbgrad-${theme.id}-${band.id}`;
-    const clipId = `cbclip-${theme.id}-${band.id}`;
-    return (
-      <g transform={`translate(0, ${y})`}>
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={topColor} />
-            <stop offset="100%" stopColor={color} />
-          </linearGradient>
-          <clipPath id={clipId}>
-            <path d={d} />
-          </clipPath>
-        </defs>
-        <rect x={0} y={0} width={w} height={h} fill={`url(#${gradId})`} clipPath={`url(#${clipId})`} />
-        <g clipPath={`url(#${clipId})`}>
-          {streaks.map((s, i) => (
-            <line key={i} x1={s.x} y1={s.y} x2={s.x + s.len} y2={s.y} stroke={streakColor} strokeWidth={s.sw} opacity={s.opacity} strokeLinecap="round" />
-          ))}
-        </g>
-      </g>
-    );
   }
 
   return (
@@ -847,48 +803,149 @@ function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
 }
 
 // ─── Lightning flashes (Jupiter night) ──────────────────────────────────────
-// Rare, deep within the bands. Implemented as a quick alpha pulse on a
-// localized soft-radial. Fires randomly based on density curve. Per Jupiter
-// point 5 (round 7 — Claude Design baseline merge).
+// Three-layer storm flash:
+//   1. Whole-scene ambient brightening (white rect, mixBlendMode screen,
+//      decays with the flash) — sells "the whole atmosphere lit up"
+//   2. Cool-tone radial bloom around each strike — local cloud illumination
+//   3. Jagged bolt polyline with 0-2 branch forks — the actual electrical bolt,
+//      drawn as a wide cyan-white halo stroke + narrow bright-white core
+//
+// Per-flash schedule keeps the original 8s loop with sharp attack (10%) and
+// slow decay (90%). All visuals wrapped in a `mixBlendMode: 'screen'` group
+// so light adds onto the underlying bands rather than overlaying as paint.
+// Per Jupiter point 5 / lightning Option C (round 7 review).
 function Lightning({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
   const rng = mulberry32(909);
   const flashes = [];
-  const cycleMs = 8000; // 8s schedule loop
+  const cycleMs = 8000;
   const cyclePos = (nowMs % cycleMs) / cycleMs;
+
   for (let i = 0; i < spec.count; i++) {
     const startT = rng();
-    const duration = 0.02 + rng() * 0.04; // very short — 160-480ms of an 8s loop
-    const cx = rng() * w;
-    const cy = (gameH * 0.45) + rng() * gameH * 0.35;
-    const radius = 60 + rng() * 100;
+    const duration = 0.02 + rng() * 0.04;       // 160-480ms of the loop
+    const cx = 60 + rng() * (w - 120);          // keep clear of edges
+    const cy = gameH * (0.50 + rng() * 0.30);   // strikes happen mid-to-lower bands
+    const boltLen = 80 + rng() * 110;
+    const baseRadius = 90 + rng() * 110;
+
     let dt = cyclePos - startT;
     if (dt < 0) dt += 1;
     if (dt < duration) {
-      // Fast attack, slower decay
+      // Sharp attack (10%), exponential decay (90%) — feels like a real strike.
       const u = dt / duration;
-      const intensity = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
-      flashes.push({ cx, cy, radius, alpha: intensity * density });
+      const intensity = u < 0.10 ? u / 0.10 : Math.pow(1 - (u - 0.10) / 0.90, 1.5);
+      // Each flash gets its own deterministic geometry seed so its bolt shape
+      // stays stable across frames during the brief flash duration.
+      flashes.push({
+        cx, cy, baseRadius, boltLen,
+        alpha: intensity * density,
+        geomSeed: 909 + i * 137,
+      });
     }
   }
+
   if (flashes.length === 0) return null;
+
+  // Whole-scene ambient flash — sum of all active flashes' contributions,
+  // capped so multiple simultaneous strikes don't blow out the scene.
+  const ambientAlpha = Math.min(0.18, flashes.reduce((sum, f) => sum + f.alpha * 0.08, 0));
+
   return (
-    <g>
-      {flashes.map((f, i) => (
-        <g key={i}>
-          <defs>
-            <radialGradient id={`light-${theme.id}-${i}`} cx="0.5" cy="0.5" r="0.5">
-              <stop offset="0%" stopColor="#fff8d8" stopOpacity="1" />
-              <stop offset="40%" stopColor="#ffe488" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#ffe488" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <circle cx={f.cx} cy={f.cy} r={f.radius} fill={`url(#light-${theme.id}-${i})`} opacity={f.alpha} />
-          {/* tiny bright core */}
-          <circle cx={f.cx} cy={f.cy} r={3} fill="#ffffff" opacity={f.alpha * 0.9} />
-        </g>
-      ))}
+    <g style={{ mixBlendMode: 'screen' }}>
+      <defs>
+        <radialGradient id={`lightning-bloom-${theme.id}`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%"   stopColor="#e8f4ff" stopOpacity="0.9" />
+          <stop offset="40%"  stopColor="#a8c0e8" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#5a78b8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      {/* whole-scene flash */}
+      {ambientAlpha > 0.005 && (
+        <rect x={0} y={0} width={w} height={gameH} fill="#ffffff" opacity={ambientAlpha} />
+      )}
+
+      {flashes.map((f, i) => {
+        const r = mulberry32(f.geomSeed);
+        const startY = f.cy - f.boltLen * 0.5;
+        const endY = f.cy + f.boltLen * 0.5;
+
+        // Main bolt — jagged polyline anchored at start & end (cx), zigzag
+        // through the middle. Tapered jitter (parabolic) so the bolt converges
+        // cleanly to its endpoints rather than ending mid-zigzag.
+        const segs = 8 + Math.floor(r() * 5);
+        const boltPts = [];
+        for (let s = 0; s <= segs; s++) {
+          const tp = s / segs;
+          const ty = startY + (endY - startY) * tp;
+          const taper = 4 * tp * (1 - tp); // 0 at endpoints, 1 at midpoint
+          const jitter = (r() - 0.5) * 24 * taper;
+          boltPts.push([f.cx + jitter, ty]);
+        }
+        let boltD = `M ${boltPts[0][0].toFixed(1)},${boltPts[0][1].toFixed(1)}`;
+        for (let s = 1; s < boltPts.length; s++) {
+          boltD += ` L ${boltPts[s][0].toFixed(1)},${boltPts[s][1].toFixed(1)}`;
+        }
+
+        // 0-2 branch forks splitting off mid-bolt at random downward angles.
+        const branches = [];
+        for (let b = 0; b < 2; b++) {
+          if (r() < 0.4) continue;
+          const idx = 2 + Math.floor(r() * Math.max(1, boltPts.length - 4));
+          if (idx >= boltPts.length) continue;
+          const start = boltPts[idx];
+          const sign = r() < 0.5 ? -1 : 1;
+          const angle = sign * (Math.PI * 0.20 + r() * Math.PI * 0.30); // 36°–90° from vertical
+          const len = 22 + r() * 35;
+          const bSegs = 3 + Math.floor(r() * 3);
+          const bPts = [start];
+          for (let s = 1; s <= bSegs; s++) {
+            const tp = s / bSegs;
+            const bx = start[0] + Math.sin(angle) * len * tp;
+            const by = start[1] + Math.abs(Math.cos(angle)) * len * tp; // always downward
+            const j = (r() - 0.5) * 5;
+            bPts.push([bx + j, by]);
+          }
+          let bd = `M ${bPts[0][0].toFixed(1)},${bPts[0][1].toFixed(1)}`;
+          for (let s = 1; s < bPts.length; s++) {
+            bd += ` L ${bPts[s][0].toFixed(1)},${bPts[s][1].toFixed(1)}`;
+          }
+          branches.push(bd);
+        }
+
+        const boltAlpha = Math.min(1, f.alpha * 1.6);
+        const haloAlpha = Math.min(1, f.alpha * 0.65);
+        const bloomFill = `url(#lightning-bloom-${theme.id})`;
+
+        return (
+          <g key={i}>
+            {/* radial bloom */}
+            <circle
+              cx={f.cx}
+              cy={f.cy}
+              r={f.baseRadius * 1.8}
+              fill={bloomFill}
+              opacity={f.alpha}
+            />
+            {/* bolt halo — wider, cyan-white */}
+            <path d={boltD} stroke="#bfd8ff" strokeWidth="6" fill="none"
+                  strokeLinecap="round" strokeLinejoin="round" opacity={haloAlpha} />
+            {branches.map((bd, j) => (
+              <path key={`h${j}`} d={bd} stroke="#bfd8ff" strokeWidth="3" fill="none"
+                    strokeLinecap="round" strokeLinejoin="round" opacity={haloAlpha * 0.7} />
+            ))}
+            {/* bolt core — narrow, bright white */}
+            <path d={boltD} stroke="#ffffff" strokeWidth="2" fill="none"
+                  strokeLinecap="round" strokeLinejoin="round" opacity={boltAlpha} />
+            {branches.map((bd, j) => (
+              <path key={`c${j}`} d={bd} stroke="#ffffff" strokeWidth="1.2" fill="none"
+                    strokeLinecap="round" strokeLinejoin="round" opacity={boltAlpha * 0.7} />
+            ))}
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -918,7 +975,10 @@ function Aurora({ spec, theme, t, w, gameH }) {
 }
 
 // ─── Shear motes (small fast particles inside cloud bands) ──────────────────
-// Per Jupiter point 5 (round 7 — Claude Design baseline merge).
+// Render as horizontally-stretched ellipses (rx ≈ 4×ry) so they read as
+// motion-blur dashes caught in the zonal flow, NOT as scattered white pinpoint
+// stars. Per Jupiter particle cohesion pass (round 7 review — circles were
+// reading as stars/dust).
 function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
@@ -934,13 +994,97 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
     const speedJ = 0.7 + rng() * 0.6;
     const drift = (nowMs * 0.05 * spec.speed * speedJ + rng() * 1000) % (w + 100);
     const x = ((baseX + drift) % (w + 100)) - 50;
+    // Base size from spec; rendered as a horizontal dash 4× wider than tall.
     const r = spec.sizeRange[0] + rng() * (spec.sizeRange[1] - spec.sizeRange[0]);
-    motes.push({ x, y: baseY, r, o: (0.3 + rng() * 0.4) * density });
+    motes.push({ x, y: baseY, r, o: (0.25 + rng() * 0.3) * density });
   }
   return (
     <g>
       {motes.map((m, i) => (
-        <circle key={i} cx={m.x} cy={m.y} r={m.r} fill={tint} opacity={m.o} />
+        <ellipse key={i} cx={m.x} cy={m.y} rx={m.r * 4} ry={m.r * 0.9} fill={tint} opacity={m.o} />
+      ))}
+    </g>
+  );
+}
+
+// ─── Storm clouds (Jupiter) — amorphous storm cells riding the band region ─
+// Visually distinct from Earth's cumulus CloudField:
+//   - No flat-bottom clip-path (Jupiter has no horizon for clouds to "sit" on)
+//   - No symmetric cumulus dome — bubbles scattered with no big-middle bias
+//   - Elongated horizontally (~3× wider than tall) — stretched by zonal jets
+//   - Many small ovals (10-14 per cell) for chaotic, smoky silhouette
+//   - Configurable yMinPct/yMaxPct so cells ride the band region, not upper sky
+//   - Subtle per-bubble alpha jitter so the cell doesn't read as a flat stamp
+//
+// Per Jupiter Option B (round 7 review of Option A — Earth CloudField recolour
+// read as kitsch).
+function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#3a2818';
+  const rng = mulberry32(55);
+
+  const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.30) * gameH;
+  const yMax = (spec.yMaxPct != null ? spec.yMaxPct : 0.70) * gameH;
+
+  const clouds = [];
+  for (let i = 0; i < spec.count; i++) {
+    const baseX = rng() * w * 1.4;
+    const baseY = yMin + rng() * (yMax - yMin);
+    // Slow drift so cells crawl rather than march. Independent of band drift.
+    const drift = (nowMs * 0.008 * (spec.speed || 1) + rng() * 1000) % (w + 240);
+    const x = ((baseX + drift) % (w + 240)) - 120;
+
+    const scale = 0.7 + rng() * 0.7;
+    const cellOpacity = (0.55 + rng() * 0.25) * density;
+
+    // Cell dimensions — wider than tall (zonal stretch).
+    const cellW = (70 + rng() * 90) * scale;
+    const cellH = (22 + rng() * 26) * scale;
+
+    // Many small ovals scattered through the cell envelope. Bubbles are now
+    // smaller and more numerous (was 10-14 of size 8-22, now 18-24 of size
+    // 4-12) so they pack densely enough to fuse into a continuous silhouette
+    // rather than reading as a countable cluster. Tighter alpha range
+    // (0.45-0.70 vs 0.15-0.85) further reduces internal structure.
+    const bubbleCount = 18 + Math.floor(rng() * 7);
+    const bubbles = [];
+    for (let b = 0; b < bubbleCount; b++) {
+      const bx = (rng() - 0.5) * cellW;
+      const by = (rng() - 0.5) * cellH;
+      const brx = (4 + rng() * 8) * scale;
+      const bry = brx * (0.45 + rng() * 0.35);
+      const alpha = 0.45 + rng() * 0.25;
+      bubbles.push({ bx, by, brx, bry, alpha });
+    }
+
+    // Underlying haze ellipse — single soft fill beneath the bubbles. Glues
+    // the cluster into one cohesive silhouette and prevents the eye from
+    // counting individual bubbles. Sits at low alpha so it doesn't dominate.
+    const hazeRx = cellW * 0.55;
+    const hazeRy = cellH * 0.60;
+
+    clouds.push({ x, y: baseY, bubbles, opacity: cellOpacity, hazeRx, hazeRy });
+  }
+
+  return (
+    <g>
+      {clouds.map((c, i) => (
+        <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.opacity}>
+          {/* haze underlayer — fuses the bubble cluster into one shape */}
+          <ellipse cx={0} cy={0} rx={c.hazeRx} ry={c.hazeRy} fill={tint} opacity={0.30} />
+          {c.bubbles.map((b, j) => (
+            <ellipse
+              key={j}
+              cx={b.bx}
+              cy={b.by}
+              rx={b.brx}
+              ry={b.bry}
+              fill={tint}
+              opacity={b.alpha}
+            />
+          ))}
+        </g>
       ))}
     </g>
   );
@@ -1220,7 +1364,8 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
         <Starfield key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
-      {/* clouds in upper sky, behind silhouettes */}
+      {/* clouds (Earth) — friendly cumulus in the upper sky, render before
+          silhouettes so mountain bands occlude them at the horizon line. */}
       {visible('particles') && theme.particles.filter(p => p.kind === 'clouds').map((p) => (
         <CloudField key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
@@ -1263,6 +1408,13 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
       {/* shear motes — fast small particles inside cloud bands (Jupiter) */}
       {visible('particles') && theme.particles.filter(p => p.kind === 'shearMotes').map((p) => (
         <ShearMotes key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
+      ))}
+
+      {/* stormClouds — Jupiter-specific dark amorphous cells riding on top of
+          the cloud bands. Distinct kind from Earth's 'clouds' so the two don't
+          collide; Earth's CloudField still dispatches earlier in the tree. */}
+      {visible('particles') && theme.particles.filter(p => p.kind === 'stormClouds').map((p) => (
+        <StormClouds key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
       {/* gasGiantSpot (Jupiter's Great Red Spot) — drawn after the cloud bands

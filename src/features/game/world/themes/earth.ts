@@ -20,9 +20,17 @@
  * Bands (far → near, all `kind: 'silhouette'`):
  *   0 sky          full-bleed gradient (3-stop top/mid/bottom)
  *   1 farMountains profile: 'mountains'   parallax 0.08
- *   2 midMountains profile: 'mountains'   parallax 0.20
- *   3 rollingHills profile: 'hills'       parallax 0.40  + gradientCurve
- *   4 nearHill     profile: 'singleHill'  parallax 0.85  + gradientCurve
+ *   2 midMountains profile: 'mountains'   parallax 0.20  (heightPct 0.45)
+ *   3 nearHill     profile: 'singleHill'  parallax 0.30  + gradientCurve
+ *
+ * Round-6 deltas vs prior:
+ *   - midMountains heightPct 0.40 → 0.45 (extends to canvas bottom, closes
+ *     gap between band base and the foreground hill's bell-curve edges).
+ *   - rollingHills band removed (read as redundant with the foreground hill).
+ *   - nearHill yPct 0.82→0.86, heightPct 0.18→0.14, parallax 0.85→0.30 —
+ *     peak sits lower on screen; mid mountains covers any gap at the edges.
+ *   - singleHill renderer profile updated: flat peak, no ripple. Renderer
+ *     port pending.
  *
  * Particles:
  *   - clouds:  multi-bubble cumulus (renderer composes 6–8 overlapping circles
@@ -86,10 +94,12 @@ export const earthTheme = {
       ],
     },
     {
+      // Extended downward (round 6): heightPct 0.40 → 0.45 closes the small
+      // gap between band bottom and the foreground hill's bell-curve edges.
       id: 'midMountains',
       kind: 'silhouette',
       yPct: 0.55,
-      heightPct: 0.4,
+      heightPct: 0.45,
       parallax: 0.2,
       profile: 'mountains',
       colorCurve: [
@@ -99,32 +109,19 @@ export const earthTheme = {
         { t: 0.75, color: '#060a08' },
       ],
     },
+    // rollingHills band removed (round 6) — read as redundant with the
+    // foreground hill silhouette below.
     {
-      id: 'rollingHills',
-      kind: 'silhouette',
-      yPct: 0.68,
-      heightPct: 0.32,
-      parallax: 0.4,
-      profile: 'hills',
-      colorCurve: [
-        { t: 0.0, color: '#5a4438' },
-        { t: 0.25, color: '#7c6048' },
-        { t: 0.5, color: '#603428' },
-        { t: 0.75, color: '#0a0a14' },
-      ],
-      gradientCurve: [
-        { t: 0.0, color: '#7a5a4a' },
-        { t: 0.25, color: '#a0805e' },
-        { t: 0.5, color: '#7e4630' },
-        { t: 0.75, color: '#14141e' },
-      ],
-    },
-    {
+      // Single foreground hill — closest piece of land (round 6).
+      // Lowered (yPct 0.82→0.86, heightPct 0.18→0.14) so the peak sits
+      // lower on screen; mid mountains (heightPct 0.45) covers any gap
+      // that appears at the foreground edges. Parallax slowed (0.85→0.30)
+      // so the closest band moves believably with player travel.
       id: 'nearHill',
       kind: 'silhouette',
-      yPct: 0.82,
-      heightPct: 0.18,
-      parallax: 0.85,
+      yPct: 0.86,
+      heightPct: 0.14,
+      parallax: 0.3,
       profile: 'singleHill',
       colorCurve: [
         { t: 0.0, color: '#3a2820' },

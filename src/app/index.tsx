@@ -57,6 +57,11 @@ import { DeathScreen } from './_overlays/DeathScreen';
 import { IdleScreen } from './_overlays/IdleScreen';
 import { PlayingHUD } from './_overlays/PlayingHUD';
 
+// v0.3-worlds — planetary backgrounds are still in development. When false,
+// GameCanvas renders without the WorldRenderer (pre-v0.3 dark background).
+// Flip to true once the Earth/Jupiter theme designs are signed off.
+const WORLDS_ENABLED = false;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function GameScreen(): React.ReactElement {
   // All game-state machinery lives in this hook: refs, gsRef + display state,
@@ -243,7 +248,10 @@ export default function GameScreen(): React.ReactElement {
           // worldTod is static at 0.25 (day) for the first render; cycle
           // animation lands in a follow-up once schema is locked. worldScrollX
           // ticks gently from nowMs so parallax bands have a sense of motion.
-          worldTheme={worldTheme}
+          // Gated behind WORLDS_ENABLED while themes are in design — when
+          // false, GameCanvas's `worldTheme && (...)` guard skips WorldRenderer
+          // and the canvas falls back to its pre-v0.3 dark background.
+          worldTheme={WORLDS_ENABLED ? worldTheme : undefined}
           worldTod={0.25}
           worldScrollX={nowMs * 0.04}
         />
