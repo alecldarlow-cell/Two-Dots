@@ -17,7 +17,6 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "showCelestials": true,
   "showFarRidge": true,
   "showMidRidge": true,
-  "showNearPlain": true,
   "showForeground": true,
   "showParticles": true,
   "skyTopHueShift": 0,
@@ -89,7 +88,6 @@ function MoonTweaks({ tweaks, setTweak }) {
         <TweakToggle label="Celestials (sun/moon)" value={tweaks.showCelestials} onChange={(v) => setTweak('showCelestials', v)} />
         <TweakToggle label="Far mountains" value={tweaks.showFarRidge} onChange={(v) => setTweak('showFarRidge', v)} />
         <TweakToggle label="Mid mountains" value={tweaks.showMidRidge} onChange={(v) => setTweak('showMidRidge', v)} />
-        <TweakToggle label="Rolling hills" value={tweaks.showNearPlain} onChange={(v) => setTweak('showNearPlain', v)} />
         <TweakToggle label="Foreground hill" value={tweaks.showForeground} onChange={(v) => setTweak('showForeground', v)} />
         <TweakToggle label="Particles (clouds/birds/stars)" value={tweaks.showParticles} onChange={(v) => setTweak('showParticles', v)} />
       </TweakSection>

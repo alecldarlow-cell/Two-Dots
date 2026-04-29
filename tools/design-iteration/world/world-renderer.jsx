@@ -97,9 +97,8 @@ function crateredHorizonPath(w, h, scrollX, seed) {
 }
 
 // 'mountains' — broad rounded silhouette anchored to the bottom of its band.
-// Both the far and mid mountain bands extend down to band's full height so that
-// the silhouettes share a common ground line; the near plain sits in front of
-// them. No floating-mountain gap.
+// Peaks lowered (was 0.65-0.95 of band height, now 0.45-0.75) per Earth
+// point 4 (round 6) — gentler slopes, less aggressive silhouette.
 function mountainsPath(w, h, scrollX, seed) {
   const rng = mulberry32(seed);
 
@@ -111,9 +110,9 @@ function mountainsPath(w, h, scrollX, seed) {
     const isPeak = i % 2 === 1;
     let heightFrac;
     if (isPeak) {
-      heightFrac = 0.65 + rng() * 0.30;
+      heightFrac = 0.45 + rng() * 0.30; // peaks reach 45-75% of band height
     } else {
-      heightFrac = 0.15 + rng() * 0.20;
+      heightFrac = 0.15 + rng() * 0.20; // valleys 15-35%
     }
     nodes.push([x, h * (1 - heightFrac)]);
   }
@@ -166,26 +165,22 @@ function hillsPath(w, h, scrollX, seed) {
   return d;
 }
 
-// 'singleHill' — one big rounded silhouette occupying most of the frame.
-// Asymmetric so it doesn't read as a perfect dome.
+// 'singleHill' — flat foreground rise per Earth point 3 (round 6 review).
+// Bell curve with peak lowered (h*0.05 → h*0.55), no surface ripple, 120
+// points for smoother lines.
 function singleHillPath(w, h, scrollX, seed) {
-  const rng = mulberry32(seed);
   const span = w * 2.0;
   const offset = -(scrollX % w);
-  // One main hump, off-center
   const peakX = span * 0.42;
-  const peakY = h * 0.05; // peak height (top of band ≈ peak)
-  const points = 80;
+  const peakY = h * 0.55;
+  const points = 120;
   const pts = [];
   for (let i = 0; i <= points; i++) {
     const x = (i / points) * span;
-    // Bell-ish curve: 1 / (1 + (dx/width)^2)
     const dx = (x - peakX) / (span * 0.55);
     const bell = 1 / (1 + dx * dx);
-    // Asymmetry: bias right side downward
     const tilt = (x - peakX) > 0 ? -dx * 0.04 * h : 0;
-    const ripple = Math.sin(x * 0.018 + rng() * 4) * h * 0.02;
-    const y = h - (h - peakY) * bell + tilt + ripple;
+    const y = h - (h - peakY) * bell + tilt;
     pts.push([x + offset, y]);
   }
   let d = `M ${pts[0][0]},${h} L ${pts[0][0]},${pts[0][1]}`;
@@ -216,44 +211,125 @@ function stormBandsPath(w, h, scrollX, seed) {
   return d;
 }
 
-// Grass tuft generator — small triangles along the top edge of the singleHill
-// silhouette. ToD-aware colour, parallax-scrolling. Per Earth foreground
-// review (round 6 — "looks bland").
+// Grass tuft generator — clumps of 3 curved blades along the top edge of the
+// singleHill silhouette. Two-tone (lighter front blade over darker side
+// blades) for depth, ToD-aware colours, parallax-scrolling. Per Earth
+// foreground review (round 6 — "tufts of three blades, varied angles").
 function renderGrassTufts(band, h, sx, t, w) {
-  // Hardcoded grass colour curve — vivid green in day, muted dawn/dusk, dark
-  // at night. Authored separate from the band's earth-brown colorCurve.
-  const grassCurve = [
-    { t: 0.00, color: '#5a7050' }, // dawn — cool muted green
-    { t: 0.25, color: '#4a8a3a' }, // day  — vivid grass green
-    { t: 0.50, color: '#6a7038' }, // dusk — warm olive
+  // Two grass colour curves — light (front blade) and dark (back blades).
+  // Both shift through the day cycle: vivid in day, muted dawn/dusk, near
+  // black at night. Light/dark contrast gives the clumps depth.
+  const grassLightCurve = [
+    { t: 0.00, color: '#6a8458' }, // dawn — cool muted green
+    { t: 0.25, color: '#5aa040' }, // day  — vivid grass green
+    { t: 0.50, color: '#7a8038' }, // dusk — warm olive
     { t: 0.75, color: '#0a1410' }, // night — near-black green
   ];
-  const grassColor = sampleColorCurve(grassCurve, t);
+  const grassDarkCurve = [
+    { t: 0.00, color: '#3e5430' }, // dawn — deep moss
+    { t: 0.25, color: '#356528' }, // day  — saturated forest
+    { t: 0.50, color: '#4f5020' }, // dusk — dark olive
+    { t: 0.75, color: '#050a08' }, // night — almost black
+  ];
+  const grassLight = sampleColorCurve(grassLightCurve, t);
+  const grassDark = sampleColorCurve(grassDarkCurve, t);
+
   const span = w * 2.0;
   const offset = -(sx % w);
   const peakX = span * 0.42;
   const peakY = h * 0.55; // matches singleHillPath
   const rng = mulberry32(7777);
-  const tuftSpacing = 9;
-  const tufts = [];
-  for (let x = 0; x <= span; x += tuftSpacing) {
-    if (rng() < 0.10) continue; // ~10% gaps for natural variation
+  const clumpSpacing = 22; // wider so bigger clumps don't pile up
+  const darkBlades = [];
+  const lightBlades = [];
+
+  // Build a single curved blade as a closed Q-curve path.
+  //   xBase, yBase   blade attachment point (on the silhouette top edge)
+  //   angle          tilt from vertical, in radians (0 = straight up)
+  //   length         blade length in px
+  //   baseWidth      half-width of blade base
+  //   curlDir        bend direction along the blade (-1 ↔ +1)
+  function makeBlade(xBase, yBase, angle, length, baseWidth, curlDir) {
+    const tipX = xBase + Math.sin(angle) * length;
+    const tipY = yBase - Math.cos(angle) * length;
+    const midX = xBase + Math.sin(angle) * length * 0.5;
+    const midY = yBase - Math.cos(angle) * length * 0.5;
+    // Curl: shift mid perpendicular to blade direction
+    const curlAmount = length * 0.15 * curlDir;
+    const curlX = Math.cos(angle) * curlAmount;
+    const curlY = Math.sin(angle) * curlAmount;
+    // Perpendicular offset for blade thickness
+    const perpX = Math.cos(angle) * baseWidth * 0.5;
+    const perpY = Math.sin(angle) * baseWidth * 0.5;
+    return (
+      `M ${xBase - baseWidth},${yBase} ` +
+      `Q ${(midX + curlX - perpX).toFixed(2)},${(midY + curlY - perpY).toFixed(2)} ` +
+      `${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
+      `Q ${(midX + curlX + perpX).toFixed(2)},${(midY + curlY + perpY).toFixed(2)} ` +
+      `${xBase + baseWidth},${yBase} Z`
+    );
+  }
+
+  for (let x = 0; x <= span; x += clumpSpacing) {
+    if (rng() < 0.18) continue; // ~18% gaps — creates visible clusters and gaps
     const dx = (x - peakX) / (span * 0.55);
     const bell = 1 / (1 + dx * dx);
     const tilt = (x - peakX) > 0 ? -dx * 0.04 * h : 0;
     const yEdge = h - (h - peakY) * bell + tilt;
-    const tuftHeight = 3 + rng() * 5; // 3-8px
-    const tuftWidth = 2 + rng() * 2;  // 2-4px
-    const xPos = x + offset;
-    tufts.push(
-      `${xPos - tuftWidth / 2},${yEdge} ${xPos},${yEdge - tuftHeight} ${xPos + tuftWidth / 2},${yEdge}`
-    );
+    // Per-clump x jitter so positions aren't on a fixed grid
+    const xJitter = (rng() - 0.5) * clumpSpacing * 0.4;
+    const xPos = x + offset + xJitter;
+    const clumpScale = 0.7 + rng() * 0.7; // 0.7-1.4 — wider variation
+
+    // Center blade — tallest, mostly vertical with stronger wobble. Lighter
+    // shade so it pops against the side blades behind it.
+    const centerAngle = (rng() - 0.5) * 0.5; // ±~14° wobble (was ±~9°)
+    const centerH = (16 + rng() * 10) * clumpScale; // ~11-36px tall
+    const centerBaseW = (1.8 + rng() * 0.6) * clumpScale;
+    const centerCurl = (rng() - 0.5) * 1.2;
+    lightBlades.push(makeBlade(xPos, yEdge, centerAngle, centerH, centerBaseW, centerCurl));
+
+    // Left blade — angled out left, shorter. Darker shade (recedes).
+    const leftAngle = -0.45 + (rng() - 0.5) * 0.45; // wider angle range
+    const leftH = (12 + rng() * 5) * clumpScale; // ~8-24px
+    const leftBaseW = (1.3 + rng() * 0.4) * clumpScale;
+    const leftCurl = 0.5 + rng() * 0.5; // 0.5-1.0
+    darkBlades.push(makeBlade(xPos - 2, yEdge, leftAngle, leftH, leftBaseW, leftCurl));
+
+    // Right blade — angled out right, shorter. Darker.
+    const rightAngle = 0.45 + (rng() - 0.5) * 0.45;
+    const rightH = (12 + rng() * 5) * clumpScale;
+    const rightBaseW = (1.3 + rng() * 0.4) * clumpScale;
+    const rightCurl = -(0.5 + rng() * 0.5);
+    darkBlades.push(makeBlade(xPos + 2, yEdge, rightAngle, rightH, rightBaseW, rightCurl));
+
+    // Occasionally (20%) add a 4th rogue blade for more variety. Random
+    // angle, light shade, helps break up the symmetric 3-blade pattern.
+    if (rng() < 0.2) {
+      const rogueAngle = (rng() - 0.5) * 1.0; // wide range -29° to +29°
+      const rogueH = (10 + rng() * 6) * clumpScale;
+      const rogueBaseW = (1.2 + rng() * 0.4) * clumpScale;
+      const rogueCurl = (rng() - 0.5) * 1.5;
+      const rogueOffset = (rng() - 0.5) * 4;
+      lightBlades.push(
+        makeBlade(xPos + rogueOffset, yEdge, rogueAngle, rogueH, rogueBaseW, rogueCurl),
+      );
+    }
   }
   return (
-    <g fill={grassColor}>
-      {tufts.map((points, i) => (
-        <polygon key={i} points={points} />
-      ))}
+    <g>
+      {/* Dark side blades render first (behind) */}
+      <g fill={grassDark}>
+        {darkBlades.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
+      {/* Light center blades render on top */}
+      <g fill={grassLight}>
+        {lightBlades.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
     </g>
   );
 }

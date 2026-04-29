@@ -81,10 +81,13 @@ window.EarthTheme = {
       ],
     },
     {
+      // Extended downward (heightPct 0.40 → 0.45) per Earth round 6 — closes
+      // the small gap between band bottom and the foreground hill's
+      // bell-curve edges.
       id: 'midMountains',
       kind: 'silhouette',
       yPct: 0.55,
-      heightPct: 0.40,
+      heightPct: 0.45,
       parallax: 0.20,
       profile: 'mountains',
       colorCurve: [
@@ -94,39 +97,17 @@ window.EarthTheme = {
         { t: 0.75, color: '#060a08' }, // night
       ],
     },
+    // Rolling hills band removed per Earth point 2 (round 6 review).
     {
-      // Rolling hills — gentle low-frequency sine profile, replaces the flat
-      // nearPlain stripe. Sits in front of mid mountains, behind nearHill.
-      // Internal vertical gradient gives it depth (lighter top, darker bottom).
-      id: 'rollingHills',
-      kind: 'silhouette',
-      yPct: 0.68,
-      heightPct: 0.32,
-      parallax: 0.40,
-      profile: 'hills',
-      colorCurve: [
-        { t: 0.00, color: '#5a4438' }, // dawn — warm earth shadow
-        { t: 0.25, color: '#7c6048' }, // day — terracotta-warm
-        { t: 0.50, color: '#603428' }, // dusk — deep terracotta
-        { t: 0.75, color: '#0a0a14' }, // night — near-black
-      ],
-      // Internal gradient: top edge slightly brighter (light catch),
-      // bottom darker. Renderer composites this within the silhouette.
-      gradientCurve: [
-        { t: 0.00, color: '#7a5a4a' },
-        { t: 0.25, color: '#a0805e' },
-        { t: 0.50, color: '#7e4630' },
-        { t: 0.75, color: '#14141e' },
-      ],
-    },
-    {
-      // Single foreground hill — the closest piece of land, "where the player
-      // is standing". Lowest parallax-anchored thing, fastest scroll.
+      // Single foreground hill — closest piece of land. Lowered (yPct 0.82 →
+      // 0.86, heightPct 0.18 → 0.14) so the peak sits lower on screen.
+      // Mid mountains (heightPct 0.45) extends to canvas bottom and covers
+      // any gap that appears at the foreground edges.
       id: 'nearHill',
       kind: 'silhouette',
-      yPct: 0.82,
-      heightPct: 0.18,
-      parallax: 0.85,
+      yPct: 0.86,
+      heightPct: 0.14,
+      parallax: 0.30,
       profile: 'singleHill',
       colorCurve: [
         { t: 0.00, color: '#3a2820' }, // dawn — dark earth

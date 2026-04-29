@@ -50,13 +50,13 @@ window.MoonTheme = {
   bands: [
     // farRidge band removed per design review (Moon point 2).
     {
-      // Mid ridge — raised + taller per Moon point 5 (round 6).
-      // yPct 0.68 → 0.64 starts the band higher; heightPct 0.10 → 0.14 lets
-      // peaks rise further. Path generator also rewritten for less polygon feel.
+      // Mid ridge — yPct 0.61 / heightPct 0.17 (midpoint between v0.5 0.68/0.10
+      // and a more aggressive 0.58/0.20). Reads as proper mountains without
+      // dominating the sky. Path generator rewritten for less polygon feel.
       id: 'midRidge',
       kind: 'silhouette',
-      yPct: 0.64,
-      heightPct: 0.14,
+      yPct: 0.61,
+      heightPct: 0.17,
       parallax: 0.22,
       profile: 'cratered-horizon',
       colorCurve: [
@@ -126,7 +126,10 @@ window.MoonTheme = {
   celestials: [
     {
       id: 'earth',
-      kind: 'planet',
+      // 'earth' kind triggers the renderer's Earth-specific path: blue ocean
+      // body + stylised continent shapes (Africa/Europe/Americas/Madagascar) +
+      // ice caps + atmospheric halo. Per Moon point 6 (round 6 review).
+      kind: 'earth',
       // Earth in the lunar sky — large, blue-white, always visible
       xPct: 0.78,
       yPct: 0.18,
