@@ -37,7 +37,7 @@ Quick checklist — most of these are already done from session 9.
 - [x] Privacy policy live: https://alecldarlow-cell.github.io/Two-Dots/privacy.html
 - [x] All listing copy drafted in `play-console-listing.md`
 - [x] App icon at `assets/icon.png` (verify it's 512×512 — see step 3)
-- [ ] **Feature graphic (1024×500 PNG) — STILL NEEDS CREATING** (see step 3 for spec)
+- [x] Feature graphic (1024×500 PNG) — at `play-console-assets/feature-graphic.png`, generated via `export-feature-graphic.ps1`
 - [ ] Phone screenshots — 4 captured in session 9; consider re-shooting one death-screen with a higher score so it shows a real number (e.g. 50+) rather than 7
 - [ ] Google Play developer-account identity verification complete
 - [ ] (Optional, for `eas submit` automation) Google Play service account JSON key — covered in step 5
@@ -190,6 +190,18 @@ $img.Dispose()
 If it's not 512×512, upscale (or recreate) before uploading. Play Console rejects icons that are the wrong size.
 
 **Feature graphic export (one-time):**
+
+Easy path (Windows PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\play-console-assets\export-feature-graphic.ps1
+```
+
+(If you have PowerShell 7, `pwsh .\play-console-assets\export-feature-graphic.ps1` also works.)
+
+The script drives headless Edge/Chrome against `feature-graphic.html?export`, drops `play-console-assets/feature-graphic.png` at exactly 1024×500, and prints OK on success.
+
+Manual fallback (if the helper can't find a browser, etc.):
 
 1. Open `play-console-assets/feature-graphic.html` in Chrome
 2. DevTools (Ctrl+Shift+I) → click the `<div id="graphic">` element in Elements panel

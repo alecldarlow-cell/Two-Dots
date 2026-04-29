@@ -13,6 +13,8 @@ function makeDeath(sessionId: string, runIndex: number, at: number): Stamped {
     tier: 1,
     deathSide: 'L',
     deathGateInTier: 1,
+    timeToDeathMs: 0,
+    closeCallsInRun: 0,
     occurredAt: at,
   };
 }

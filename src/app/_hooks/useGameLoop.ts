@@ -78,6 +78,12 @@ export function useGameLoop(): GameLoopAPI {
   const runIndexRef = useRef<number>(0);
   const deathTimeRef = useRef<number>(0);
   const prevPhaseRef = useRef<GameState['phase']>('idle');
+  // Run-lifecycle timing — set on idle→playing tap, read at death to compute
+  // time_to_death_ms for the run_end analytics event.
+  const runStartTimeRef = useRef<number>(0);
+  // Close-call counter — incremented on each close-call audio event during a
+  // run, reset on idle→playing transition. Banked into run_end payload.
+  const closeCallsInRunRef = useRef<number>(0);
   // Fixed-timestep accumulator — ensures physics runs at exactly 60 steps/second
   // regardless of display refresh rate (60/90/120Hz). Without this, physics
   // runs 50–100% faster on high-refresh-rate devices.
@@ -159,7 +165,9 @@ export function useGameLoop(): GameLoopAPI {
     let rafId: number;
     let frameCount = 0;
 
-    // Map an engine AudioEvent → sound key.
+    // Map an engine AudioEvent → sound key. Also forks selected events into
+    // the analytics queue (close-call) so the dashboard can compute close-call
+    // rate and per-run engagement signal without a separate emission path.
     function playAudioEvent(ae: AudioEvent): void {
       switch (ae.kind) {
         case 'score-blip':
@@ -173,6 +181,14 @@ export function useGameLoop(): GameLoopAPI {
           break;
         case 'close-call':
           replay('closeCall');
+          closeCallsInRunRef.current++;
+          logEvent({
+            type: 'close_call',
+            sessionId: sessionIdRef.current,
+            runIndex: runIndexRef.current,
+            score: gsRef.current.score,
+            side: ae.side,
+          });
           break;
         case 'death':
           replay('death');
@@ -224,7 +240,8 @@ export function useGameLoop(): GameLoopAPI {
   // ─── Death side-effect ───────────────────────────────────────────────────────
   useEffect(() => {
     if (display.phase === 'dead' && prevPhaseRef.current === 'playing') {
-      deathTimeRef.current = Date.now();
+      const now = Date.now();
+      deathTimeRef.current = now;
       // Track best score — set wasNewBest BEFORE updating bestScore.
       // Persist new bests to AsyncStorage so they survive app kill.
       wasNewBestRef.current = display.score > 0 && display.score > bestScoreRef.current;
@@ -241,6 +258,8 @@ export function useGameLoop(): GameLoopAPI {
         tier: tierFor(display.score),
         deathSide: display.deathSide,
         deathGateInTier: display.deathGateInTier,
+        timeToDeathMs: runStartTimeRef.current > 0 ? now - runStartTimeRef.current : 0,
+        closeCallsInRun: closeCallsInRunRef.current,
       });
       if (deviceState.status === 'ready') {
         submitScore({
@@ -276,6 +295,8 @@ export function useGameLoop(): GameLoopAPI {
     // Analytics
     if (prevPhase === 'idle' && s.phase === 'playing') {
       runIndexRef.current++;
+      runStartTimeRef.current = now;
+      closeCallsInRunRef.current = 0;
       logEvent({
         type: 'run_start',
         sessionId: sessionIdRef.current,

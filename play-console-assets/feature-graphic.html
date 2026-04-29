@@ -10,12 +10,20 @@
     /*
       Two Dots — Google Play Store feature graphic.
       Target output: 1024 × 500 PNG (no alpha).
-      Open this file in Chrome, then:
-        Ctrl+Shift+I  (open DevTools)
-        Ctrl+Shift+P  (command palette)
-        Type: "Capture node screenshot"
-        Click the #graphic div in the Elements panel first, then run the command.
-      Result: an exact 1024×500 PNG saved to your Downloads folder.
+
+      Easy export:
+        powershell -ExecutionPolicy Bypass -File .\play-console-assets\export-feature-graphic.ps1
+
+      Manual export:
+        Open in Chrome → Ctrl+Shift+I → click <div id="graphic"> →
+        Ctrl+Shift+P → "Capture node screenshot".
+
+      Design intent (v3 — minimalist):
+        Two giant glowing dots floating on a near-black canvas. No pipe, no
+        wordmark hero. The actual in-game experience is mostly black space
+        with two glowing dots — the feature graphic mirrors that. A faint 1px
+        centre divider is the only hint at the two-lane mechanic. "TWO DOTS"
+        sits tiny at the bottom like a film credit, not a billboard.
     */
     html, body {
       margin: 0;
@@ -27,67 +35,105 @@
       justify-content: center;
       font-family: 'Space Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'Courier New', monospace;
     }
+    /*
+      Export mode — used by export-feature-graphic.ps1. Strips the grey
+      letterbox and the on-screen instructions so a headless Chromium
+      screenshot at --window-size=1024,500 captures the graphic edge-to-edge.
+    */
+    body.export {
+      background: #07070f;
+      align-items: stretch;
+      justify-content: stretch;
+      min-height: 0;
+      height: 500px;
+      width: 1024px;
+      overflow: hidden;
+    }
+    body.export .instructions { display: none !important; }
+    body.export #graphic { box-shadow: none; }
+
     #graphic {
       width: 1024px;
       height: 500px;
       background: #07070f;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
+
+    /* Faint centre divider — only structural anchor for the two-lane semantic.
+       Inset top/bottom so it doesn't run hard edge-to-edge. */
     .center-divider {
       position: absolute;
       left: 50%;
-      top: 60px;
-      bottom: 60px;
+      top: 70px;
+      bottom: 70px;
       width: 1px;
-      background: rgba(122, 192, 232, 0.12);
+      background: linear-gradient(180deg,
+        rgba(122, 192, 232, 0)    0%,
+        rgba(122, 192, 232, 0.18) 30%,
+        rgba(122, 192, 232, 0.18) 70%,
+        rgba(122, 192, 232, 0)    100%);
       transform: translateX(-0.5px);
-    }
-    .glow {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 440px;
-      height: 440px;
-      border-radius: 50%;
       pointer-events: none;
     }
-    .glow.left {
-      left: 256px;
-      background: radial-gradient(circle, rgba(255, 94, 53, 0.32) 0%, rgba(255, 94, 53, 0.08) 60%, rgba(255, 94, 53, 0) 100%);
-    }
-    .glow.right {
-      left: 768px;
-      background: radial-gradient(circle, rgba(46, 207, 255, 0.32) 0%, rgba(46, 207, 255, 0.08) 60%, rgba(46, 207, 255, 0) 100%);
-    }
-    .word {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      font-family: 'Space Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'Courier New', monospace;
-      font-weight: 700;
-      font-size: 170px;
-      letter-spacing: 4px;
-      line-height: 1;
-      white-space: nowrap;
-      pointer-events: none;
-    }
-    .word.two       { left: 256px; color: #FF5E35; }
-    .word.dots      { left: 768px; color: #2ECFFF; }
-    .word.two-ghost  { left: 256px; color: #2ECFFF; opacity: 0.18; transform: translate(calc(-50% + 4px), calc(-50% + 4px)); }
-    .word.dots-ghost { left: 768px; color: #FF5E35; opacity: 0.18; transform: translate(calc(-50% + 4px), calc(-50% + 4px)); }
+
+    /*
+      Dots — large enough to dominate at thumbnail size. Lane-centred
+      horizontally (x=256 and x=768 = 25% and 75%), vertically centred.
+      Multi-layer box-shadow builds the halo:
+        layer 1 — hairline white inset rim, gives the dot a clean edge
+        layer 2 — tight bright glow, the "core" halo
+        layer 3 — broad mid halo, fades into the dark
+      No far/diffuse halo — keeps the centre of the canvas dark and the dots
+      reading as discrete objects rather than a coloured wash.
+    */
     .dot {
       position: absolute;
-      bottom: 60px;
-      width: 28px;
-      height: 28px;
+      width: 140px;
+      height: 140px;
       border-radius: 50%;
-      transform: translateX(-50%);
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
     }
-    .dot.left  { left: 256px; background: #FF5E35; box-shadow: 0 0 24px 8px rgba(255, 94, 53, 0.35); }
-    .dot.right { left: 768px; background: #2ECFFF; box-shadow: 0 0 24px 8px rgba(46, 207, 255, 0.35); }
+    .dot.left {
+      left: 256px;
+      background: #FF5E35;
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.12),
+        0 0 80px 24px rgba(255, 94, 53, 0.55),
+        0 0 220px 60px rgba(255, 94, 53, 0.16);
+    }
+    .dot.right {
+      left: 768px;
+      background: #2ECFFF;
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.12),
+        0 0 80px 24px rgba(46, 207, 255, 0.55),
+        0 0 220px 60px rgba(46, 207, 255, 0.16);
+    }
 
+    /* Wordmark — small, bottom, letter-spaced. Film-credit treatment. */
+    .wordmark {
+      position: absolute;
+      bottom: 36px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: 14px;
+      color: rgba(255, 255, 255, 0.62);
+      text-transform: uppercase;
+      pointer-events: none;
+      /* The trailing letter-spacing pushes the centre off by half a tracking
+         unit; a left padding equal to the letter-spacing rebalances it. */
+      padding-left: 14px;
+    }
+
+    /* On-screen export instructions — hidden in export mode */
     .instructions {
       position: fixed;
       top: 12px;
@@ -97,13 +143,13 @@
       font-size: 13px;
       line-height: 1.45;
       color: #ddd;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       padding: 12px 14px;
       border-radius: 6px;
       z-index: 100;
     }
     .instructions code {
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       padding: 1px 4px;
       border-radius: 3px;
       font-family: 'Space Mono', monospace;
@@ -117,26 +163,26 @@
 </head>
 <body>
   <div class="instructions">
-    <strong>To export PNG:</strong><br />
-    1. Open Chrome DevTools: <code>Ctrl+Shift+I</code><br />
-    2. In the Elements panel, click on the <code>&lt;div id="graphic"&gt;</code> element to select it<br />
-    3. Open command palette: <code>Ctrl+Shift+P</code><br />
-    4. Type "Capture node screenshot" and run<br />
-    5. PNG saves to Downloads, exactly 1024×500, ready for Play Console
+    <strong>Easy export (PowerShell):</strong><br />
+    <code>powershell -ExecutionPolicy Bypass -File .\play-console-assets\export-feature-graphic.ps1</code><br /><br />
+    <strong>Manual export:</strong><br />
+    1. <code>Ctrl+Shift+I</code> (DevTools)<br />
+    2. Click <code>&lt;div id="graphic"&gt;</code> in Elements<br />
+    3. <code>Ctrl+Shift+P</code> → "Capture node screenshot"
   </div>
 
   <div id="graphic">
     <div class="center-divider"></div>
-    <div class="glow left"></div>
-    <div class="glow right"></div>
-
-    <div class="word two-ghost">TWO</div>
-    <div class="word two">TWO</div>
-    <div class="word dots-ghost">DOTS</div>
-    <div class="word dots">DOTS</div>
-
     <div class="dot left"></div>
     <div class="dot right"></div>
+    <div class="wordmark">Two Dots</div>
   </div>
+
+  <script>
+    // Toggle export mode via ?export in the URL — used by export-feature-graphic.ps1
+    if (new URLSearchParams(location.search).has('export')) {
+      document.body.classList.add('export');
+    }
+  </script>
 </body>
 </html>

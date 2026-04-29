@@ -34,7 +34,7 @@ describe('serialiseEvent', () => {
   });
 
   describe('GIVEN run_end', () => {
-    it('WHEN serialised THEN carries score/tier/run_index and death payload', () => {
+    it('WHEN serialised THEN carries score/tier/run_index and full death payload', () => {
       const out = serialiseEvent({
         type: 'run_end',
         sessionId: SESSION_ID,
@@ -43,6 +43,8 @@ describe('serialiseEvent', () => {
         tier: 5,
         deathSide: 'L',
         deathGateInTier: 3,
+        timeToDeathMs: 18420,
+        closeCallsInRun: 4,
       });
       expect(out.score).toBe(22);
       expect(out.tier).toBe(5);
@@ -50,6 +52,8 @@ describe('serialiseEvent', () => {
       expect(out.payload).toEqual({
         death_side: 'L',
         death_gate_in_tier: 3,
+        time_to_death_ms: 18420,
+        close_calls_in_run: 4,
       });
     });
   });
@@ -107,6 +111,8 @@ describe('serialiseEvent', () => {
           tier: 1,
           deathSide: '',
           deathGateInTier: 1,
+          timeToDeathMs: 1000,
+          closeCallsInRun: 0,
         },
         {
           type: 'retry_tapped',

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Two Dots — KPI dashboard</title>
+<style>
+  :root {
+    --bg: #07070f;
+    --card: #11111c;
+    --line: #1f1f30;
+    --text: #ececf2;
+    --muted: #888a9a;
+    --orange: #FF5E35;
+    --cyan: #2ECFFF;
+    --gold: #FFD046;
+    --green: #46d39c;
+    --amber: #f0a830;
+    --red: #e25b5b;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 32px 24px 64px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: 1px; }
+  h1 .l { color: var(--orange); }
+  h1 .r { color: var(--cyan); }
+  .meta { font-size: 12px; color: var(--muted); }
+  .meta button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    padding: 4px 10px; font-size: 11px; font-family: inherit; cursor: pointer;
+    border-radius: 4px; margin-left: 8px;
+  }
+  .meta button:hover { color: var(--text); border-color: var(--text); }
+  .subtitle { font-size: 13px; color: var(--muted); margin: 0 0 32px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px 14px;
+  }
+  .card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+  .card .value { font-size: 28px; font-weight: 600; line-height: 1.1; }
+  .card .unit { font-size: 14px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+  .card .target { font-size: 11px; color: var(--muted); margin-top: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .card .target .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .card .target .dot.green { background: var(--green); }
+  .card .target .dot.amber { background: var(--amber); }
+  .card .target .dot.red { background: var(--red); }
+  .card .target .dot.muted { background: var(--muted); }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px 22px;
+    margin-bottom: 28px;
+  }
+  .chart-card h2 { font-size: 14px; font-weight: 600; margin: 0 0 4px; letter-spacing: 0.5px; }
+  .chart-card p { font-size: 12px; color: var(--muted); margin: 0 0 18px; }
+  .chart-wrap { position: relative; height: 220px; }
+  .footer { font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+  .footer h3 { font-size: 12px; color: var(--text); margin: 0 0 8px; font-weight: 600; }
+  .footer table { border-collapse: collapse; font-size: 11px; }
+  .footer td { padding: 3px 12px 3px 0; vertical-align: top; }
+  .footer td:first-child { color: var(--muted); }
+  .err { color: var(--red); font-size: 12px; padding: 12px 0; }
+  .ok { color: var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><span class="l">TWO</span> <span class="r">DOTS</span> — KPI DASHBOARD</h1>
+  <div class="meta">
+    <span id="updated">Loading…</span>
+    <button onclick="window.location.reload()">Refresh</button>
+  </div>
+</header>
+<p class="subtitle">Read-only aggregates from the analytics_events queue. Targets are industry-benchmark (top-quartile) values from Adjust 2026, GameAnalytics arcade benchmarks, and Tenjin 2025; sources at the bottom.</p>
+
+<div class="grid" id="kpi-grid">
+  <div class="card"><div class="label">TOTAL RUNS</div><div class="value" id="kpi-runs">—</div><div class="target">all-time</div></div>
+  <div class="card"><div class="label">RETRY RATE</div><div class="value" id="kpi-retry">—<span class="unit">%</span></div><div class="target" id="kpi-retry-target">target ≥70% (Phase 1 gate)</div></div>
+  <div class="card"><div class="label">MEAN RUN LENGTH</div><div class="value" id="kpi-runlen">—<span class="unit">s</span></div><div class="target" id="kpi-runlen-target">target 25–60s (genre band)</div></div>
+  <div class="card"><div class="label">CLOSE-CALLS / RUN</div><div class="value" id="kpi-cc">—</div><div class="target" id="kpi-cc-target">target ≥1.0 (engagement)</div></div>
+  <div class="card"><div class="label">TOTAL DEVICES</div><div class="value" id="kpi-devices">—</div><div class="target">distinct testers</div></div>
+  <div class="card"><div class="label">D1 RETENTION</div><div class="value" id="kpi-d1">—<span class="unit">%</span></div><div class="target" id="kpi-d1-target">target ≥40% (top quartile)</div></div>
+  <div class="card"><div class="label">D7 RETENTION</div><div class="value" id="kpi-d7">—<span class="unit">%</span></div><div class="target" id="kpi-d7-target">target ≥20% (top quartile)</div></div>
+  <div class="card"><div class="label">SESSIONS</div><div class="value" id="kpi-sessions">—</div><div class="target">all-time</div></div>
+</div>
+
+<div class="chart-card">
+  <h2>Drop-off by tier</h2>
+  <p>Where players die. Persistent concentration in tiers 5–7 confirms the pause-window cliff documented in DEV_IDEAS_BRIEF §4(iv).</p>
+  <div class="chart-wrap"><canvas id="tier-chart" role="img" aria-label="Bar chart showing distribution of run-end events across the eight difficulty tiers."></canvas></div>
+</div>
+
+<div id="error-block" class="err" hidden></div>
+
+<div class="footer">
+  <h3>Industry-benchmark sources</h3>
+  <table>
+    <tr><td>D1 / D7 retention</td><td>Adjust 2026 mobile gaming report; GameAnalytics arcade benchmarks (top-quartile arcade)</td></tr>
+    <tr><td>Run length 25–60s</td><td>Comparative-games study — Flappy ~35s, Stack ~25s, Helix Jump ~50s</td></tr>
+    <tr><td>Retry rate ≥70%</td><td>Two Dots Phase 1 gate — TD — Business Case</td></tr>
+    <tr><td>Engagement (close-calls/run)</td><td>Internal heuristic — Helix Jump near-miss design (Voodoo GDC 2018)</td></tr>
+  </table>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+// ─── Configuration ─────────────────────────────────────────────────────────
+// These are the same EXPO_PUBLIC_* values used by the app at runtime. The
+// anon key is safe to ship publicly — RLS is the security boundary, and the
+// kpi_* views expose only aggregates, never row data. See migration
+// 004_analytics_kpi_views.sql for the full grant model.
+//
+// Fill in from your .env locally. When this dashboard is deployed via
+// GitHub Pages alongside privacy.html, these values are baked in at commit
+// time. Rotate by editing this file and force-refreshing.
+const SUPABASE_URL = window.SUPABASE_URL || 'https://biwhjzebrmhvtkjaqsay.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpd2hqemVicm1odnRramFxc2F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDMzMzMsImV4cCI6MjA4OTUxOTMzM30.-8LnQ0zAKQ0KQREpFpDPo8dcNP4e-MtJX18QKmlB8gU';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function fmt(n) {
+  if (n == null) return '—';
+  if (typeof n === 'number') return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
+  return String(n);
+}
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+function setTargetStatus(targetElId, current, threshold, comparator) {
+  const el = document.getElementById(targetElId);
+  if (!el || current == null) return;
+  const ok = comparator(current, threshold);
+  const dot = ok ? 'green' : 'amber';
+  el.innerHTML = '<span class="dot ' + dot + '"></span>' + el.textContent;
+}
+
+async function load() {
+  let hadError = false;
+  const errEl = document.getElementById('error-block');
+
+  // Overview KPIs
+  try {
+    const { data, error } = await supabase.from('kpi_overview').select('*').single();
+    if (error) throw error;
+    if (data) {
+      setText('kpi-runs', fmt(data.total_runs));
+      setText('kpi-retry', fmt(data.retry_rate_pct));
+      setText('kpi-runlen', data.mean_run_length_ms != null ? (data.mean_run_length_ms / 1000).toFixed(1) : '—');
+      setText('kpi-cc', fmt(data.mean_close_calls_per_run));
+      setText('kpi-devices', fmt(data.total_devices));
+      setText('kpi-sessions', fmt(data.total_sessions));
+      setTargetStatus('kpi-retry-target', data.retry_rate_pct, 70, (a,b) => a >= b);
+      const meanRunLengthSec = data.mean_run_length_ms != null ? data.mean_run_length_ms / 1000 : null;
+      setTargetStatus('kpi-runlen-target', meanRunLengthSec, 25, (a,b) => a >= b);
+      setTargetStatus('kpi-cc-target', data.mean_close_calls_per_run, 1.0, (a,b) => a >= b);
+    }
+  } catch (e) {
+    hadError = true;
+    errEl.textContent = 'kpi_overview: ' + (e.message || e);
+  }
+
+  // Retention
+  try {
+    const { data, error } = await supabase.from('kpi_retention').select('*').single();
+    if (error) throw error;
+    if (data) {
+      setText('kpi-d1', data.d1_retention_pct != null ? fmt(data.d1_retention_pct) : '—');
+      setText('kpi-d7', data.d7_retention_pct != null ? fmt(data.d7_retention_pct) : '—');
+      setTargetStatus('kpi-d1-target', data.d1_retention_pct, 40, (a,b) => a >= b);
+      setTargetStatus('kpi-d7-target', data.d7_retention_pct, 20, (a,b) => a >= b);
+    }
+  } catch (e) {
+    hadError = true;
+    errEl.textContent = (errEl.textContent ? errEl.textContent + ' · ' : '') + 'kpi_retention: ' + (e.message || e);
+  }
+
+  // Drop-off by tier (chart)
+  try {
+    const { data, error } = await supabase.from('kpi_drop_off_by_tier').select('*').order('tier');
+    if (error) throw error;
+    const labels = (data || []).map(r => 'T' + r.tier);
+    const counts = (data || []).map(r => r.deaths);
+    const ctx = document.getElementById('tier-chart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Deaths',
+          data: counts,
+          backgroundColor: counts.map((_, i) => i < 4 ? '#FF5E35' : (i < 6 ? '#FFD046' : '#2ECFFF')),
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1f1f30' }, ticks: { color: '#888a9a' } },
+          y: { grid: { color: '#1f1f30' }, ticks: { color: '#888a9a' }, beginAtZero: true },
+        },
+      },
+    });
+  } catch (e) {
+    hadError = true;
+    errEl.textContent = (errEl.textContent ? errEl.textContent + ' · ' : '') + 'kpi_drop_off_by_tier: ' + (e.message || e);
+  }
+
+  // Updated stamp
+  setText('updated', 'Updated ' + new Date().toLocaleString());
+  if (hadError) errEl.hidden = false;
+}
+
+load();
+</script>
+</body>
+</html>

@@ -43,6 +43,8 @@ export function serialiseEvent(event: AnalyticsEvent): SerialisedEvent {
         payload: {
           death_side: event.deathSide,
           death_gate_in_tier: event.deathGateInTier,
+          time_to_death_ms: event.timeToDeathMs,
+          close_calls_in_run: event.closeCallsInRun,
         },
       };
 

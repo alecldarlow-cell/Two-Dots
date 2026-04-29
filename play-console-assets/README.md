@@ -10,7 +10,7 @@ Everything Google Play Console will ask you to upload, in one folder. Companion 
 | --- | --- | --- | --- |
 | App icon (square) | `app-icon.html` (source) → `../assets/icon.png` (overwrite) | source exists, PNG export pending | **Current `assets/icon.png` is a blank dark swatch — must replace.** Export from this folder, overwrite the placeholder, rebuild. |
 | App icon (Android adaptive foreground) | `app-icon.html` (source) → `../assets/adaptive-icon.png` (overwrite) | source exists, PNG export pending | Same — current placeholder is blank. Adaptive icon foreground needs transparent background. |
-| Feature graphic | `feature-graphic.html` (source) → `feature-graphic.png` (export) | source exists, PNG export pending | 1024×500 PNG; export instructions inside the HTML file itself |
+| Feature graphic | `feature-graphic.html` (source) → `feature-graphic.png` (export) | ✅ ready to upload | 1024×500 PNG generated via `export-feature-graphic.ps1` |
 | Phone screenshot 1 — Idle | `screenshot-1-idle.png` | needs copying from Pixel 7 | Captured session 9 |
 | Phone screenshot 2 — Playing early | `screenshot-2-playing.png` | needs copying from Pixel 7 | Captured session 9 |
 | Phone screenshot 3 — Death | `screenshot-3-death.png` | needs copying from Pixel 7 | Captured session 9 (score 7) |
@@ -19,6 +19,20 @@ Everything Google Play Console will ask you to upload, in one folder. Companion 
 ---
 
 ## How to export the feature graphic to PNG
+
+### Option A — one-line PowerShell helper (recommended)
+
+From the project root, in Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\play-console-assets\export-feature-graphic.ps1
+```
+
+(If you have PowerShell 7 installed, `pwsh .\play-console-assets\export-feature-graphic.ps1` works too. The script body is compatible with both.)
+
+Drives headless Edge (or Chrome, whichever is installed) against `feature-graphic.html?export`, drops `feature-graphic.png` next to the HTML at exactly 1024×500, verifies the dimensions, and prints a confirmation. No DevTools clicking required.
+
+### Option B — manual via Chrome DevTools
 
 1. Open `feature-graphic.html` in Chrome (drag-and-drop the file onto a Chrome window, or right-click → Open with → Chrome)
 2. Wait ~1 second for Space Mono to load from Google Fonts

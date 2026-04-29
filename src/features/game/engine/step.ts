@@ -47,7 +47,7 @@ export type AudioEvent =
   | { kind: 'score-blip'; tier: number }
   | { kind: 'every-five-chime' }
   | { kind: 'tier-boundary-chord' }
-  | { kind: 'close-call' }
+  | { kind: 'close-call'; side: 'L' | 'R' }
   | { kind: 'death' };
 
 export type HapticEvent =
@@ -150,14 +150,14 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
       p.closeCalledByL = true;
       if (s.closeL === 0) {
         s.closeL = CLOSE_RING_FRAMES;
-        effects.audio.push({ kind: 'close-call' });
+        effects.audio.push({ kind: 'close-call', side: 'L' });
       }
     }
     if (!p.closeCalledByR && isCloseCall(s.dotRY, LANE_R, p.x, p.gapCY, p.gap, CLOSE_CALL_PX)) {
       p.closeCalledByR = true;
       if (s.closeR === 0) {
         s.closeR = CLOSE_RING_FRAMES;
-        effects.audio.push({ kind: 'close-call' });
+        effects.audio.push({ kind: 'close-call', side: 'R' });
       }
     }
 

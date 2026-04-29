@@ -9,8 +9,19 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 
 ## [Unreleased]
 
+### Fixed
+
+- **EAS preview/production builds now ship with Supabase env vars** (`eas.json`): added `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` to both profiles' `env` sections. Previously the EAS Build cloud had no access to local `.env` (gitignored), so preview APKs distributed to testers shipped with `extra.supabaseUrl: undefined`. The supabase client threw "Supabase env missing" on every flush, errors were silently caught upstream in the analytics queue and leaderboard hooks, and no tester data ever reached Supabase. Confirmed via `select device_id, count(*) from analytics_events` returning a single dev-device row. Anon key is safe to commit — RLS is the security boundary, JWT decodes to `"role":"anon"`.
+
 ### Added
 
+- **Telemetry instrumentation + KPI dashboard** (session 10, branch `feat/telemetry-instrumentation`):
+  - `AudioEvent` `close-call` extended with `side: 'L' | 'R'` so the analytics layer can attribute close-calls per dot. Engine emission sites in `src/features/game/engine/step.ts:153,160` updated.
+  - `RunEndEvent` (`src/features/analytics/events.ts`) extended with `timeToDeathMs` (run-start to death) and `closeCallsInRun` (per-run close-call counter). Serialiser writes both into the existing JSONB payload — no schema migration needed for the events table.
+  - `useGameLoop.ts` now tracks `runStartTimeRef` and `closeCallsInRunRef`, both reset on every idle→playing transition. The close-call analytics emission was previously absent — wiring added in `playAudioEvent` so each engine-emitted close-call now writes a row to `analytics_events`. Death side-effect populates the new `run_end` payload fields.
+  - `supabase/migrations/004_analytics_kpi_views.sql` adds three aggregate-only views (`kpi_overview`, `kpi_drop_off_by_tier`, `kpi_retention`) with `SELECT` granted to `anon`. `analytics_events` itself stays service-role-read-only — the views are the only public surface, and they expose only counts / rates / histograms, never per-event row data.
+  - `docs/dashboard.html` — static HTML KPI dashboard served alongside `docs/privacy.html` on GitHub Pages. Dark theme matching the game palette. KPI cards (total runs, retry rate %, mean run length, close-calls/run, total devices, D1 / D7 retention, sessions) each show their value alongside an industry-benchmark target threshold (Adjust 2026 / GameAnalytics arcade / Tenjin 2025 sourced inline). Drop-off-by-tier bar chart powered by Chart.js. Reads via the public Supabase URL + anon key.
+  - `serialise.test.ts` updated for the extended `RunEndEvent` payload (still 7 tests, all green).
 - `assets/fonts/SpaceMono-Regular.ttf` and `assets/fonts/SpaceMono-Bold.ttf` bundled locally (~98 KB each, downloaded from `google/fonts`).
 - **Stage 5 first-pass refactor** (session 9): `src/app/index.tsx` split from 1540 lines (monolith) to ~278 lines (orchestrator only) — beats PLAN.md's <300-line target. 11 new files under `src/app/`:
   - `_shared/constants.ts`, `_shared/snapshot.ts`, `_shared/styles.ts` — pure data + types + stylesheet shared across all screens.

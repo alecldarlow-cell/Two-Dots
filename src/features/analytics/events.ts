@@ -34,6 +34,10 @@ export interface RunEndEvent {
   tier: number;
   deathSide: '' | 'L' | 'R' | 'both';
   deathGateInTier: number;
+  /** Milliseconds elapsed from idle→playing transition to death. */
+  timeToDeathMs: number;
+  /** Number of close-call activations during this run. */
+  closeCallsInRun: number;
 }
 
 export interface RetryTappedEvent {

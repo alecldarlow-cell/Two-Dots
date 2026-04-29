@@ -41,7 +41,9 @@ When deciding what to do with each item:
 
 _Drop new items here as they come in. Don't worry about order._
 
-- _none yet — Piers's first feedback round pending_
+- **[2026-04-29] Chloe** — "Really like the game, quite addictive. Had no problems. Played repeatedly ~6 times before interrupted by life. It helped that I got a high score first time so I just want to beat it now." (Tester via WhatsApp / EAS preview APK; device/build not specified — presumably Android, v0.1.3 preview.)
+- **[2026-04-29] Chloe** (follow-up) — "Adding a feature where you can see friends' high scores or share them with each other would be good. Makes it competitive. I now want to beat your 25." (Feature request — social / competitive layer. Two adjacent shapes: cheap = shareable score card / text, expensive = friend graph + accounts. Adjacent to Stage 2.3 deferred leaderboard UI and Stage 6 progression scope.)
+- **[2026-04-29] Will** — "Veeerry good. Love the colours and design. I played twice but only because I'm in the office, I'll play more later and give more feedback." (Tester via WhatsApp / EAS preview APK. Positive signal on visual identity specifically — validates Stage 2.2 colour overhaul. More feedback expected.)
 
 ---
 
