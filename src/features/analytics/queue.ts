@@ -101,9 +101,7 @@ export async function flush(): Promise<boolean> {
     // actually pass; Supabase's auto-generated `Json` union is stricter and
     // recursive. Both serialise identically on the wire. Remove this cast
     // after `supabase gen types typescript --project-id <ref> > src/shared/supabase/types.ts`.
-    const { error } = await supabase
-      .from('analytics_events')
-      .insert(batch as never);
+    const { error } = await supabase.from('analytics_events').insert(batch as never);
     if (error) throw error;
     state.flushing = false;
     return true;

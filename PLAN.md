@@ -133,7 +133,9 @@ _Created: 27 Apr 2026, end of session 7. Sequencing for the 9 remaining workstre
 
 ---
 
-### 5. Leaderboard UI on death screen — _item (3)_
+### 5. Leaderboard UI on death screen — _item (3)_ — 🔵 DEFERRED (session 9)
+
+**Status:** deferred to future feature development. Data layer (hooks + 16 passing tests) is built and ready; UI block on death screen and `useSubmitScore` wiring on `playing → dead` are NOT yet implemented. When this stage is revived, the design and concrete steps below remain valid.
 
 **Goal:** ship a complete, satisfying death screen that shows the player's rank against the global board.
 

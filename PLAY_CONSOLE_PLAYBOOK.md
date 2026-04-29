@@ -169,11 +169,13 @@ Sidebar: **Grow → Store presence → Main store listing**. This is the custome
 
 ### 3.2 Graphics
 
+All upload assets live in `play-console-assets/` (sibling to this playbook). See that folder's `README.md` for per-file status, export instructions, and how to copy screenshots off your Pixel 7.
+
 | Asset                | Required size | Source                                     |
 | -------------------- | ------------- | ------------------------------------------ |
 | App icon             | 512×512 PNG   | `assets/icon.png` — confirm resolution     |
-| Feature graphic      | 1024×500 PNG  | **Needs designing** (see spec below)       |
-| Phone screenshots    | 1080×1920 typical, min 2, max 8 | Session-9 device captures |
+| Feature graphic      | 1024×500 PNG  | `play-console-assets/feature-graphic.html` → export to PNG via Chrome DevTools (instructions inside the HTML file and in the assets README) |
+| Phone screenshots    | Native Pixel 7 size (1080×2400) | Captured session 9 — copy from device into `play-console-assets/` (see README) |
 
 **App icon resolution check:**
 
@@ -187,29 +189,21 @@ $img.Dispose()
 
 If it's not 512×512, upscale (or recreate) before uploading. Play Console rejects icons that are the wrong size.
 
-**Feature graphic spec** (the only listing asset that doesn't yet exist):
+**Feature graphic export (one-time):**
 
-- 1024×500 PNG, no alpha
-- Background: `#07070f` (matches in-game background)
-- Centered text: `TWO DOTS` in Space Mono Bold, very large (200+ px font size at 1024×500). The "TWO" in `#FF5E35` (orange), "DOTS" in `#2ECFFF` (cyan). Mirror the in-game lane-colour scheme.
-- Optional: two small dots (orange + cyan, ~50px diameter, glowing halo) above or below the text
-- No tagline, no shadow text — Play Store renders this small in store grids; clutter is invisible at thumbnail size
-- Avoid logos at the edges (Play crops the edges in some surfaces)
-
-Easiest production paths: Figma free tier, Canva free tier, or Photopea (free Photoshop in browser). If you'd rather hire it out, Fiverr "mobile game feature graphic" gigs run $10-50.
+1. Open `play-console-assets/feature-graphic.html` in Chrome
+2. DevTools (Ctrl+Shift+I) → click the `<div id="graphic">` element in Elements panel
+3. Command palette (Ctrl+Shift+P) → "Capture node screenshot"
+4. PNG saves to Downloads, exactly 1024×500
+5. Move to `play-console-assets/feature-graphic.png`
 
 **Screenshots:**
 
-You have 4 from the session-9 walkthrough on the Pixel 7:
+You have 4 from the session 9 walkthrough on the Pixel 7 (idle / playing / death at score 7 / pause). Score 7 on the death overlay is fine — reviewers and players don't expect dev-record scores. The four shots are sufficient for first internal-testing release.
 
-- Idle screen
-- Playing (early, score 0)
-- Death (score 7)
-- Pause
+Screenshot copy commands (and alternative paths) are in `play-console-assets/README.md`.
 
-Recommended: re-shoot the death-screen one with a higher score (50+) so it looks like a real run, and add a "playing — mid game with pipes" shot showing density. Total target: 4-6 phone screenshots.
-
-Screenshots must be uploaded as PNG or JPEG. Drop them on the page; Play Console will validate sizing.
+Screenshots must be uploaded as PNG or JPEG. Drop them on the Play Console upload area; the console validates sizing. Pixel 7 native captures (typically 1080×2400) fit well within Play's 320px–3840px / 9:16–16:9 acceptance window.
 
 ### 3.3 Categorization
 

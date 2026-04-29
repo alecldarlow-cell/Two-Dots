@@ -20,11 +20,23 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
   - Underscore prefix on subdirectories signals "not a route" to expo-router.
   - Engine tests stayed green throughout the four extraction groups (124 passing). Lint and typecheck clean at every gate.
   - Deeper second-pass items (gsRef pattern rework, audio module extraction, constants regrouping, supabase type-gen) deferred until tester feedback informs them.
+- **Stage 3.1 EAS preview pipeline validated** (session 9): EAS CLI installed + logged in as `smellyoldog`, project initialised (`projectId 5a274a99-3b35-4261-b7fc-da1895d17847`), `expo-updates` wired in via `eas update:configure`. First preview APK built end-to-end and sideload-tested on Pixel 7: gameplay, SFX, score persistence, death sequence, retry flow all match the dev build identically.
+- **`.npmrc`** with `legacy-peer-deps=true` — durable fix for the `@testing-library/react-native ^12.5.0` peer-dep conflict. Applies to local installs, EAS Build cloud, and any future CI without anyone needing to remember the `--legacy-peer-deps` flag.
+- **`expo-updates`** installed and configured — required for the channel reference in `eas.json`'s preview/production profiles. Wires `app.config.ts > expo.updates.url` automatically.
+- **Play Console submission docs** added to repo root:
+  - `play-console-listing.md` — short + full descriptions, content-rating questionnaire pre-filled answers, Data Safety form pre-filled answers, listing prep checklist.
+  - `PLAY_CONSOLE_PLAYBOOK.md` — step-by-step click-by-click walkthrough from "verification clears" through "tester installs and plays".
+  - `play-console-assets/` folder with `README.md` (asset inventory + screenshot copy commands), `feature-graphic.html` (1024×500 source for the feature graphic; PNG export via Chrome DevTools), and `app-icon.html` (1024×1024 sources for `icon.png` + `adaptive-icon.png`; one-click PNG download via embedded buttons).
+- **`docs/privacy.html`** — privacy policy live at https://alecldarlow-cell.github.io/Two-Dots/privacy.html (GitHub Pages serving from `main` branch `/docs` folder; repo made public to enable Pages on free GitHub tier).
 
 ### Changed
 
 - `src/app/_layout.tsx`: Space Mono now loads from local `require()` instead of fetching from `raw.githubusercontent.com` at runtime. App now renders correct typography on first launch with no network — works in airplane mode and removes a flaky-wifi failure mode for App Store reviewers.
 - `src/app/index.tsx` `idleWord` style: `letterSpacing` reduced from 4 to 2 (Stage 2.2 P1-14 polish). At sx(60) bold the wider kerning made each character read independently; the tightened spacing groups TWO and DOTS so each word reads as a single unit on the idle screen. Cross-lane shadow ghost retained.
+- `assets/icon.png` and `assets/adaptive-icon.png` regenerated from `play-console-assets/app-icon.html` — replaces the blank `#07070f` placeholders that were causing the installed app to show no icon. Icons feature the orange + cyan dots motif on the dark background, matching the in-game lane-colour identity.
+- `eas.json`: empty `submit.production.ios.{appleId,ascAppId,appleTeamId}` fields removed — they failed schema validation in `eas init`. Will be re-added when iOS submission is set up.
+- `app.config.ts`: `extra.eas.projectId` populated with the registered EAS project ID.
+- Repository visibility changed from private → public (required for free-tier GitHub Pages serving the privacy policy). Audit confirmed no secrets in code or git history.
 
 ### Removed
 

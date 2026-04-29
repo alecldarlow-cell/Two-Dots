@@ -30,14 +30,14 @@ The app is **fully playable, polished, and Stage-2-audited** on a Pixel 7 dev cl
 | Stage 2.1 — Bug audit                              | ✅ session 8 (13 of 17 findings closed; carry-overs deliberately routed)                 |
 | Stage 2.2 — UX/UI audit                            | ✅ session 9 (device walkthrough on Pixel 7, idle-title kerning landed, P1-12 closed)   |
 | Stage 2.3 — Leaderboard UI on death screen         | 🔵 deferred to future feature development (session 9) — data layer ready, UI not built  |
-| Stage 3.1 — EAS Android → Play Internal            | ⏳ pending; needs git remote + EAS init + Play Console listing                           |
+| Stage 3.1 — EAS Android → Play Internal            | 🟡 in progress; preview APK validated on Pixel 7, icons fixed, listing docs ready, **blocked on Google Play account verification** |
 | Stage 3.2 — EAS iOS → TestFlight                   | ⏳ blocked on confirming Apple Dev tier (asked Piers; iOS local builds may already work) |
 | Stage 4 — Real-device testing via Wi-Fi            | ⏳ pending                                                                               |
 | Stage 5 first pass — index.tsx screen split        | ✅ session 9 (1540 → ~278 lines; 11 new files in _shared/_canvas/_overlays/_hooks)      |
 | Stage 5 second pass — deeper refactor              | ⏳ pending; gsRef/audio/constants/supabase-types — defer until tester feedback          |
 | Stage 6 — Cross-run progression and rewards        | ⏳ pending; scoped post-Phase-1 retry-rate gate                                          |
 
-**Tag baseline:** `v0.1.1-pre-eas` on session-9 commit covering Stage 2.2 closure. Once the Stage-5 first-pass refactor commit lands and on-device QA confirms no regression, tag `v0.1.2-refactor-split`. Stage 2.3 deferred to future feature development. After that, next tag will move on Stage 3.1 (EAS Android first builds).
+**Tag baseline:** `v0.1.2-refactor-split` (session 9) — Stage 5 first-pass refactor verified on Pixel 7. Subsequent session-9 work (EAS preview pipeline, icon fix, Play Console listing/playbook docs, privacy policy live) lands on `v0.1.3-eas-preview-validated` once the icon-fix build is verified on device. Stage 2.3 deferred to future feature development. Next tag after that moves when the production AAB is uploaded to Play Internal Testing (post-Google-verification).
 
 ---
 

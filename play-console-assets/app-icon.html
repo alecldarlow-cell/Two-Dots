@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Two Dots — app icon source</title>
+  <style>
+    /*
+      Two Dots — app icon source.
+      Uses Canvas API for pixel-perfect 1024×1024 PNG output.
+      Click each button → file downloads with the correct filename.
+      Then move both files into ../assets/ (overwriting the placeholders).
+    */
+    html, body {
+      margin: 0;
+      padding: 24px;
+      background: #1a1a1a;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #ddd;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    h1 { font-size: 18px; font-weight: 500; margin: 0; }
+    .row {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .preview {
+      width: 256px;
+      height: 256px;
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
+    }
+    .preview canvas {
+      width: 256px;
+      height: 256px;
+      display: block;
+      border-radius: 8px;
+    }
+    .preview.transparent {
+      background-image:
+        linear-gradient(45deg, #444 25%, transparent 25%),
+        linear-gradient(-45deg, #444 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #444 75%),
+        linear-gradient(-45deg, transparent 75%, #444 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, 10px 0;
+      background-color: #888;
+    }
+    .label {
+      font-size: 13px;
+      color: #ccc;
+      margin: 0;
+      text-align: center;
+    }
+    .label code {
+      background: rgba(255,255,255,0.1);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+      font-size: 12px;
+    }
+    button {
+      background: #2c2c2c;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button:hover { background: #3a3a3a; }
+    .instructions {
+      max-width: 560px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #bbb;
+      background: rgba(255,255,255,0.04);
+      padding: 14px 18px;
+      border-radius: 8px;
+    }
+    .instructions strong { color: #fff; }
+  </style>
+</head>
+<body>
+  <h1>Two Dots — app icon export</h1>
+
+  <div class="instructions">
+    <strong>How to export:</strong> click each button below. Two PNG files (icon.png and adaptive-icon.png) will save to your Downloads folder. Move both to <code>two-dots/assets/</code>, overwriting the existing blank placeholders. Then trigger a new EAS build to verify the icons render.
+  </div>
+
+  <div class="row">
+    <div class="group">
+      <p class="label"><code>icon.png</code> — iOS &amp; Android non-adaptive fallback (solid dark bg)</p>
+      <div class="preview">
+        <canvas id="icon-square" width="1024" height="1024"></canvas>
+      </div>
+      <button onclick="downloadCanvas('icon-square', 'icon.png')">Download icon.png</button>
+    </div>
+
+    <div class="group">
+      <p class="label"><code>adaptive-icon.png</code> — Android adaptive foreground (transparent bg)</p>
+      <div class="preview transparent">
+        <canvas id="icon-adaptive" width="1024" height="1024"></canvas>
+      </div>
+      <button onclick="downloadCanvas('icon-adaptive', 'adaptive-icon.png')">Download adaptive-icon.png</button>
+    </div>
+  </div>
+
+  <script>
+    function drawIcon(canvasId, withBackground) {
+      var canvas = document.getElementById(canvasId);
+      var ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, 1024, 1024);
+
+      if (withBackground) {
+        ctx.fillStyle = '#07070f';
+        ctx.fillRect(0, 0, 1024, 1024);
+      }
+
+      var orangeX = withBackground ? 384 : 412;
+      var cyanX   = withBackground ? 640 : 612;
+      var dotR    = withBackground ? 160 : 140;
+      var hlR     = withBackground ?  48 :  42;
+      var hlOffX  = withBackground ?  46 :  40;
+      var hlOffY  = withBackground ?  56 :  50;
+
+      ctx.shadowColor = 'rgba(255, 94, 53, 0.45)';
+      ctx.shadowBlur = 80;
+      ctx.fillStyle = '#FF5E35';
+      ctx.beginPath();
+      ctx.arc(orangeX, 512, dotR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+      ctx.beginPath();
+      ctx.arc(orangeX - hlOffX, 512 - hlOffY, hlR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowColor = 'rgba(46, 207, 255, 0.45)';
+      ctx.shadowBlur = 80;
+      ctx.fillStyle = '#2ECFFF';
+      ctx.beginPath();
+      ctx.arc(cyanX, 512, dotR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+      ctx.beginPath();
+      ctx.arc(cyanX - hlOffX, 512 - hlOffY, hlR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function downloadCanvas(canvasId, filename) {
+      var canvas = document.getElementById(canvasId);
+      canvas.toBlob(function (blob) {
+        var link = document.createElement('a');
+        link.download = filename;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      }, 'image/png');
+    }
+
+    drawIcon('icon-square', true);
+    drawIcon('icon-adaptive', false);
+  </script>
+</body>
+</html>

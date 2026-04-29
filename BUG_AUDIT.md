@@ -59,10 +59,10 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 
 ### From device smoke tests (Stage 1.2 + Stage 2.1 wave-1)
 
-| #     | Area | Description                                                                                                                                                            | Status                                                                                                                                |
-| ----- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| P1-14 | UX   | "DOTS" title truncated/wraps on idle screen — Space Mono Bold at 68px overflows the right lane. **Confirmed on iOS AND Pixel 7.** Cross-device, not iOS-specific.      | Drop title size 4–6px, or shorten/split the text, or reduce letter-spacing. Verify against the prototype HTML.                        |
-| P1-15 | UX   | Tier-progress dot indicator overlaps the pipe-count number. Discovered on Pixel 7 during Stage 2.1 wave-1 smoke test.                                                  | Inspect score HUD layout — likely the progress-dots row needs a vertical offset, or the score number's bottom margin is too small.    |
+| #     | Area | Description                                                                                                                                                       | Status                                                                                                                             |
+| ----- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| P1-14 | UX   | "DOTS" title truncated/wraps on idle screen — Space Mono Bold at 68px overflows the right lane. **Confirmed on iOS AND Pixel 7.** Cross-device, not iOS-specific. | Drop title size 4–6px, or shorten/split the text, or reduce letter-spacing. Verify against the prototype HTML.                     |
+| P1-15 | UX   | Tier-progress dot indicator overlaps the pipe-count number. Discovered on Pixel 7 during Stage 2.1 wave-1 smoke test.                                             | Inspect score HUD layout — likely the progress-dots row needs a vertical offset, or the score number's bottom margin is too small. |
 
 ---
 
@@ -85,25 +85,25 @@ The goal is not to fix everything — the goal is to know what's broken so we sh
 
 ## Findings table (master log)
 
-| ID          | Severity | Area        | Source            | Status                                                               |
-| ----------- | -------- | ----------- | ----------------- | -------------------------------------------------------------------- |
-| P0-1        | P0       | Render      | Subagent          | ✅ fixed: Dot strokeCircle now uses `<Circle style="stroke">` (no Path); PipeScanlines memoizes path on (w,h), translates via Group transform — pending device verification |
-| P1-1        | P1       | Lint+Type   | tsc / lint        | ✅ fixed (deleted `WALL_L`)                                          |
-| P1-2        | P1       | Type        | tsc               | ✅ fixed (`?? 0x08` fallback on `laneAlpha`)                         |
-| P1-3        | P1       | Type        | tsc               | ✅ fixed (null-guard on `changedTouches[i]`)                         |
-| P1-4        | P1       | Type        | tsc               | ✅ bridged (`as never` cast + TODO for `supabase gen types`)        |
-| P1-5        | P1       | Type (×5)   | tsc               | ✅ fixed (added `id: 0..4` to all 5 Pipe fixtures)                   |
-| P1-6        | P1       | Lint (×4)   | lint              | ✅ fixed (`CryptoLike` local type instead of `any` in `_layout.tsx`) |
-| P1-7        | P1       | Lint        | lint              | ✅ fixed (`varsIgnorePattern: '^_'` added to ESLint config)          |
-| P1-8        | P1       | Lint warn   | lint              | ✅ fixed (`soundsMap` local capture in preload effect)              |
-| P1-9        | P1       | Lint warn   | lint              | ✅ fixed (`replay` added to deps; stable via `useRef.current`)      |
-| P1-10       | P1       | Engine      | Subagent          | ✅ fixed (added 2 property tests sweeping scores 0–99)               |
-| P1-11       | P1       | Engine      | Subagent          | ✅ fixed (`Math.max` defensive guard on `deathFlashL/R` extension)   |
-| P1-12       | P1       | Render      | Subagent          | open                                                                 |
-| P1-13       | P1       | Leaderboard | Subagent          | open                                                                 |
-| P1-14       | P1       | UX          | Screenshot + Pixel 7 | ✅ fixed (fontSize sx(68)→sx(60); fits screen on Pixel 7). Polish refinement deferred to Stage 2.2 — title still doesn't feel fully resolved aesthetically. |
-| P1-15       | P1       | UX          | Pixel 7 smoke test | ✅ fixed (progress-dots gap 22\*SCALE → 56px unscaled) — pending device verification |
-| P2-1..P2-10 | P2       | various     | Subagent / Format | deferred                                                             |
+| ID          | Severity | Area        | Source               | Status                                                                                                                                                                      |
+| ----------- | -------- | ----------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-1        | P0       | Render      | Subagent             | ✅ fixed: Dot strokeCircle now uses `<Circle style="stroke">` (no Path); PipeScanlines memoizes path on (w,h), translates via Group transform — pending device verification |
+| P1-1        | P1       | Lint+Type   | tsc / lint           | ✅ fixed (deleted `WALL_L`)                                                                                                                                                 |
+| P1-2        | P1       | Type        | tsc                  | ✅ fixed (`?? 0x08` fallback on `laneAlpha`)                                                                                                                                |
+| P1-3        | P1       | Type        | tsc                  | ✅ fixed (null-guard on `changedTouches[i]`)                                                                                                                                |
+| P1-4        | P1       | Type        | tsc                  | ✅ bridged (`as never` cast + TODO for `supabase gen types`)                                                                                                                |
+| P1-5        | P1       | Type (×5)   | tsc                  | ✅ fixed (added `id: 0..4` to all 5 Pipe fixtures)                                                                                                                          |
+| P1-6        | P1       | Lint (×4)   | lint                 | ✅ fixed (`CryptoLike` local type instead of `any` in `_layout.tsx`)                                                                                                        |
+| P1-7        | P1       | Lint        | lint                 | ✅ fixed (`varsIgnorePattern: '^_'` added to ESLint config)                                                                                                                 |
+| P1-8        | P1       | Lint warn   | lint                 | ✅ fixed (`soundsMap` local capture in preload effect)                                                                                                                      |
+| P1-9        | P1       | Lint warn   | lint                 | ✅ fixed (`replay` added to deps; stable via `useRef.current`)                                                                                                              |
+| P1-10       | P1       | Engine      | Subagent             | ✅ fixed (added 2 property tests sweeping scores 0–99)                                                                                                                      |
+| P1-11       | P1       | Engine      | Subagent             | ✅ fixed (`Math.max` defensive guard on `deathFlashL/R` extension)                                                                                                          |
+| P1-12       | P1       | Render      | Subagent             | ✅ closed session 9 — Alec confirmed close-call ring + death-flash both work fine on device; no prototype side-by-side needed                                              |
+| P1-13       | P1       | Leaderboard | Subagent             | deferred — Stage 2.3 (Leaderboard UI) deferred to future feature development; this race condition is moot until that ships                                                  |
+| P1-14       | P1       | UX          | Screenshot + Pixel 7 | ✅ fixed (fontSize sx(68)→sx(60); fits screen on Pixel 7). Polish refinement deferred to Stage 2.2 — title still doesn't feel fully resolved aesthetically.                 |
+| P1-15       | P1       | UX          | Pixel 7 smoke test   | ✅ fixed (progress-dots gap 22\*SCALE → 56px unscaled) — pending device verification                                                                                        |
+| P2-1..P2-10 | P2       | various     | Subagent / Format    | deferred                                                                                                                                                                    |
 
 ---
 

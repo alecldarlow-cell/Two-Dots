@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Two Dots — feature graphic source</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    /*
+      Two Dots — Google Play Store feature graphic.
+      Target output: 1024 × 500 PNG (no alpha).
+      Open this file in Chrome, then:
+        Ctrl+Shift+I  (open DevTools)
+        Ctrl+Shift+P  (command palette)
+        Type: "Capture node screenshot"
+        Click the #graphic div in the Elements panel first, then run the command.
+      Result: an exact 1024×500 PNG saved to your Downloads folder.
+    */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'Courier New', monospace;
+    }
+    #graphic {
+      width: 1024px;
+      height: 500px;
+      background: #07070f;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+    }
+    .center-divider {
+      position: absolute;
+      left: 50%;
+      top: 60px;
+      bottom: 60px;
+      width: 1px;
+      background: rgba(122, 192, 232, 0.12);
+      transform: translateX(-0.5px);
+    }
+    .glow {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 440px;
+      height: 440px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .glow.left {
+      left: 256px;
+      background: radial-gradient(circle, rgba(255, 94, 53, 0.32) 0%, rgba(255, 94, 53, 0.08) 60%, rgba(255, 94, 53, 0) 100%);
+    }
+    .glow.right {
+      left: 768px;
+      background: radial-gradient(circle, rgba(46, 207, 255, 0.32) 0%, rgba(46, 207, 255, 0.08) 60%, rgba(46, 207, 255, 0) 100%);
+    }
+    .word {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Space Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'Courier New', monospace;
+      font-weight: 700;
+      font-size: 170px;
+      letter-spacing: 4px;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .word.two       { left: 256px; color: #FF5E35; }
+    .word.dots      { left: 768px; color: #2ECFFF; }
+    .word.two-ghost  { left: 256px; color: #2ECFFF; opacity: 0.18; transform: translate(calc(-50% + 4px), calc(-50% + 4px)); }
+    .word.dots-ghost { left: 768px; color: #FF5E35; opacity: 0.18; transform: translate(calc(-50% + 4px), calc(-50% + 4px)); }
+    .dot {
+      position: absolute;
+      bottom: 60px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+    .dot.left  { left: 256px; background: #FF5E35; box-shadow: 0 0 24px 8px rgba(255, 94, 53, 0.35); }
+    .dot.right { left: 768px; background: #2ECFFF; box-shadow: 0 0 24px 8px rgba(46, 207, 255, 0.35); }
+
+    .instructions {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      max-width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #ddd;
+      background: rgba(0,0,0,0.7);
+      padding: 12px 14px;
+      border-radius: 6px;
+      z-index: 100;
+    }
+    .instructions code {
+      background: rgba(255,255,255,0.1);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+    }
+    @media print {
+      .instructions { display: none; }
+      html, body { background: transparent; }
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <strong>To export PNG:</strong><br />
+    1. Open Chrome DevTools: <code>Ctrl+Shift+I</code><br />
+    2. In the Elements panel, click on the <code>&lt;div id="graphic"&gt;</code> element to select it<br />
+    3. Open command palette: <code>Ctrl+Shift+P</code><br />
+    4. Type "Capture node screenshot" and run<br />
+    5. PNG saves to Downloads, exactly 1024×500, ready for Play Console
+  </div>
+
+  <div id="graphic">
+    <div class="center-divider"></div>
+    <div class="glow left"></div>
+    <div class="glow right"></div>
+
+    <div class="word two-ghost">TWO</div>
+    <div class="word two">TWO</div>
+    <div class="word dots-ghost">DOTS</div>
+    <div class="word dots">DOTS</div>
+
+    <div class="dot left"></div>
+    <div class="dot right"></div>
+  </div>
+</body>
+</html>
