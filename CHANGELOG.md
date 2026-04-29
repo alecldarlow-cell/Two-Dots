@@ -12,6 +12,14 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 ### Added
 
 - `assets/fonts/SpaceMono-Regular.ttf` and `assets/fonts/SpaceMono-Bold.ttf` bundled locally (~98 KB each, downloaded from `google/fonts`).
+- **Stage 5 first-pass refactor** (session 9): `src/app/index.tsx` split from 1540 lines (monolith) to ~278 lines (orchestrator only) — beats PLAN.md's <300-line target. 11 new files under `src/app/`:
+  - `_shared/constants.ts`, `_shared/snapshot.ts`, `_shared/styles.ts` — pure data + types + stylesheet shared across all screens.
+  - `_canvas/Dot.tsx`, `_canvas/PipeScanlines.tsx`, `_canvas/TitleBloom.tsx`, `_canvas/GameCanvas.tsx` — Skia primitives + the wrapping `<Canvas>` with the full in-game visual layer.
+  - `_overlays/IdleScreen.tsx`, `_overlays/PlayingHUD.tsx`, `_overlays/DeathScreen.tsx` — phase-specific RN overlay components.
+  - `_hooks/useGameLoop.ts` — encapsulates 9 refs, gsRef + display state, audio loading, the rAF physics+render loop, the death side-effect, and the multi-touch handler. Returns `{ display, handleTouch, bestScore, wasNewBest }`.
+  - Underscore prefix on subdirectories signals "not a route" to expo-router.
+  - Engine tests stayed green throughout the four extraction groups (124 passing). Lint and typecheck clean at every gate.
+  - Deeper second-pass items (gsRef pattern rework, audio module extraction, constants regrouping, supabase type-gen) deferred until tester feedback informs them.
 
 ### Changed
 

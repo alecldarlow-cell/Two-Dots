@@ -50,8 +50,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     eas: {
-      // projectId populated by `eas init` — placeholder kept here for awareness.
-      projectId: '',
+      // Populated by `eas init` (Stage 3.1, session 9). Project lives at
+      // https://expo.dev/accounts/smellyoldog/projects/two-dots
+      projectId: '5a274a99-3b35-4261-b7fc-da1895d17847',
     },
   },
 });

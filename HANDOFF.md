@@ -20,23 +20,24 @@ Three living docs hold the active state — read them in this order:
 
 The app is **fully playable, polished, and Stage-2-audited** on a Pixel 7 dev client. Wi-Fi ADB is paired and working (firewall rule `ADB Wireless Debug` opens TCP 37000–44000 inbound).
 
-| Stage                                            | Status                                                                       |
-| ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| S1–S6 (scaffold → engine → persistence)          | ✅ from sessions 1–4                                                         |
-| Phases 1–4 + polish pass                         | ✅ deployed in sessions 5–7                                                  |
-| Stage 1.1 — Git process hardening                | ✅ session 8 (changelog, contributing guide, PR template, `git-audit.bat`)   |
-| Stage 1.2 — Bundle Space Mono TTF locally        | ✅ session 8 (no more runtime CDN dependency)                                |
-| Stage 1.3 — Resolve duplicate `app/` vs `src/app/` | ✅ session 8 (dead `app/` removed; `babel-preset-expo` resolves `src/app/`) |
-| Stage 2.1 — Bug audit                            | ✅ session 8 (13 of 17 findings closed; carry-overs deliberately routed)     |
-| Stage 2.2 — UX/UI audit                          | 🟡 ~80% done; static-analysis Us closed; device walkthrough still open      |
-| Stage 2.3 — Leaderboard UI on death screen       | ⏳ pending                                                                   |
-| Stage 3.1 — EAS Android → Play Internal          | ⏳ pending; needs git remote + EAS init + Play Console listing               |
-| Stage 3.2 — EAS iOS → TestFlight                 | ⏳ blocked on confirming Apple Dev tier (asked Piers; iOS local builds may already work) |
-| Stage 4 — Real-device testing via Wi-Fi          | ⏳ pending                                                                   |
-| Stage 5 — Code refactor                          | ⏳ pending                                                                   |
-| Stage 6 — Cross-run progression and rewards      | ⏳ pending; scoped post-Phase-1 retry-rate gate                              |
+| Stage                                              | Status                                                                                   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| S1–S6 (scaffold → engine → persistence)            | ✅ from sessions 1–4                                                                     |
+| Phases 1–4 + polish pass                           | ✅ deployed in sessions 5–7                                                              |
+| Stage 1.1 — Git process hardening                  | ✅ session 8 (changelog, contributing guide, PR template, `git-audit.bat`)               |
+| Stage 1.2 — Bundle Space Mono TTF locally          | ✅ session 8 (no more runtime CDN dependency)                                            |
+| Stage 1.3 — Resolve duplicate `app/` vs `src/app/` | ✅ session 8 (dead `app/` removed; `babel-preset-expo` resolves `src/app/`)              |
+| Stage 2.1 — Bug audit                              | ✅ session 8 (13 of 17 findings closed; carry-overs deliberately routed)                 |
+| Stage 2.2 — UX/UI audit                            | ✅ session 9 (device walkthrough on Pixel 7, idle-title kerning landed, P1-12 closed)   |
+| Stage 2.3 — Leaderboard UI on death screen         | 🔵 deferred to future feature development (session 9) — data layer ready, UI not built  |
+| Stage 3.1 — EAS Android → Play Internal            | ⏳ pending; needs git remote + EAS init + Play Console listing                           |
+| Stage 3.2 — EAS iOS → TestFlight                   | ⏳ blocked on confirming Apple Dev tier (asked Piers; iOS local builds may already work) |
+| Stage 4 — Real-device testing via Wi-Fi            | ⏳ pending                                                                               |
+| Stage 5 first pass — index.tsx screen split        | ✅ session 9 (1540 → ~278 lines; 11 new files in _shared/_canvas/_overlays/_hooks)      |
+| Stage 5 second pass — deeper refactor              | ⏳ pending; gsRef/audio/constants/supabase-types — defer until tester feedback          |
+| Stage 6 — Cross-run progression and rewards        | ⏳ pending; scoped post-Phase-1 retry-rate gate                                          |
 
-**Tag baseline:** `v0.1.0-pre-eas` on commit covering session-7 snapshot. Several follow-on commits since (Stage 2.x work). Tag will move forward when Stage 2.2 fully closes.
+**Tag baseline:** `v0.1.1-pre-eas` on session-9 commit covering Stage 2.2 closure. Once the Stage-5 first-pass refactor commit lands and on-device QA confirms no regression, tag `v0.1.2-refactor-split`. Stage 2.3 deferred to future feature development. After that, next tag will move on Stage 3.1 (EAS Android first builds).
 
 ---
 
@@ -54,33 +55,37 @@ From `UX_AUDIT.md`:
 
 ## Key file locations
 
-| File                                                     | Purpose                                                                                  |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `src/app/index.tsx`                                      | **Main game screen** — entire game UI (1300+ lines). All phases live here.               |
-| `src/app/_layout.tsx`                                    | Root layout — local font loading, splash, analytics bootstrap, global font-scale cap     |
-| `src/providers.tsx`                                      | React Query + GestureHandler + SafeAreaProvider                                          |
-| `src/features/game/engine/step.ts`                       | Physics loop — `stepPlaying`, `stepDead`, `handleTap`                                    |
-| `src/features/game/engine/{constants,tiers,spawn,collision,state}.ts` | engine internals (pure TS, no React)                                       |
-| `src/features/analytics/`                                | Analytics queue + event types                                                            |
-| `src/features/leaderboard/`                              | Supabase score submission + hooks (UI not yet built — Stage 2.3)                         |
-| `src/features/monetisation/`                             | Stubbed monetisation facade                                                              |
-| `src/shared/storage/`                                    | Typed AsyncStorage wrapper (used for persistent best score, device ID)                   |
-| `assets/sounds/`                                         | 16 WAV sound files. **Regenerate via `node generate-sounds.js`** after editing the script |
-| `assets/fonts/`                                          | `SpaceMono-Regular.ttf`, `SpaceMono-Bold.ttf` — bundled locally as of Stage 1.2          |
-| `generate-sounds.js`                                     | Procedural WAV generator. ADSR-style envelope (atk + decay + release).                   |
-| `deploy-android.bat` / `run-deploy.vbs`                  | `npx expo run:android` wrappers                                                          |
-| `reconnect-adb.bat`                                      | Wi-Fi ADB pair + connect helper. Now prompts for connection port (Android 11+ aware).    |
-| `git-audit.bat`                                          | Git hygiene audit. Run before tagging a release.                                         |
-| `package.json`                                           | `expo-av ~14.0.0` for audio (NOT `expo-audio` — see gotchas)                             |
-| `app.config.ts`                                          | Expo config — bundle ID `com.newco.twodots`, icons, splash, plugins                      |
-| `eas.json`                                               | EAS profiles (dev/preview/prod). `projectId` empty until `eas init`                      |
-| `supabase/migrations/`                                   | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`                          |
-| `PLAN.md`                                                | Sequenced roadmap of remaining stages                                                    |
-| `BUG_AUDIT.md`                                           | Stage 2.1 audit log                                                                      |
-| `UX_AUDIT.md`                                            | Stage 2.2 audit log                                                                      |
-| `CHANGELOG.md`                                           | Release-bound changes. Update on every PR.                                               |
-| `CONTRIBUTING.md`                                        | Branch model, commit conventions, pre-commit checks                                      |
-| `.github/PULL_REQUEST_TEMPLATE.md`                       | PR checklist                                                                             |
+| File                                                                  | Purpose                                                                                   |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/app/index.tsx`                                                   | **GameScreen orchestrator** (~278 lines as of session-9 refactor). Calls `useGameLoop`, computes per-frame derived render values, mounts the canvas + phase-specific overlays. |
+| `src/app/_layout.tsx`                                                 | Root layout — local font loading, splash, analytics bootstrap, global font-scale cap      |
+| `src/app/_shared/{constants,snapshot,styles}.ts`                      | Pure data + types + StyleSheet shared across canvas / overlays / hook (session-9 split)   |
+| `src/app/_canvas/{Dot,PipeScanlines,TitleBloom,GameCanvas}.tsx`       | Skia primitives + the wrapping `<Canvas>` with the full in-game visual layer              |
+| `src/app/_overlays/{IdleScreen,PlayingHUD,DeathScreen}.tsx`           | Phase-specific RN overlay components (idle title, live HUD + pause, death screen)         |
+| `src/app/_hooks/useGameLoop.ts`                                       | Owns 9 refs, gsRef + display state, audio loading, rAF physics+render loop, death side-effect, multi-touch handler. Returns `{ display, handleTouch, bestScore, wasNewBest }` |
+| `src/providers.tsx`                                                   | React Query + GestureHandler + SafeAreaProvider                                           |
+| `src/features/game/engine/step.ts`                                    | Physics loop — `stepPlaying`, `stepDead`, `handleTap`                                     |
+| `src/features/game/engine/{constants,tiers,spawn,collision,state}.ts` | engine internals (pure TS, no React)                                                      |
+| `src/features/analytics/`                                             | Analytics queue + event types                                                             |
+| `src/features/leaderboard/`                                           | Supabase score submission + hooks (UI not yet built — Stage 2.3)                          |
+| `src/features/monetisation/`                                          | Stubbed monetisation facade                                                               |
+| `src/shared/storage/`                                                 | Typed AsyncStorage wrapper (used for persistent best score, device ID)                    |
+| `assets/sounds/`                                                      | 16 WAV sound files. **Regenerate via `node generate-sounds.js`** after editing the script |
+| `assets/fonts/`                                                       | `SpaceMono-Regular.ttf`, `SpaceMono-Bold.ttf` — bundled locally as of Stage 1.2           |
+| `generate-sounds.js`                                                  | Procedural WAV generator. ADSR-style envelope (atk + decay + release).                    |
+| `deploy-android.bat` / `run-deploy.vbs`                               | `npx expo run:android` wrappers                                                           |
+| `reconnect-adb.bat`                                                   | Wi-Fi ADB pair + connect helper. Now prompts for connection port (Android 11+ aware).     |
+| `git-audit.bat`                                                       | Git hygiene audit. Run before tagging a release.                                          |
+| `package.json`                                                        | `expo-av ~14.0.0` for audio (NOT `expo-audio` — see gotchas)                              |
+| `app.config.ts`                                                       | Expo config — bundle ID `com.newco.twodots`, icons, splash, plugins                       |
+| `eas.json`                                                            | EAS profiles (dev/preview/prod). `projectId` empty until `eas init`                       |
+| `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`                           |
+| `PLAN.md`                                                             | Sequenced roadmap of remaining stages                                                     |
+| `BUG_AUDIT.md`                                                        | Stage 2.1 audit log                                                                       |
+| `UX_AUDIT.md`                                                         | Stage 2.2 audit log                                                                       |
+| `CHANGELOG.md`                                                        | Release-bound changes. Update on every PR.                                                |
+| `CONTRIBUTING.md`                                                     | Branch model, commit conventions, pre-commit checks                                       |
+| `.github/PULL_REQUEST_TEMPLATE.md`                                    | PR checklist                                                                              |
 
 **Prototype reference (read-only):** `G:\My Drive\NewCo\Business ideas\Two Dots\TwoDots-38.html` — the canonical HTML. Every physics constant, colour, timing, and draw call originated here.
 
@@ -266,17 +271,17 @@ Anon key is safe to ship — RLS is the security boundary. Stage 1.1 audit confi
 
 ## Session history summary
 
-| Session | Work done                                                                                     |
-| ------- | --------------------------------------------------------------------------------------------- |
-| 1–4     | Scaffold, engine port, persistence, analytics                                                 |
-| 5       | Phase 1: 60fps physics gate, idle bob, lane backgrounds, score pop, death flash               |
-| 6       | Phases 2–4: death screen, idle screen, Skia migration                                         |
-| 7       | Polish pass: audio wiring, fonts, visual fixes, expo-av migration                             |
-| 8       | Stage 1.1: git hardening (changelog, contributing, PR template, audit script)                 |
-| 8       | Stage 1.2: local Space Mono TTFs                                                              |
-| 8       | Stage 1.3: removed dead `app/` directory; runtime confirmed using `src/app/`                  |
-| 8       | Stage 2.1: bug audit — 13 findings fixed (Skia path memo, gateInTier property tests, deathFlash math.max, all mechanical lint/type errors) |
+| Session | Work done                                                                                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1–4     | Scaffold, engine port, persistence, analytics                                                                                                                                  |
+| 5       | Phase 1: 60fps physics gate, idle bob, lane backgrounds, score pop, death flash                                                                                                |
+| 6       | Phases 2–4: death screen, idle screen, Skia migration                                                                                                                          |
+| 7       | Polish pass: audio wiring, fonts, visual fixes, expo-av migration                                                                                                              |
+| 8       | Stage 1.1: git hardening (changelog, contributing, PR template, audit script)                                                                                                  |
+| 8       | Stage 1.2: local Space Mono TTFs                                                                                                                                               |
+| 8       | Stage 1.3: removed dead `app/` directory; runtime confirmed using `src/app/`                                                                                                   |
+| 8       | Stage 2.1: bug audit — 13 findings fixed (Skia path memo, gateInTier property tests, deathFlash math.max, all mechanical lint/type errors)                                     |
 | 8       | Stage 2.2 wave 1: blue pipe palette, persistent best score (AsyncStorage), audio harmonic retune (perfect-fourth jump pair, pentatonic blip ladder), audio click-fix in script |
-| 8       | Stage 2.2 wave 2: a11y labels on root touch View, safe-area inset offset (notch-only), global font-scale cap at 1.3×, ADB script port-prompt patch |
-| 8       | Stage 2.2 fix: HUD top position regression — only offset by inset excess over standard status bar |
-| 8       | Wi-Fi ADB pairing fixed (firewall rule `ADB Wireless Debug` for TCP 37000–44000 inbound)      |
+| 8       | Stage 2.2 wave 2: a11y labels on root touch View, safe-area inset offset (notch-only), global font-scale cap at 1.3×, ADB script port-prompt patch                             |
+| 8       | Stage 2.2 fix: HUD top position regression — only offset by inset excess over standard status bar                                                                              |
+| 8       | Wi-Fi ADB pairing fixed (firewall rule `ADB Wireless Debug` for TCP 37000–44000 inbound)                                                                                       |
