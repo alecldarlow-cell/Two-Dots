@@ -583,43 +583,47 @@ function CloudField({ spec, theme, t, w, gameH, nowMs }) {
     const stepX = baseR * 0.42; // tight overlap
     const totalSpan = stepX * (bubbleCount - 1);
     const bubbles = [];
-    let maxBottom = 0;
     for (let b = 0; b < bubbleCount; b++) {
       // Position along x, then nudge slightly
       const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.3;
-      // Vary radius — bigger in the middle, smaller at edges, gives that
+      // Vary radius — bigger in the middle, smaller at edges, gives the
       // classic cumulus dome silhouette
       const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
-      const sizeFactor = 1 - distFromCenter * 0.35 + (rng() - 0.5) * 0.15;
+      const sizeFactor = 1 - distFromCenter * 0.30 + (rng() - 0.5) * 0.15;
       const br = baseR * sizeFactor;
-      // Y: top edge varies (puffy); all bubbles share approximately the same
-      // BOTTOM line — that's what makes cumulus look grounded vs. blobby
-      const topJitter = (rng() - 0.5) * br * 0.4;
-      const by = topJitter - (1 - distFromCenter) * br * 0.3;
+      // ALL bubble bottoms extend slightly BELOW the cloud baseline (clip
+      // line at y=0). The clip-path then uniformly truncates every bubble
+      // to a flat bottom. If a bubble didn't extend past the baseline, its
+      // natural arc would show through, breaking the flat look. Per Earth
+      // point 6 follow-up (round 6).
+      const by = -br + br * 0.12;
       bubbles.push({ bx, by, br });
-      maxBottom = Math.max(maxBottom, by + br);
     }
-    clouds.push({ x, y: baseY, bubbles, baseW: totalSpan + baseR * 1.6, baseY: maxBottom - 2, o });
+    clouds.push({ x, y: baseY, bubbles, o });
   }
   return (
     <g>
-      {clouds.map((c, i) => (
-        <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.o}>
-          {/* Flat base — anchors all bubbles to a common bottom line.
-              Sits slightly above the lowest circle bottom so it fuses with them. */}
-          <rect
-            x={-c.baseW / 2}
-            y={c.baseY - 6}
-            width={c.baseW}
-            height={8}
-            rx={4}
-            fill={tint}
-          />
-          {c.bubbles.map((b, j) => (
-            <circle key={j} cx={b.bx} cy={b.by} r={b.br} fill={tint} />
-          ))}
-        </g>
-      ))}
+      {clouds.map((c, i) => {
+        // Clip everything below the baseline (y=0 in local coords) so the
+        // cloud bottom is geometrically flat. Without this, each circle's
+        // bottom is an arc and the envelope between adjacent bubbles dips
+        // upward, creating a scalloped wavy bottom. Per Earth point 6.
+        const clipId = `cloudclip-${theme.id}-${i}`;
+        return (
+          <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.o}>
+            <defs>
+              <clipPath id={clipId}>
+                <rect x={-300} y={-300} width={600} height={300} />
+              </clipPath>
+            </defs>
+            <g clipPath={`url(#${clipId})`}>
+              {c.bubbles.map((b, j) => (
+                <circle key={j} cx={b.bx} cy={b.by} r={b.br} fill={tint} />
+              ))}
+            </g>
+          </g>
+        );
+      })}
     </g>
   );
 }
