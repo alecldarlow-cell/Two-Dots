@@ -334,6 +334,70 @@ function renderGrassTufts(band, h, sx, t, w) {
   );
 }
 
+// 'storm-bands' specialised renderer — for gas-giant atmospheric bands.
+// Each band is a solid-fill region with a turbulent top edge (festoons, curls,
+// four-octave organic noise) extending down to the bottom of the canvas. The
+// theme's bands are painted top-to-bottom in array order, so each one over-
+// paints the previous's lower portion — its turbulent top edge thereby becomes
+// the boundary against the band above. No internal silhouette, no alpha
+// gradient: clean defined bands with organic edges, mirroring real Jupiter's
+// cloud-band structure (the visible interest lives at zone-belt boundaries,
+// not inside the bands). Per Jupiter point 1 (round 7 — review of v1
+// alpha-feathered renderer which lost band identity).
+function StormBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
+  const color = sampleColorCurve(band.colorCurve, t);
+  const yTop = band.yPct * gameH;
+  const h = band.heightPct * gameH;
+  const sx = scrollX * band.parallax * scrollSpeed;
+
+  const seed =
+    band.id === 'upperPolarHaze' ? 1111 :
+    band.id === 'ntrZone'        ? 2233 :
+    band.id === 'nebBelt'        ? 3344 :
+    band.id === 'equatorialZone' ? 4455 :
+    band.id === 'sebBelt'        ? 5566 :
+    band.id === 'lowerZone'      ? 6677 : 9012;
+  const rng = mulberry32(seed);
+  const j1 = rng() * 6;
+  const j2 = rng() * 6;
+  const j3 = rng() * 6;
+  const j4 = rng() * 6;
+
+  // Turbulent top edge — 4-octave wave gives organic festoon-style undulation.
+  // Amplitudes scale with band height so wider bands get proportionally
+  // larger wobble. Total max ~17% of band height.
+  const points = 240;
+  const span = w * 1.4;
+  const offset = -(sx % w);
+  const startX = -w * 0.2;
+
+  const pts = [];
+  for (let i = 0; i <= points; i++) {
+    const x = startX + (i / points) * span;
+    const xs = x + offset;
+    const wave =
+      Math.sin(xs * 0.0090 + j1) * h * 0.090 + // long swell — broad arcs across screen
+      Math.sin(xs * 0.0320 + j2) * h * 0.045 + // medium — primary festoons
+      Math.sin(xs * 0.0900 + j3) * h * 0.022 + // small detail
+      Math.sin(xs * 0.2400 + j4) * h * 0.010;  // fine grain
+    pts.push([xs, yTop + wave]);
+  }
+
+  // Closed path: bottom-left → up to turbulent edge → across the edge →
+  // down to bottom-right → close. Fills from the turbulent top edge to the
+  // canvas bottom; bands listed AFTER this one paint over our lower portion,
+  // so the visible slice is bounded by our top edge above and theirs below.
+  let d = `M ${pts[0][0].toFixed(1)},${gameH}`;
+  d += ` L ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    d += ` L ${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
+  }
+  d += ` L ${pts[pts.length - 1][0].toFixed(1)},${gameH}`;
+  d += ' Z';
+
+  return <path d={d} fill={color} />;
+}
+
 function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
   const color = sampleColorCurve(band.colorCurve, t);
   const y = band.yPct * gameH;
@@ -922,8 +986,10 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
     >
       {visible('sky') && <SkyBand theme={theme} t={t} w={w} h={gameH} />}
 
-      {/* celestials sit between sky and silhouettes */}
-      {visible('celestials') && theme.celestials.map((c) => (
+      {/* celestials sit between sky and silhouettes — except storm-eye
+          (Jupiter's Great Red Spot), which lives IN the cloud layer rather
+          than behind it. We render it after the bands below. */}
+      {visible('celestials') && theme.celestials.filter((c) => c.kind !== 'storm-eye').map((c) => (
         <Celestial key={c.id} spec={c} theme={theme} t={t} positionT={positionT} w={w} gameH={gameH} />
       ))}
 
@@ -946,6 +1012,11 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
       {theme.bands.map((band) => {
         if (!visible(band.id)) return null;
         if (band.kind === 'silhouette') {
+          // Gas-giant bands take a specialised renderer (alpha-feathered
+          // overlap, no silhouette path). Per Jupiter point 1 (round 7).
+          if (band.profile === 'storm-bands') {
+            return <StormBand key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} />;
+          }
           return <SilhouetteBand key={band.id} band={band} theme={theme} t={t} w={w} gameH={gameH} scrollX={scrollX} scrollSpeed={scrollSpeed} />;
         }
         if (band.kind === 'plain') {
@@ -960,6 +1031,12 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
       {/* dust drifts above the regolith */}
       {visible('particles') && theme.particles.filter(p => p.kind === 'horizontalDrift').map((p) => (
         <DustField key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
+      ))}
+
+      {/* storm-eye celestials (Jupiter's Great Red Spot) — drawn LAST so they
+          sit on top of the atmospheric bands as a cloud-layer feature. */}
+      {visible('celestials') && theme.celestials.filter((c) => c.kind === 'storm-eye').map((c) => (
+        <Celestial key={c.id} spec={c} theme={theme} t={t} positionT={positionT} w={w} gameH={gameH} />
       ))}
     </svg>
   );

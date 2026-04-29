@@ -36,6 +36,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { Asset } from 'expo-asset';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
@@ -134,15 +136,38 @@ export function useGameLoop(): GameLoopAPI {
     };
   }, []);
 
+  // ─── Background/foreground handling ──────────────────────────────────────────
+  // When the app goes to background, rAF is suspended and `lastFrameRef` keeps
+  // the timestamp of the last frame before suspension. On resume, the first
+  // frame computes `dt = now - lastFrameRef` which can be many seconds. Even
+  // with the 100ms catch-up cap, that's still ~6 physics steps of "lost" time
+  // applied in one frame — enough to land a mid-air dot on a pipe before the
+  // user can react. We reset both the frame timestamp and the accumulator on
+  // backgrounding so the first frame after resume runs zero catch-up physics
+  // and the dots stay where the user left them.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') {
+        lastFrameRef.current = 0;
+        accRef.current = 0;
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   // Load all sounds once on mount; clean up on unmount.
   // Capture sounds.current into a local so the cleanup closure references the
   // same map ESLint can prove won't change. (sounds is initialized once via
   // useRef so .current is stable, but lint can't see that.)
   //
-  // expo-audio note: createAudioPlayer() is synchronous and returns the
-  // AudioPlayer immediately — no Promise unwrap like expo-av's createAsync.
-  // The native module loads the asset in the background; calling .play()
-  // before load completes is safe and will play once ready.
+  // expo-audio gotcha: unlike expo-av's Audio.Sound.createAsync (which
+  // resolved bundled require()'d assets internally), expo-audio's
+  // createAudioPlayer reads source.uri synchronously and silently creates
+  // a no-op player if the URI isn't resolvable. For bundled assets in a
+  // preview/production build the localUri is only populated AFTER
+  // Asset.downloadAsync() completes — without it, every player loads
+  // nothing and playback is silent. We pre-download all assets, then
+  // construct players from the resolved Asset instances.
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     const soundsMap = sounds.current;
@@ -164,14 +189,22 @@ export function useGameLoop(): GameLoopAPI {
       closeCall: require('../../../assets/sounds/close_call.wav'),
       death: require('../../../assets/sounds/death.wav'),
     };
-    Object.entries(sources).forEach(([key, src]) => {
-      try {
-        soundsMap[key] = createAudioPlayer(src);
-      } catch {
-        // Asset missing or native module unavailable; skip silently.
+    let cancelled = false;
+    void (async () => {
+      for (const [key, src] of Object.entries(sources)) {
+        if (cancelled) return;
+        try {
+          const asset = Asset.fromModule(src);
+          await asset.downloadAsync();
+          if (cancelled) return;
+          soundsMap[key] = createAudioPlayer(asset);
+        } catch {
+          // Asset download or player creation failed; skip this sound silently.
+        }
       }
-    });
+    })();
     return () => {
+      cancelled = true;
       Object.values(soundsMap).forEach((p) => {
         try {
           p.remove();
