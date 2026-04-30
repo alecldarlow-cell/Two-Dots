@@ -82,10 +82,15 @@ function AnalyticsBootstrap(): null {
 }
 
 export default function RootLayout(): React.ReactElement {
+  /* eslint-disable @typescript-eslint/no-require-imports --
+     useFonts expects bundled asset references; require() is the canonical
+     React Native pattern for non-JS bundled assets (.ttf). The
+     @typescript-eslint v8 rule flags these by default — locally disabling. */
   const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
     'SpaceMono-Bold': require('../../assets/fonts/SpaceMono-Bold.ttf'),
   });
+  /* eslint-enable @typescript-eslint/no-require-imports */
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
