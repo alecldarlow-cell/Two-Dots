@@ -60,7 +60,9 @@ import { PlayingHUD } from './_overlays/PlayingHUD';
 // v0.3-worlds — planetary backgrounds are still in development. When false,
 // GameCanvas renders without the WorldRenderer (pre-v0.3 dark background).
 // Flip to true once the Earth/Jupiter theme designs are signed off.
-const WORLDS_ENABLED = false;
+// SMOKE-TEST DEBUG — flipped to true for wifi-debug visual smoke test.
+// Revert to false before merging.
+const WORLDS_ENABLED = true;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function GameScreen(): React.ReactElement {
@@ -252,7 +254,10 @@ export default function GameScreen(): React.ReactElement {
           // false, GameCanvas's `worldTheme && (...)` guard skips WorldRenderer
           // and the canvas falls back to its pre-v0.3 dark background.
           worldTheme={WORLDS_ENABLED ? worldTheme : undefined}
-          worldTod={0.25}
+          // SMOKE-TEST DEBUG — auto-cycle ToD every 60s so we can verify
+          // dawn/day/dusk/night transitions without waiting for the cycle
+          // engine to land. Revert to `worldTod={0.25}` before merging.
+          worldTod={(nowMs / 60000) % 1}
           worldScrollX={nowMs * 0.04}
         />
 

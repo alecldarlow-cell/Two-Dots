@@ -12,33 +12,45 @@
  * once the renderer side is verified — see plan).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+// SMOKE-TEST DEBUG — useEffect / getItem / isThemeId imports are unused
+// while load-from-storage is commented out below. Re-add to the imports
+// when reverting (see the commented useEffect for what they're used for).
+import { useCallback, useState } from 'react';
 
 import { getTheme, type ThemeId, type WorldTheme } from '@features/game/world';
-import { getItem, setItem, StorageKeys } from '@shared/storage';
+import { setItem, StorageKeys } from '@shared/storage';
 
+// SMOKE-TEST DEBUG — to test other worlds, change this to 'moon' or 'jupiter'
+// and Metro fast-refresh will reload the device. AsyncStorage may have a
+// previously-persisted value; if a different world keeps loading, clear app
+// storage on device or temporarily comment out the load-from-storage useEffect
+// below. Revert this comment before merging.
 const DEFAULT_PLANET: ThemeId = 'earth';
 
-function isThemeId(v: unknown): v is ThemeId {
-  return v === 'moon' || v === 'earth' || v === 'jupiter';
-}
+// SMOKE-TEST DEBUG — isThemeId only used inside the commented-out useEffect
+// below. Restore this function when reverting the smoke-test changes.
+// function isThemeId(v: unknown): v is ThemeId {
+//   return v === 'moon' || v === 'earth' || v === 'jupiter';
+// }
 
 export function useCurrentPlanet(): [WorldTheme, (id: ThemeId) => void] {
   const [planetId, setPlanetId] = useState<ThemeId>(DEFAULT_PLANET);
 
-  // Load persisted choice on mount.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const stored = await getItem<unknown>(StorageKeys.currentPlanet);
-      if (!cancelled && isThemeId(stored)) {
-        setPlanetId(stored);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // SMOKE-TEST DEBUG — load-from-storage disabled so DEFAULT_PLANET above
+  // always wins. Revert (uncomment) before merging.
+  //
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   void (async () => {
+  //     const stored = await getItem<unknown>(StorageKeys.currentPlanet);
+  //     if (!cancelled && isThemeId(stored)) {
+  //       setPlanetId(stored);
+  //     }
+  //   })();
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, []);
 
   const setPlanet = useCallback((id: ThemeId) => {
     setPlanetId(id);
