@@ -13,8 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/splash.png',
     resizeMode: 'contain',
-    // v0.3-worlds: matches the new icon's deep navy backdrop (#0a2c44).
-    // Smoother visual transition from launch to running app.
+    // Matches the icon's deep navy backdrop. Smoother launch → running transition.
     backgroundColor: '#0a2c44',
   },
   assetBundlePatterns: ['**/*'],
@@ -28,10 +27,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.newco.twodots',
-    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      // v0.3-worlds: deep navy matches the new icon design.
       backgroundColor: '#0a2c44',
     },
   },
@@ -41,7 +38,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        // v0.3-worlds: matches the new icon design's deep navy.
         backgroundColor: '#0a2c44',
         image: './assets/splash.png',
         imageWidth: 200,
