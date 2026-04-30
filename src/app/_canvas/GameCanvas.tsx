@@ -49,7 +49,6 @@ export interface GameCanvasProps {
   nowMs: number;
   dotLDisplayY: number;
   dotRDisplayY: number;
-  divHex: string;
   sPulseT: number;
   sPulseW: number;
   sPulseX: number;
@@ -71,7 +70,6 @@ export function GameCanvas({
   nowMs,
   dotLDisplayY,
   dotRDisplayY,
-  divHex,
   sPulseT,
   sPulseW,
   sPulseX,
@@ -103,27 +101,10 @@ export function GameCanvas({
         />
       )}
 
-      {/* ── Divider bilateral soft glow ── */}
-      {/* Left glow: COL_L transparent at far-left, opaque near centre */}
-      <Rect x={sx(W / 2 - 18)} y={0} width={sx(18)} height={GAME_H}>
-        <LinearGradient
-          start={vec(sx(W / 2 - 18), 0)}
-          end={vec(sx(W / 2), 0)}
-          colors={[COL_L + '00', COL_L + divHex]}
-        />
-      </Rect>
-
-      {/* Right glow: COL_R fade from left to right */}
-      <Rect x={sx(W / 2)} y={0} width={sx(18)} height={GAME_H}>
-        <LinearGradient
-          start={vec(sx(W / 2), 0)}
-          end={vec(sx(W / 2 + 18), 0)}
-          colors={[COL_R + divHex, COL_R + '00']}
-        />
-      </Rect>
-
-      {/* Hard centre line */}
-      <Rect x={sx(W / 2 - 1)} y={0} width={2} height={GAME_H} color="#111120" />
+      {/* v0.3-worlds redesign — split-screen tint + hard centre line removed.
+       *  The warm/cool dot pair (amber-L + ice-R) now carries the L/R identity
+       *  on its own. Survival pulse below still renders for the clear-event
+       *  feedback moment. Per task 5 of jupiter-ingest follow-ups. */}
 
       {/* ── Survival pulse on divider (optional) ── */}
       {display.survivalPulse > 0 && (
@@ -310,10 +291,12 @@ export function GameCanvas({
       ))}
 
       {/* ── Left dot with all effects ── */}
+      {/* v0.3-worlds — dot colour comes from the active world's palette
+       *  (warm amber per world). Falls back to COL_L for legacy/no-world. */}
       <Dot
         cx={sx(LANE_L)}
         cy={dotLDisplayY * SCALE}
-        col={COL_L}
+        col={worldTheme?.palette.dotL ?? COL_L}
         pulse={display.pulseL}
         closeCall={display.closeL}
         deathFlash={display.deathFlashL}
@@ -323,7 +306,7 @@ export function GameCanvas({
       <Dot
         cx={sx(LANE_R)}
         cy={dotRDisplayY * SCALE}
-        col={COL_R}
+        col={worldTheme?.palette.dotR ?? COL_R}
         pulse={display.pulseR}
         closeCall={display.closeR}
         deathFlash={display.deathFlashR}

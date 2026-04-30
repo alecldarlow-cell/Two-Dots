@@ -80,6 +80,11 @@ export const earthTheme = {
   // ─── BANDS (far → near) ──────────────────────────────────────────────────
   bands: [
     {
+      // Far mountains. Round-6 + post-smoke-test fix: night colour darkened
+      // (#0c1414 → #040808) so the silhouette stays visible against the dark
+      // night sky. The previous value blended into the sky and made these
+      // hills "appear" only at dawn/day/dusk; now they read consistently as
+      // a quiet ridge across the whole ToD cycle.
       id: 'farMountains',
       kind: 'silhouette',
       yPct: 0.4,
@@ -90,7 +95,7 @@ export const earthTheme = {
         { t: 0.0, color: '#4a5a52' },
         { t: 0.25, color: '#6b8870' },
         { t: 0.5, color: '#3e4a4a' },
-        { t: 0.75, color: '#0c1414' },
+        { t: 0.75, color: '#040808' },
       ],
     },
     {
@@ -243,11 +248,19 @@ export const earthTheme = {
       ],
       xPct: 0.5,
       yPct: 0.2,
+      // Slate-grey across all stops — previous values (#b8b8c0 / #e8e8f0)
+      // were too light and read as paper-white, not lunar. Real moon photos
+      // sit around #a8a8b0 perceived; we're stylised but stay in the cool
+      // slate range so the moon harmonises with the indigo/violet night sky
+      // and doesn't mirror the warm gold sun. Lightness ladder: dawn 50%,
+      // day 63%, dusk 53%, night 70% — night is brightest (full disc on
+      // dark sky), day is dimmest perceptually because the bright blue sky
+      // washes a low-contrast moon (this is what real daytime moons do).
       colorCurve: [
-        { t: 0.0, color: '#d8d2c0' },
-        { t: 0.25, color: '#cccccc' },
-        { t: 0.5, color: '#d8d2c0' },
-        { t: 0.75, color: '#f0ebd8' },
+        { t: 0.0, color: '#787880' }, // dawn  — dim cool slate
+        { t: 0.25, color: '#9a9aa0' }, // day   — pale slate, washed by sky
+        { t: 0.5, color: '#807a86' }, // dusk  — slate with violet hint
+        { t: 0.75, color: '#b0b0b8' }, // night — clear grey, full disc
       ],
       glowCurve: [
         { t: 0.0, value: 0.3 },

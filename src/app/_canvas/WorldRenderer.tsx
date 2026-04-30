@@ -42,6 +42,7 @@ import {
   Group,
   LinearGradient,
   Path,
+  PathOp,
   RadialGradient,
   Rect,
   Skia,
@@ -196,17 +197,26 @@ function seedDust(
   return out;
 }
 
-// Cloud composition: each cloud = 6–8 heavily-overlapping circles, clipped to
-// y < 0 in cloud-local coords so all bubble bottoms truncate at the same line
-// (round 6: clip-path flat-bottom). Without the clip, the envelope between
-// adjacent bubbles dips upward and the cloud bottom reads as scalloped.
-type CloudBubble = { bx: number; by: number; br: number };
+// Cloud composition: each cloud is built from 6–8 heavily-overlapping circles
+// during seeding, then those circles are UNIONED into a single Skia Path —
+// `unionPath` — at seed time. At draw time we render one filled Path per
+// cloud, not N circles. This kills two artefacts the per-circle approach
+// produced:
+//   1. Opacity-overlap dark bands. Group.opacity multiplies into each child's
+//      paint individually, so where two semi-transparent circles overlapped
+//      you got 1-(1-α)² — a visibly darker ring around every bubble. With
+//      one path, no overlap at draw time, no dark bands.
+//   2. Internal silhouette outlines. Antialiased circle edges left visible
+//      arcs WHERE bubbles met, even at full opacity. The union path has no
+//      internal edges — only the outer envelope is drawn.
+// Bottom is still flat: the CLOUD_CLIP_PATH wrapper truncates every union
+// at y=0 in cloud-local coords (same trick as before).
 type CloudSeed = {
   baseX: number;
   baseY: number;
   scale: number;
   driftPhase: number;
-  bubbles: CloudBubble[];
+  unionPath: ReturnType<typeof Skia.Path.Make>;
   alpha: number;
 };
 
@@ -228,7 +238,9 @@ function seedClouds(
     const baseR = (18 + rng() * 8) * scale;
     const stepX = baseR * 0.42;
     const totalSpan = stepX * (bubbleCount - 1);
-    const bubbles: CloudBubble[] = [];
+    // Build the union path bubble-by-bubble. First circle seeds the path;
+    // each subsequent circle is unioned in via Skia's PathOp.Union.
+    const unionPath = Skia.Path.Make();
     for (let b = 0; b < bubbleCount; b++) {
       const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.3;
       // Bigger in the middle, smaller at edges — classic cumulus dome.
@@ -239,9 +251,15 @@ function seedClouds(
       // bottom sits at y = 0.12br (slightly below cloud-local y=0). The
       // clip-path then uniformly truncates every bubble at y=0.
       const by = -br + br * 0.12;
-      bubbles.push({ bx, by, br });
+      if (b === 0) {
+        unionPath.addCircle(bx, by, br);
+      } else {
+        const cPath = Skia.Path.Make();
+        cPath.addCircle(bx, by, br);
+        unionPath.op(cPath, PathOp.Union);
+      }
     }
-    out.push({ baseX, baseY, scale, driftPhase, bubbles, alpha });
+    out.push({ baseX, baseY, scale, driftPhase, unionPath, alpha });
   }
   return out;
 }
@@ -419,13 +437,17 @@ function buildSilhouettePath(
     const rng = mulberry32(seed);
     const span = SCREEN_W * 2.5;
     const numNodes = 5;
-    const nodes: Array<readonly [number, number]> = [];
+    const nodes: Array<[number, number]> = [];
     for (let i = 0; i <= numNodes; i++) {
       const x = (i / numNodes) * span;
       const isPeak = i % 2 === 1;
       const heightFrac = isPeak ? 0.45 + rng() * 0.3 : 0.15 + rng() * 0.2;
       nodes.push([x, yPx + heightPx * (1 - heightFrac)]);
     }
+    // Periodicity fix: pin the last node's y to the first node's y so the
+    // path's right edge matches its left edge. Lets two-copy tiling render
+    // a seamless silhouette across the parallax wrap.
+    nodes[nodes.length - 1]![1] = nodes[0]![1];
     p.moveTo(nodes[0]![0], yPx + heightPx);
     p.lineTo(nodes[0]![0], nodes[0]![1]);
     for (let i = 1; i < nodes.length; i++) {
@@ -452,13 +474,18 @@ function buildSilhouettePath(
     const points = 60;
     const span = SCREEN_W * 2.4;
     p.moveTo(0, yPx + heightPx);
+    let firstY = 0;
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * span;
-      const y =
+      let y =
         Math.sin(x * 0.0035 + j1) * heightPx * 0.3 +
         Math.sin(x * 0.011 + j2) * heightPx * 0.13 +
         Math.sin(x * 0.045 + rng() * 6) * heightPx * 0.04 +
         heightPx * 0.55;
+      if (i === 0) firstY = y;
+      // Periodicity fix: pin last sample to firstY so two-copy tiling has
+      // no seam at the wrap.
+      if (i === points) y = firstY;
       p.lineTo(x, yPx + y);
     }
     p.lineTo(span, yPx + heightPx);
@@ -476,12 +503,15 @@ function buildSilhouettePath(
     const peakY = heightPx * 0.55;
     const points = 120;
     p.moveTo(0, yPx + heightPx);
+    let firstY = 0;
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * span;
       const dx = (x - peakX) / (span * 0.55);
       const bell = 1 / (1 + dx * dx);
       const tilt = x - peakX > 0 ? -dx * 0.04 * heightPx : 0;
-      const y = heightPx - (heightPx - peakY) * bell + tilt;
+      let y = heightPx - (heightPx - peakY) * bell + tilt;
+      if (i === 0) firstY = y;
+      if (i === points) y = firstY;
       p.lineTo(x, yPx + y);
     }
     p.lineTo(span, yPx + heightPx);
@@ -493,10 +523,13 @@ function buildSilhouettePath(
     // Moon — far ridge — single low-frequency octave, capped at 55% band height.
     const step = 4;
     p.moveTo(0, yPx + heightPx);
+    let firstY = 0;
     for (let x = 0; x <= tileW; x += step) {
       const base = Math.sin(x * 0.012 + seed) * 0.5;
       const wobble = Math.sin(x * 0.04 + seed * 1.7) * 0.15;
-      const yLocal = (0.5 + (base + wobble) * 0.5) * heightPx * 0.55;
+      let yLocal = (0.5 + (base + wobble) * 0.5) * heightPx * 0.55;
+      if (x === 0) firstY = yLocal;
+      if (x + step > tileW) yLocal = firstY;
       p.lineTo(x, yPx + yLocal);
     }
     p.lineTo(tileW, yPx + heightPx);
@@ -519,6 +552,7 @@ function buildSilhouettePath(
     const points = 96;
     const span = SCREEN_W * 2.4;
     p.moveTo(0, yPx + heightPx);
+    let firstY = 0;
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * span;
       const base =
@@ -527,7 +561,10 @@ function buildSilhouettePath(
         Math.sin(x * 0.18 + j3) * heightPx * 0.06 +
         heightPx * 0.4;
       const crater = Math.sin(x * 0.005) > 0.85 ? -heightPx * 0.12 : 0;
-      p.lineTo(x, yPx + base + crater);
+      let y = base + crater;
+      if (i === 0) firstY = y;
+      if (i === points) y = firstY;
+      p.lineTo(x, yPx + y);
     }
     p.lineTo(span, yPx + heightPx);
     p.close();
@@ -541,10 +578,13 @@ function buildSilhouettePath(
     // extends fully so when bands stack they tile cleanly with no gap.
     const step = 6;
     p.moveTo(0, yPx + heightPx);
+    let firstY = 0;
     for (let x = 0; x <= tileW; x += step) {
       const flow =
         Math.sin(x * 0.008 + seed) * 0.05 + Math.sin(x * 0.025 + seed * 1.4) * 0.025;
-      const yLocal = flow * heightPx;
+      let yLocal = flow * heightPx;
+      if (x === 0) firstY = yLocal;
+      if (x + step > tileW) yLocal = firstY;
       p.lineTo(x, yPx + yLocal);
     }
     p.lineTo(tileW, yPx + heightPx);
@@ -618,6 +658,31 @@ function seedCraters(yPx: number, heightPx: number, seed: number): Crater[] {
     }
   }
   return out;
+}
+
+// ─── Per-profile silhouette path span (in canvas-width multiples) ────────
+// The path generators in geometry/paths.ts each lay out their content across
+// `SCREEN_W * spanMul` pixels. We need this multiplier here so BandRender can
+// wrap the parallax offset at the FULL path span (not at SCREEN_W). Wrapping
+// at SCREEN_W creates a visible content jump when the path's right-side
+// content suddenly gets replaced by left-side content; wrapping at the full
+// span and tiling two copies side-by-side keeps the wrap event rare and the
+// seam offscreen for most of the cycle.
+function silhouetteSpanMul(profile: SilhouetteProfile): number {
+  switch (profile) {
+    case 'mountains':
+      return 2.5;
+    case 'hills':
+      return 2.4;
+    case 'singleHill':
+      return 2.0;
+    case 'cratered-horizon':
+      return 2.4;
+    case 'soft-craters':
+      return 2.0;
+    case 'storm-bands':
+      return 2.0;
+  }
 }
 
 // ─── Sub-renderers ────────────────────────────────────────────────────────
@@ -775,12 +840,19 @@ function CloudField({
         const drift = (nowMs * 0.01 * spec.speed + c.driftPhase) % (SCREEN_W + 240);
         const x = ((c.baseX + drift) % (SCREEN_W + 240)) - 120;
         const opacity = c.alpha * density;
+        // One pre-unioned Path per cloud — see seedClouds for why. Drawing
+        // a single filled Path with one paint at one alpha eliminates both
+        // opacity-overlap dark bands and internal silhouette outlines that
+        // the old per-circle approach produced. The CLOUD_CLIP_PATH wrapper
+        // still truncates the bottom flat.
         return (
-          <Group key={i} transform={[{ translateX: x }, { translateY: c.baseY }]} opacity={opacity}>
+          <Group
+            key={i}
+            transform={[{ translateX: x }, { translateY: c.baseY }]}
+            opacity={opacity}
+          >
             <Group clip={CLOUD_CLIP_PATH}>
-              {c.bubbles.map((b, j) => (
-                <Circle key={j} cx={b.bx} cy={b.by} r={b.br} color={tint} />
-              ))}
+              <Path path={c.unionPath} color={tint} style="fill" antiAlias />
             </Group>
           </Group>
         );
@@ -896,6 +968,16 @@ function BandRender({
   const dx = -((scrollX * band.parallax) % SCREEN_W);
 
   if (band.kind === 'silhouette' && silhouettePath) {
+    // Parallax wrap — render two copies of the path side-by-side and wrap
+    // the offset at the FULL path span (not at SCREEN_W). Wrapping at
+    // SCREEN_W creates a visible discontinuity once per parallax cycle as
+    // the path's right-side content gets replaced by left-side content
+    // (different shapes). Two copies at translateX = dx and dx + spanPx
+    // keep the seam offscreen for most of the cycle and reduce wrap
+    // frequency by spanMul× (≈2.0–2.5×).
+    const spanPx = SCREEN_W * silhouetteSpanMul(band.profile);
+    const tiledDx = -((scrollX * band.parallax) % spanPx);
+
     // Grass tufts (round 6) — only on the closest foreground hill (singleHill
     // profile). Render OUTSIDE the silhouette clip — blade tips extend above
     // the silhouette top edge.
@@ -920,27 +1002,42 @@ function BandRender({
     // path. Top edge brighter (sun-catch), fading to base color at the bottom.
     if (preGradient) {
       const topCol = oklchToHex(sampleOklchCurve(preGradient, t));
-      return (
-        <Group transform={[{ translateX: dx }]}>
-          <Group clip={silhouettePath}>
-            <Rect x={0} y={yPx} width={SCREEN_W * 2} height={heightPx}>
-              <LinearGradient
-                start={vec(0, yPx)}
-                end={vec(0, yPx + heightPx)}
-                colors={[topCol, col, col]}
-                positions={[0, 0.6, 1]}
-              />
-            </Rect>
-          </Group>
-          {grassNode}
+      const gradientFill = (
+        <Group clip={silhouettePath}>
+          <Rect x={0} y={yPx} width={SCREEN_W * 2} height={heightPx}>
+            <LinearGradient
+              start={vec(0, yPx)}
+              end={vec(0, yPx + heightPx)}
+              colors={[topCol, col, col]}
+              positions={[0, 0.6, 1]}
+            />
+          </Rect>
         </Group>
+      );
+      return (
+        <>
+          <Group transform={[{ translateX: tiledDx }]}>
+            {gradientFill}
+            {grassNode}
+          </Group>
+          <Group transform={[{ translateX: tiledDx + spanPx }]}>
+            {gradientFill}
+            {grassNode}
+          </Group>
+        </>
       );
     }
     return (
-      <Group transform={[{ translateX: dx }]}>
-        <Path path={silhouettePath} color={col} style="fill" antiAlias />
-        {grassNode}
-      </Group>
+      <>
+        <Group transform={[{ translateX: tiledDx }]}>
+          <Path path={silhouettePath} color={col} style="fill" antiAlias />
+          {grassNode}
+        </Group>
+        <Group transform={[{ translateX: tiledDx + spanPx }]}>
+          <Path path={silhouettePath} color={col} style="fill" antiAlias />
+          {grassNode}
+        </Group>
+      </>
     );
   }
 
