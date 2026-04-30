@@ -53,15 +53,15 @@ import { styles } from './_shared/styles';
 import { GameCanvas } from './_canvas/GameCanvas';
 import { useCurrentPlanet } from './_hooks/useCurrentPlanet';
 import { useGameLoop } from './_hooks/useGameLoop';
+import { useWorldTod } from './_hooks/useWorldTod';
 import { DeathScreen } from './_overlays/DeathScreen';
 import { IdleScreen } from './_overlays/IdleScreen';
 import { PlayingHUD } from './_overlays/PlayingHUD';
 
-// v0.3-worlds — planetary backgrounds are still in development. When false,
-// GameCanvas renders without the WorldRenderer (pre-v0.3 dark background).
-// Flip to true once the Earth/Jupiter theme designs are signed off.
-// SMOKE-TEST DEBUG — flipped to true for wifi-debug visual smoke test.
-// Revert to false before merging.
+// v0.3-worlds — planetary backgrounds. Three worlds are now authored
+// (Moon, Earth, Jupiter) and the WorldRenderer is wired through to the
+// gate-anchored ToD cycle and the score-derived theme picker. Set to
+// false to fall back to the pre-v0.3 dark background.
 const WORLDS_ENABLED = true;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -71,15 +71,20 @@ export default function GameScreen(): React.ReactElement {
   // the multi-touch handler. See _hooks/useGameLoop.ts for the full surface.
   const { display, handleTouch, bestScore, wasNewBest } = useGameLoop();
 
-  // v0.3-worlds — selected planetary mode (persisted to AsyncStorage). The
-  // theme registry currently only ships Moon, so this falls back to Moon
-  // until Earth + Jupiter design lands. Engine `gravityMul` wiring follows
-  // in a separate commit once the renderer side passes the side-by-side
-  // diff (spec §6).
-  const [worldTheme] = useCurrentPlanet();
-
   // ─── Derived render values ─────────────────────────────────────────────────
   const nowMs = Date.now();
+
+  // v0.3-worlds — world selection is now derived from player score:
+  //   gates  0– 9 → Moon, 10–19 → Earth, 20+ → Jupiter (terminal).
+  // No persistence; every run starts on Moon and progresses with the score.
+  // Engine `gravityMul` wiring still pending — see spec §6.
+  const worldTheme = useCurrentPlanet(display.score);
+
+  // ToD is gate-anchored (one full cycle per 10 gates) with an adaptive
+  // tween between gate clears that tracks the player's recent pacing.
+  // Pause / idle / dead freeze the cycle at dawn.
+  const worldTod = useWorldTod(display, nowMs);
+
   // Idle title glow pulse (5s cycle, used for cross-lane shadow opacity)
   const glowPulse = 0.5 + 0.5 * Math.sin(nowMs / 2500);
   const titleShadowOpacity = 0.18 + glowPulse * 0.08;
@@ -164,10 +169,7 @@ export default function GameScreen(): React.ReactElement {
   const tier = tierFor(display.score);
   const isSurvival = tier === 8;
 
-  // Divider glow animation — prototype: 0.03 + 0.02 * sin(now / 800)
-  const divPulse = 0.03 + 0.02 * Math.sin(nowMs / 800);
-  const divHex = alphaHex(Math.round(divPulse * 255));
-
+  // Divider glow + hard centre line removed (v0.3-worlds — see GameCanvas).
   // Pause shimmer — white overlay on each pipe segment, pulsing at ~8Hz
   const pauseShimmerOpacity = 0.08 + 0.08 * Math.sin(nowMs / 120);
 
@@ -239,25 +241,21 @@ export default function GameScreen(): React.ReactElement {
           nowMs={nowMs}
           dotLDisplayY={dotLDisplayY}
           dotRDisplayY={dotRDisplayY}
-          divHex={divHex}
           sPulseT={sPulseT}
           sPulseW={sPulseW}
           sPulseX={sPulseX}
           pauseShimmerOpacity={pauseShimmerOpacity}
           goldWashAlpha={goldWashAlpha}
           freezeAlpha={freezeAlpha}
-          // v0.3-worlds — Moon background (sky + bands + celestial + stars).
-          // worldTod is static at 0.25 (day) for the first render; cycle
-          // animation lands in a follow-up once schema is locked. worldScrollX
-          // ticks gently from nowMs so parallax bands have a sense of motion.
-          // Gated behind WORLDS_ENABLED while themes are in design — when
-          // false, GameCanvas's `worldTheme && (...)` guard skips WorldRenderer
-          // and the canvas falls back to its pre-v0.3 dark background.
+          // v0.3-worlds — planetary background. worldTheme switches based on
+          // score (Moon → Earth → Jupiter), worldTod cycles per 10 gates with
+          // adaptive tween between clears (see useWorldTod). worldScrollX
+          // ticks gently from nowMs so parallax bands have motion independent
+          // of the ToD cycle. Gated behind WORLDS_ENABLED — when false,
+          // GameCanvas's `worldTheme && (...)` guard skips WorldRenderer and
+          // the canvas falls back to its pre-v0.3 dark background.
           worldTheme={WORLDS_ENABLED ? worldTheme : undefined}
-          // SMOKE-TEST DEBUG — auto-cycle ToD every 60s so we can verify
-          // dawn/day/dusk/night transitions without waiting for the cycle
-          // engine to land. Revert to `worldTod={0.25}` before merging.
-          worldTod={(nowMs / 60000) % 1}
+          worldTod={worldTod}
           worldScrollX={nowMs * 0.04}
         />
 

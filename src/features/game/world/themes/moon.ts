@@ -42,6 +42,13 @@ export const moonTheme = {
   scoreMul: 0.7,
   // v0.5 — sharp horizon snap (Moon has no atmosphere). Day/night dominate;
   // dawn/dusk are just brief transitions through the horizon line.
+  // TODO(post-v0.3): at 10-gate cycle resolution the 47/3/47/3 plateau
+  // weighting makes the dawn/dusk transitions ~30% of one gate-clear
+  // interval each, which reads as imperceptible. Consider rebalancing to
+  // 40/10/40/10 (still plateau-dominant but with full-gate transitions)
+  // for more legible cycling without losing the airless feel. Confirmed
+  // working as designed in v0.3 — Moon's regolith plain and star density
+  // do shift across the cycle, just subtly.
   cycleProfile: 'airless',
 
   sky: {

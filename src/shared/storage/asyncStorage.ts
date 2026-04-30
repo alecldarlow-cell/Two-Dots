@@ -12,7 +12,10 @@ export const StorageKeys = {
   personalBest: 'td.personal_best',
   displayName: 'td.display_name',
   currentSessionId: 'td.current_session_id',
-  // v0.3-worlds — selected planet id (Moon | Earth | Jupiter). See useCurrentPlanet.
+  // v0.3-worlds — legacy. World selection is now derived from score (see
+  // useCurrentPlanet) rather than persisted manual choice. Key kept defined
+  // so old installs with persisted values aren't disrupted; nothing writes
+  // to it. Safe to remove in a future schema migration.
   currentPlanet: 'td.current_planet',
 } as const;
 

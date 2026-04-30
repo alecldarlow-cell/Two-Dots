@@ -26,7 +26,7 @@ import React from 'react';
 import { Canvas, Circle, Group, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
 import { LANE_L, LANE_R, PIPE_W } from '@features/game/engine';
-import type { WorldTheme } from '@features/game/world';
+import { applyCycleProfile, type WorldTheme } from '@features/game/world';
 import {
   COL_L,
   COL_R,
@@ -91,11 +91,16 @@ export function GameCanvas({
         height: GAME_H,
       }}
     >
-      {/* ── World (v0.3 planetary mode background — behind everything) ── */}
+      {/* ── World (v0.3 planetary mode background — behind everything) ──
+       *  worldTod is the RAW player ToD ∈ [0,1] (drives celestial position
+       *  curves continuously). cycleProfile easing is applied here at the
+       *  call site to produce the eased `t` (drives colour / glow / phase
+       *  curves with day/night plateaus). Renderer takes both. */}
       {worldTheme && (
         <WorldRenderer
           theme={worldTheme}
-          t={worldTod}
+          t={applyCycleProfile(worldTod, worldTheme.cycleProfile)}
+          rawT={worldTod}
           scrollX={worldScrollX}
           nowMs={nowMs}
         />
