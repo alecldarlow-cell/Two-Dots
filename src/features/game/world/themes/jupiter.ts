@@ -276,10 +276,18 @@ export const jupiterTheme = {
       xPct: 0.5, // fallback; xCurve drives it
       yPct: 0.22, // sits up in the storm-cloud band region
       xCurve: [
+        // Trajectory revised so the wrap (rawT 0.75 → 1.0) stays entirely
+        // off-screen-left — both night and the next dawn anchor sit at
+        // ~-0.35 / -0.4. Without this, the previous night value of 1.05
+        // (off-right) lerped back to -0.4 across the wrap quarter, dragging
+        // the GRS visibly across mid-frame during night-into-dawn with full
+        // glow. Narrative now: GRS approaches from haze on the left at dawn,
+        // emerges and centres at dusk (signature moment), then retreats
+        // back into the same left-side haze as night falls.
         { t: 0.0, value: -0.4 }, // dawn  — far off-screen left
         { t: 0.25, value: -0.25 }, // day   — still off-screen, approaching
         { t: 0.5, value: 0.5 }, // dusk  — centred (signature moment)
-        { t: 0.75, value: 1.05 }, // night — drifted off right edge
+        { t: 0.75, value: -0.35 }, // night — withdrawn off-screen left
       ],
       // Slight arc — sits lower at dawn (off-screen anyway), rises to a
       // peak at dusk for the signature centring moment, descends again at
