@@ -261,19 +261,26 @@ export function useGameLoop(): GameLoopAPI {
               `[audio] tap asset: localUri=${asset.localUri} uri=${asset.uri} downloaded=${asset.downloaded}`,
             );
           }
-          // Try the simplest source form: pass the require() result (a
-          // Metro asset id) directly. expo-audio handles asset resolution
-          // internally and this is the form most expo-audio examples use.
-          // The Asset.downloadAsync() above is left in place as a no-op
-          // belt-and-braces — it pre-warms the cache, no harm done — but
-          // we don't depend on its localUri output for the player source.
-          const player = createAudioPlayer(src);
+          // Pass the resolved Asset object directly. This matches the
+          // exact source form that landed as the original audio fix
+          // ("fix(audio): pre-download bundled assets so expo-audio can
+          // resolve URIs", commit 5759286b). expo-audio's resolveSource
+          // detects `source instanceof Asset` and produces { uri:
+          // localUri ?? uri } with NO assetId field — sidestepping the
+          // ambiguity that makes `createAudioPlayer(src)` (raw require
+          // id) silent in preview/production builds.
+          //
+          // Note: expo-audio's AudioSource type doesn't list Asset, but
+          // the runtime resolver handles it (see resolveSource.ts:59-61
+          // in expo-audio). Cast through unknown to satisfy TS without
+          // changing runtime behaviour.
+          const player = createAudioPlayer(asset as unknown as Parameters<typeof createAudioPlayer>[0]);
           soundsMap[key] = player;
           loaded++;
           if (key === 'tap') {
             const p = player as unknown as { isLoaded?: boolean; duration?: number };
             console.warn(
-              `[audio] tap created (src form): isLoaded=${p.isLoaded} duration=${p.duration}`,
+              `[audio] tap created (Asset form): localUri=${asset.localUri} isLoaded=${p.isLoaded} duration=${p.duration}`,
             );
           }
         } catch (e) {
