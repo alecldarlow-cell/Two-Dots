@@ -38,7 +38,11 @@ export const moonTheme = {
   id: 'moon',
   label: 'Moon',
   tagline: 'clinical · starlit · exposed',
-  gravityMul: 0.7,
+  // v0.3 — gravity gradient deferred. All worlds run at 1.0 (Earth baseline)
+  // so Moon, Earth, Jupiter feel mechanically identical while we focus on
+  // cosmetic design. Originally Moon = 0.7. Restore for difficulty tuning
+  // once the visual pass is locked.
+  gravityMul: 1.0,
   scoreMul: 0.7,
   // v0.5 — sharp horizon snap (Moon has no atmosphere). Day/night dominate;
   // dawn/dusk are just brief transitions through the horizon line.
@@ -155,7 +159,12 @@ export const moonTheme = {
       id: 'earth',
       kind: 'earth',
       xPct: 0.78,
-      yPct: 0.18,
+      // v0.3-worlds idle-screen tweak: yPct lifted from 0.18 to 0.10 so the
+      // Earth-from-Moon celestial sits higher in the sky and clears the
+      // TWO/DOTS idle title (which lands around logical y=170, ~23% of
+      // VIS_H from top). Earth's radius=28 means body spans (yPct*VIS_H ±
+      // 28); at 0.10 the bottom edge sits well above the title baseline.
+      yPct: 0.1,
       radius: 28,
       colorCurve: [
         { t: 0.0, color: '#5b8fc9' },

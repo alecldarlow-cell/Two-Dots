@@ -51,6 +51,7 @@ import {
   tierFor,
 } from '@features/game/engine';
 import type { AudioEvent, GameState } from '@features/game/engine';
+import { getTheme } from '@features/game/world';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { useSubmitScore } from '@features/leaderboard/api';
 import { useMonetisation } from '@features/monetisation';
@@ -59,6 +60,7 @@ import { defaultRng } from '@shared/utils/rng';
 
 import { PHYSICS_STEP_MS, VIS_H } from '../_shared/constants';
 import { snap, type DisplaySnapshot } from '../_shared/snapshot';
+import { planetForScore } from './useCurrentPlanet';
 
 export interface GameLoopAPI {
   /** The latest snapshot of the game state, re-rendered every other frame. */
@@ -110,14 +112,42 @@ export function useGameLoop(): GameLoopAPI {
   // seekTo returns a Promise but we fire-and-forget — calling .play()
   // immediately after still produces a from-start replay because the native
   // seek completes before the audio thread services the play command.
+  const firstReplayLoggedRef = useRef(false);
   const replay = useRef((key: string): void => {
     const player = sounds.current[key];
-    if (!player) return;
+    if (!player) {
+      console.warn(`[audio] replay called for missing key: ${key}`);
+      return;
+    }
+    // One-shot diagnostic on the first replay — surface the player state
+    // (isLoaded, duration, volume) so a "loads but doesn't play" regression
+    // is visible in Metro logs without instrumenting every replay.
+    if (!firstReplayLoggedRef.current) {
+      firstReplayLoggedRef.current = true;
+      try {
+        const p = player as unknown as {
+          isLoaded?: boolean;
+          duration?: number;
+          volume?: number;
+          currentTime?: number;
+        };
+        console.warn(
+          `[audio] first replay: key=${key} isLoaded=${p.isLoaded} duration=${p.duration} volume=${p.volume} currentTime=${p.currentTime}`,
+        );
+      } catch (e) {
+        console.warn('[audio] failed to read player state:', e);
+      }
+    }
     try {
-      void player.seekTo(0);
-      player.play();
-    } catch {
-      // Player may be mid-teardown on unmount; ignore.
+      // Replay = restart from beginning. We assign currentTime
+      // synchronously rather than calling the async seekTo(0) — avoids the
+      // seek+play race that the original comment was worried about, and
+      // produces a from-start replay reliably on every tap.
+      const p = player as unknown as { currentTime: number; play: () => void };
+      p.currentTime = 0;
+      p.play();
+    } catch (e) {
+      console.warn(`[audio] replay ${key} threw:`, e);
     }
   }).current;
 
@@ -171,11 +201,29 @@ export function useGameLoop(): GameLoopAPI {
   // a no-op player if the URI isn't resolvable. For bundled assets in a
   // preview/production build the localUri is only populated AFTER
   // Asset.downloadAsync() completes — without it, every player loads
-  // nothing and playback is silent. We pre-download all assets, then
-  // construct players from the resolved Asset instances.
+  // nothing and playback is silent.
+  //
+  // Belt-and-braces fix: pre-download the asset via Asset.downloadAsync(),
+  // then pass an EXPLICIT { uri } source to createAudioPlayer using
+  // asset.localUri (preferred — file:// path) and falling back to
+  // asset.uri only if the local resolution didn't populate. Passing the
+  // whole Asset object (which used to work) depends on expo-audio's
+  // internal source-resolution behaviour, which has shifted between
+  // releases and silently bypassed the workaround in at least one drift
+  // event. The explicit { uri } form removes that dependency.
+  //
+  // Errors are surfaced via console.warn rather than silently swallowed
+  // so future regressions show up in Metro / device logs immediately.
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    setAudioModeAsync({ playsInSilentMode: true }).catch((e) => {
+      console.warn('[audio] setAudioModeAsync failed:', e);
+    });
     const soundsMap = sounds.current;
+    /* eslint-disable @typescript-eslint/no-require-imports --
+       Asset requires are the canonical React Native + Metro pattern for
+       bundled non-JS assets (.wav). ES imports of audio files aren't
+       supported by the existing bundler config. The @typescript-eslint v8
+       rule flags these by default; locally disabling for this block. */
     const sources: Record<string, number> = {
       jumpL: require('../../../assets/sounds/jump_l.wav'),
       jumpR: require('../../../assets/sounds/jump_r.wav'),
@@ -194,19 +242,45 @@ export function useGameLoop(): GameLoopAPI {
       closeCall: require('../../../assets/sounds/close_call.wav'),
       death: require('../../../assets/sounds/death.wav'),
     };
+    /* eslint-enable @typescript-eslint/no-require-imports */
+    const total = Object.keys(sources).length;
     let cancelled = false;
     void (async () => {
+      let loaded = 0;
       for (const [key, src] of Object.entries(sources)) {
         if (cancelled) return;
         try {
           const asset = Asset.fromModule(src);
           await asset.downloadAsync();
           if (cancelled) return;
-          soundsMap[key] = createAudioPlayer(asset);
-        } catch {
-          // Asset download or player creation failed; skip this sound silently.
+          // Diagnostic: log what asset.downloadAsync produced for the
+          // first sound only, so we can see exactly what URI form we're
+          // passing to createAudioPlayer.
+          if (key === 'tap') {
+            console.warn(
+              `[audio] tap asset: localUri=${asset.localUri} uri=${asset.uri} downloaded=${asset.downloaded}`,
+            );
+          }
+          // Try the simplest source form: pass the require() result (a
+          // Metro asset id) directly. expo-audio handles asset resolution
+          // internally and this is the form most expo-audio examples use.
+          // The Asset.downloadAsync() above is left in place as a no-op
+          // belt-and-braces — it pre-warms the cache, no harm done — but
+          // we don't depend on its localUri output for the player source.
+          const player = createAudioPlayer(src);
+          soundsMap[key] = player;
+          loaded++;
+          if (key === 'tap') {
+            const p = player as unknown as { isLoaded?: boolean; duration?: number };
+            console.warn(
+              `[audio] tap created (src form): isLoaded=${p.isLoaded} duration=${p.duration}`,
+            );
+          }
+        } catch (e) {
+          console.warn(`[audio] failed to load ${key}:`, e);
         }
       }
+      console.warn(`[audio] loaded ${loaded}/${total} sounds`);
     })();
     return () => {
       cancelled = true;
@@ -273,7 +347,13 @@ export function useGameLoop(): GameLoopAPI {
       while (accRef.current >= PHYSICS_STEP_MS) {
         accRef.current -= PHYSICS_STEP_MS;
         if (s.phase === 'playing') {
-          const fx = stepPlaying(s, { now, visH: VIS_H, rng: defaultRng });
+          // Per-world gravity — recomputed per step from current score so
+          // mid-run world swaps (gates 10, 20) take effect on the next frame.
+          // Cheap (table lookup + property access). The same multiplier is
+          // applied to dot physics AND the spawner's reachability projection
+          // inside stepPlaying so gates stay reachable in any world.
+          const gravityMul = getTheme(planetForScore(s.score)).gravityMul;
+          const fx = stepPlaying(s, { now, visH: VIS_H, rng: defaultRng, gravityMul });
           for (const ae of fx.audio) playAudioEvent(ae);
         } else if (s.phase === 'dead') {
           stepDead(s);

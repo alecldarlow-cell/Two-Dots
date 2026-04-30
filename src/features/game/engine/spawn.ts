@@ -54,15 +54,20 @@ export function initSpawnerState(): SpawnerState {
  * in early tiers (where pauses are longest) and inverts the difficulty curve.
  *
  * Assumes the player re-jumps the instant the dot starts falling (vy >= 0).
+ *
+ * `gravityMul` (default 1.0 = Earth) scales GRAVITY for the projection so
+ * lighter worlds (Moon 0.7) reach further upward and heavier worlds (Jupiter
+ * 1.5) reach less far — keeping gate placement physically reachable per world.
  */
-export function maxUpReach(score: number): number {
+export function maxUpReach(score: number, gravityMul = 1.0): number {
+  const gravity = GRAVITY * gravityMul;
   const speed = pipeSpeed(score);
   const frames = Math.round(PIPE_SPACING / speed);
   let y = 0;
   let vy = JUMP_VY;
   let best = 0;
   for (let f = 0; f < frames; f++) {
-    vy += GRAVITY;
+    vy += gravity;
     y += vy;
     if (vy >= 0) vy = JUMP_VY; // re-jump the instant the dot starts falling
     if (y < best) best = y;
@@ -155,9 +160,10 @@ export function clampToReachable(
   minY: number,
   maxY: number,
   lastGapCY: number | null,
+  gravityMul = 1.0,
 ): number {
   if (lastGapCY === null) return candidateY; // first pipe of the run — no constraint.
-  const reach = maxUpReach(score);
+  const reach = maxUpReach(score, gravityMul);
   const lowestReachable = lastGapCY - reach; // candidate cannot be higher than this
   return Math.max(minY, Math.min(maxY, Math.max(candidateY, lowestReachable)));
 }
@@ -172,12 +178,13 @@ export function spawnPipe(
   visH: number,
   spawner: SpawnerState,
   rng: Rng,
+  gravityMul = 1.0,
 ): Pipe {
   const gap = gapSize(score);
   const minY = gap / 2 + 60;
   const maxY = visH - gap / 2 - 60;
   const rawCY = pipeGapCY(score, gap, visH, spawner, rng);
-  const safeCY = clampToReachable(rawCY, score, minY, maxY, spawner.lastGapCY);
+  const safeCY = clampToReachable(rawCY, score, minY, maxY, spawner.lastGapCY, gravityMul);
   spawner.lastGapCY = safeCY;
   return {
     id: spawner.pipeCount++,

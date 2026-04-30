@@ -33,7 +33,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { W, DEATH_FREEZE_FRAMES, tierFor } from '@features/game/engine';
+import { W, DEATH_FREEZE_FRAMES } from '@features/game/engine';
 import {
   COL_BG,
   COL_BG_FLASH,
@@ -82,9 +82,6 @@ export default function GameScreen(): React.ReactElement {
   // Pause / idle / dead freeze the cycle at dawn.
   const worldTod = useWorldTod(display, nowMs);
 
-  // Idle title glow pulse (5s cycle, used for cross-lane shadow opacity)
-  const glowPulse = 0.5 + 0.5 * Math.sin(nowMs / 2500);
-  const titleShadowOpacity = 0.18 + glowPulse * 0.08;
   // Pause sub-text pulse (matches prototype: 0.45+0.55*sin(now/500))
   const pauseSubOpacity = 0.45 + 0.55 * Math.sin(nowMs / 500);
 
@@ -101,11 +98,12 @@ export default function GameScreen(): React.ReactElement {
   // Background colour — briefly reddish on death
   const bgColor = display.flash > 6 ? COL_BG_FLASH : COL_BG;
 
-  // Live score pop animation
+  // Live score pop animation. v0.3-worlds: dropped the orange/cyan offset
+  // shadow values (shadowOff) since the redesigned HUD score has no
+  // shadows — single gold core, scale-pop animation only.
   const popT = display.scorePop / 18;
   const scoreScale = 1 + popT * 0.4;
   const scoreColor = display.scorePop > 12 ? '#ffffff' : GOLD;
-  const shadowOff = 3 + popT * 4;
 
   // Milestone pop
   const TIER_BOUNDARY_SCORES = [5, 10, 15, 20, 25, 30, 35];
@@ -133,16 +131,17 @@ export default function GameScreen(): React.ReactElement {
   const showDeathOverlay =
     display.phase === 'dead' && display.deathCountFrames <= display.scoreCountFrames;
 
-  // Count-up completion — best/tier/retry only revealed once animation ends
+  // Count-up completion — gates the "reached <world>" caption reveal.
   const countDone = display.deathCountFrames === 0;
 
-  // Pulsing opacity for "tap to retry" text (matches prototype: 0.55+0.45*sin(now/430))
-  const retryPulse = 0.55 + 0.45 * Math.sin(nowMs / 430);
-
-  // Breathing thumb circles (prototype: 38 ± 5px radius, 700ms period)
+  // Breathing thumb circles (prototype: 38 ± 5px radius, 700ms period).
+  // v0.3-worlds: thumbFillAlpha bumped from 0.05±0.03 (range 0.02–0.08, near
+  // invisible against the new world backgrounds) to 0.20±0.05 (range
+  // 0.15–0.25). Light-but-translucent white inside the tap circles so the
+  // affordance reads against any sky.
   const thumbR = (38 + 5 * Math.sin(nowMs / 700)) * SCALE;
   const thumbY = VIS_H * 0.72 * SCALE;
-  const thumbFillAlpha = (0.05 + 0.03 * Math.sin(nowMs / 700)).toFixed(3);
+  const thumbFillAlpha = (0.2 + 0.05 * Math.sin(nowMs / 700)).toFixed(3);
 
   // U2 (Stage 2.2, refined): the original HUD top values already had standard
   // Android status-bar breathing room baked in (~30px). Adding raw insets.top
@@ -153,9 +152,10 @@ export default function GameScreen(): React.ReactElement {
   const STANDARD_STATUS_BAR = 30;
   const notchOffset = Math.max(0, insets.top - STANDARD_STATUS_BAR);
 
-  // Tier progress dots
-  const tier = tierFor(display.score);
-  const isSurvival = tier === 8;
+  // Tier-based HUD dots removed (v0.3-worlds): the in-game progression
+  // dots now derive from world reached (computed inside PlayingHUD), not
+  // from engine tiers. tierFor still drives engine difficulty curves but
+  // is no longer surfaced in the HUD.
 
   // Divider glow + hard centre line removed (v0.3-worlds — see GameCanvas).
   // Pause shimmer — white overlay on each pipe segment, pulsing at ~8Hz
@@ -231,18 +231,13 @@ export default function GameScreen(): React.ReactElement {
           worldScrollX={nowMs * 0.04}
         />
 
-        {/* ── Playing-phase HUD (live score + progress dots + milestone pop + pause) ── */}
+        {/* ── Playing-phase HUD (live score + world dots + milestone pop + pause) ── */}
         {display.phase === 'playing' && (
           <PlayingHUD
             display={display}
-            nowMs={nowMs}
             notchOffset={notchOffset}
-            popT={popT}
             scoreScale={scoreScale}
             scoreColor={scoreColor}
-            shadowOff={shadowOff}
-            tier={tier}
-            isSurvival={isSurvival}
             mAlpha={mAlpha}
             mDriftY={mDriftY}
             isTierBoundary={isTierBoundary}
@@ -253,7 +248,6 @@ export default function GameScreen(): React.ReactElement {
         {/* ── Idle screen ── */}
         {display.phase === 'idle' && (
           <IdleScreen
-            titleShadowOpacity={titleShadowOpacity}
             thumbR={thumbR}
             thumbY={thumbY}
             thumbFillAlpha={thumbFillAlpha}
@@ -267,7 +261,6 @@ export default function GameScreen(): React.ReactElement {
             countDone={countDone}
             wasNewBest={wasNewBest}
             bestScore={bestScore}
-            retryPulse={retryPulse}
           />
         )}
       </View>

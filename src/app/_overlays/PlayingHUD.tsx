@@ -1,9 +1,11 @@
 /**
  * PlayingHUD — the bundle of overlays shown during the 'playing' phase:
- *   1. Live score (3 stacked Texts: orange shadow, cyan shadow, GOLD core).
- *      The shadows fade in only during a score-pop window (popT > 0).
- *   2. Tier progress dots — N gold dots for tiers 1-7, a single pulsing
- *      gold dot for the survival tier (8).
+ *   1. Live score — single gold Text, scale-pop animated. Shadows dropped
+ *      in v0.3-worlds redesign (matches death-screen treatment).
+ *   2. World progress dots — three dots, first N filled by current world
+ *      (Moon=1 / Earth=2 / Jupiter=3). Replaced the prior tier-based 1–7
+ *      dot ramp + survival pulsing dot once the world progression became
+ *      the primary UX.
  *   3. Milestone pop overlay — "★ N ★" star+score and (on tier boundaries)
  *      the tier name. Drifts upward over the milestone window.
  *   4. Pause overlay — full-screen "PAUSED / tap to resume" modal when
@@ -12,10 +14,6 @@
  * All four sub-overlays are gated by display.phase === 'playing' (and pause
  * additionally by display.paused, milestone by display.milestonePop > 0).
  *
- * Derived animation values (popT, scoreScale, mAlpha, etc.) are computed
- * by the parent GameScreen each frame and passed in as props. nowMs is only
- * needed for the inline survival-dot pulse.
- *
  * Extracted from src/app/index.tsx as Stage 5 first-pass refactor step 7.
  */
 
@@ -23,20 +21,15 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { tierName } from '@features/game/engine';
-import { COL_L, COL_R, GAME_H, GOLD, SCALE } from '../_shared/constants';
+import { GAME_H, SCALE } from '../_shared/constants';
 import type { DisplaySnapshot } from '../_shared/snapshot';
 import { styles } from '../_shared/styles';
 
 export interface PlayingHUDProps {
   display: DisplaySnapshot;
-  nowMs: number;
   notchOffset: number;
-  popT: number;
   scoreScale: number;
   scoreColor: string;
-  shadowOff: number;
-  tier: number;
-  isSurvival: boolean;
   mAlpha: number;
   mDriftY: number;
   isTierBoundary: boolean;
@@ -45,90 +38,48 @@ export interface PlayingHUDProps {
 
 export function PlayingHUD({
   display,
-  nowMs,
   notchOffset,
-  popT,
   scoreScale,
   scoreColor,
-  shadowOff,
-  tier,
-  isSurvival,
   mAlpha,
   mDriftY,
   isTierBoundary,
   pauseSubOpacity,
 }: PlayingHUDProps): React.ReactElement {
+  // Worlds reached — 1 (Moon) at score 0–9, 2 (Earth) at 10–19, 3 (Jupiter) at 20+.
+  // Drives the in-game progression dots (replaces the old tier-based 1–7 ramp).
+  const worldsReached = display.score >= 20 ? 3 : display.score >= 10 ? 2 : 1;
+
   return (
     <>
-      {/* ── Live score with pop animation ── */}
+      {/* ── Live score — gold only, no shadows. scoreScale animates the
+       *  size pop on each gate clear; scoreColor flashes white briefly
+       *  during the pop window then returns to gold. */}
       <View
         pointerEvents="none"
         style={[
           styles.scoreContainer,
-          { top: notchOffset + Math.max(58 * SCALE, GAME_H * 0.09) },
+          { top: notchOffset + Math.max(38 * SCALE, GAME_H * 0.06) },
           { transform: [{ scale: scoreScale }] },
         ]}
       >
-        {/* Orange shadow — invisible at rest, flashes up on each score pop */}
-        <Text
-          style={[
-            styles.scoreLive,
-            {
-              color: COL_L,
-              opacity: popT * 0.65,
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              transform: [{ translateX: shadowOff }, { translateY: shadowOff }],
-            },
-          ]}
-        >
-          {display.score}
-        </Text>
-        {/* Cyan shadow */}
-        <Text
-          style={[
-            styles.scoreLive,
-            {
-              color: COL_R,
-              opacity: popT * 0.65,
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              transform: [{ translateX: -shadowOff }, { translateY: -shadowOff }],
-            },
-          ]}
-        >
-          {display.score}
-        </Text>
-        {/* Core */}
         <Text style={[styles.scoreLive, { color: scoreColor }]}>{display.score}</Text>
       </View>
 
-      {/* ── Tier progress dots ── */}
+      {/* ── World progress dots — three dots, first N filled by world. */}
       <View
         pointerEvents="none"
         style={[
           styles.progressDotsContainer,
-          { top: notchOffset + Math.max(58 * SCALE, GAME_H * 0.09) + 56 },
+          { top: notchOffset + Math.max(38 * SCALE, GAME_H * 0.06) + 56 },
         ]}
       >
-        {isSurvival
-          ? (() => {
-              const ps = 6 + 3 * Math.sin(nowMs / 300);
-              return (
-                <View
-                  style={{
-                    width: ps,
-                    height: ps,
-                    borderRadius: ps / 2,
-                    backgroundColor: GOLD,
-                    opacity: 0.9,
-                  }}
-                />
-              );
-            })()
-          : Array.from({ length: tier }, (_, i) => <View key={i} style={styles.progressDot} />)}
+        {Array.from({ length: 3 }, (_, i) => (
+          <View
+            key={i}
+            style={[styles.progressDot, { opacity: i < worldsReached ? 0.85 : 0.25 }]}
+          />
+        ))}
       </View>
 
       {/* ── Milestone pop overlay ── */}

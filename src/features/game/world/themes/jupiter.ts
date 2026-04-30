@@ -50,7 +50,11 @@ export const jupiterTheme = {
   id: 'jupiter',
   label: 'Jupiter',
   tagline: 'banded · turbulent · alien',
-  gravityMul: 1.5,
+  // v0.3 — gravity gradient deferred. All worlds run at 1.0 (Earth baseline)
+  // so Moon, Earth, Jupiter feel mechanically identical while we focus on
+  // cosmetic design. Originally Jupiter = 1.5. Restore for difficulty tuning
+  // once the visual pass is locked.
+  gravityMul: 1.0,
   scoreMul: 1.5,
   cycleProfile: 'atmospheric',
 

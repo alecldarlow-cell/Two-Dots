@@ -70,6 +70,11 @@ export interface FrameInput {
   visH: number;
   /** Injectable so tests can pin spawn sequences and run decision trees deterministically. */
   rng: Rng;
+  /** Per-world gravity multiplier (theme.gravityMul). Multiplies GRAVITY for
+   *  both dot physics and the spawner's reachability projection so gates stay
+   *  placeable under any world. Defaults to 1.0 (Earth baseline) when absent
+   *  — keeps existing tests passing without touching them. */
+  gravityMul?: number;
 }
 
 /**
@@ -97,15 +102,22 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
     s.pipes.length === 0 ||
     W - PIPE_W / 2 - rightmostX >= PIPE_SPACING ||
     input.now - s.lastSpawn >= PIPE_SPAWN_MS;
+  const gravityMul = input.gravityMul ?? 1.0;
   if (shouldSpawn) {
-    s.pipes.push(spawnPipe(s.score, input.now, input.visH, s.spawner, input.rng));
+    s.pipes.push(
+      spawnPipe(s.score, input.now, input.visH, s.spawner, input.rng, gravityMul),
+    );
     s.lastSpawn = input.now;
   }
 
   // ─── Physics ──────────────────────────────────────────────────────────────
-  s.vyL += GRAVITY;
+  // Per-world gravity: GRAVITY × gravityMul. Moon 0.7 (light), Earth 1.0
+  // (canonical), Jupiter 1.5 (heavy). The spawner's reachability projection
+  // uses the same multiplier so gates remain placeable.
+  const gravity = GRAVITY * gravityMul;
+  s.vyL += gravity;
   s.dotLY += s.vyL;
-  s.vyR += GRAVITY;
+  s.vyR += gravity;
   s.dotRY += s.vyR;
 
   // ─── Visual counter decrements ────────────────────────────────────────────
