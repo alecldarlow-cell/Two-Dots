@@ -66,8 +66,16 @@ export function gapSize(score: number): number {
 }
 
 /**
- * Pipe scroll speed in pixels per frame. Speed steps up only at tiers 3, 5, 7.
- * Flat within each tier. Survival adds a slow per-5-gate creep.
+ * Pipe scroll speed in pixels per frame. Within each tier the speed is flat.
+ *
+ * v0.3 tester-data tweak: dampen post-T4 progression so the game has a
+ * clear "near-maximal" plateau rather than escalating endlessly. Softening
+ * starts at gate 15 (T4 entry — pause is the lever there since speed is
+ * already shared with T3). Speed steps tiny: 2.0 → 2.05 (T5) → 2.1 (T7),
+ * then flat from T7 onward. Survival creep removed — game holds at the
+ * plateau forever, so deep runs become a battle of attention rather than
+ * an unwinnable speed race.
+ *   T5: 2.2 → 2.05, T6: 2.2 → 2.05, T7: 2.5 → 2.1, T8: 2.5+creep → 2.1 flat.
  */
 export function pipeSpeed(score: number): number {
   const tier = tierFor(score);
@@ -81,21 +89,32 @@ export function pipeSpeed(score: number): number {
     case 4:
       return 2.0;
     case 5:
-      return 2.2;
+      return 2.05;
     case 6:
-      return 2.2;
+      return 2.05;
     case 7:
-      return 2.5;
+      return 2.05;
     default:
-      return 2.5 + Math.floor((score - 35) / 5) * 0.1; // slow creep
+      return 2.05; // Survival plateau — flat, no creep.
   }
 }
 
 /**
  * Pause window at spawn in milliseconds — the time a newly spawned pipe waits
- * before starting to scroll. Pause reduces evenly across all 8 tiers, providing
- * consistent reduction in orientation time as difficulty climbs.
- * ~28% of cycle in Warmup, ~11% in Survival.
+ * before starting to scroll. Pause is the dominant difficulty lever (T1
+ * gives 1000ms reaction time, late tiers give a fraction of that).
+ *
+ * v0.3 tester-data tweak: softening starts at gate 15 (T4 entry) and decays
+ * toward a near-maximal flat plateau by T6. Gate 20 (T5) and gate 30 (T7)
+ * sit within ~7% of each other so they feel like the same difficulty zone
+ * rather than distinct tiers — matches the design call to flatten the
+ * post-Earth progression and keep deeper play accessible. T1-T3 untouched
+ * so the early game plays exactly as before.
+ *   T4: 560 → 600 (softening starts)
+ *   T5: 430 → 540 (-60 from T4)
+ *   T6: 320 → 510 (-30, deceleration begins)
+ *   T7: 270 → 500 (-10, near-flat)
+ *   T8: 230 → 490 (-10, plateau)
  */
 export function pipePauseMs(score: number): number {
   const tier = tierFor(score);
@@ -107,15 +126,15 @@ export function pipePauseMs(score: number): number {
     case 3:
       return 700;
     case 4:
-      return 560;
+      return 600;
     case 5:
-      return 430;
+      return 540;
     case 6:
-      return 320;
+      return 510;
     case 7:
-      return 270;
+      return 500;
     default:
-      return 230;
+      return 490;
   }
 }
 

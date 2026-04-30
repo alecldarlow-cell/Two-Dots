@@ -89,21 +89,24 @@ describe('tiers', () => {
   });
 
   describe('GIVEN pipeSpeed', () => {
+    // v0.3 tester-data tweak: T5+ speeds collapsed to a flat 2.05 plateau
+    // so post-T4 progression is dominated by pause changes alone. T1-T4
+    // unchanged (gates 1-19 play exactly as before).
     it('WHEN within each fixed tier THEN returns the flat speed', () => {
       expect(pipeSpeed(0)).toBe(1.8);
       expect(pipeSpeed(5)).toBe(1.8);
       expect(pipeSpeed(10)).toBe(2.0);
       expect(pipeSpeed(15)).toBe(2.0);
-      expect(pipeSpeed(20)).toBe(2.2);
-      expect(pipeSpeed(25)).toBe(2.2);
-      expect(pipeSpeed(30)).toBe(2.5);
+      expect(pipeSpeed(20)).toBe(2.05);
+      expect(pipeSpeed(25)).toBe(2.05);
+      expect(pipeSpeed(30)).toBe(2.05);
     });
-    it('WHEN in Survival THEN creeps up 0.1 per 5 gates past 35', () => {
-      expect(pipeSpeed(35)).toBe(2.5);
-      expect(pipeSpeed(39)).toBe(2.5);
-      expect(pipeSpeed(40)).toBeCloseTo(2.6, 5);
-      expect(pipeSpeed(45)).toBeCloseTo(2.7, 5);
-      expect(pipeSpeed(50)).toBeCloseTo(2.8, 5);
+    it('WHEN in Survival THEN holds flat at 2.05 (no creep)', () => {
+      expect(pipeSpeed(35)).toBe(2.05);
+      expect(pipeSpeed(39)).toBe(2.05);
+      expect(pipeSpeed(40)).toBe(2.05);
+      expect(pipeSpeed(45)).toBe(2.05);
+      expect(pipeSpeed(50)).toBe(2.05);
     });
     it('WHEN score increases THEN speed is monotonically non-decreasing', () => {
       let prev = 0;
@@ -131,9 +134,12 @@ describe('tiers', () => {
     it('WHEN tier 1 THEN returns 1000ms baseline', () => {
       expect(pipePauseMs(0)).toBe(1000);
     });
-    it('WHEN Survival THEN returns 230ms floor', () => {
-      expect(pipePauseMs(35)).toBe(230);
-      expect(pipePauseMs(100)).toBe(230);
+    it('WHEN Survival THEN holds at 490ms plateau', () => {
+      // v0.3 tester-data tweak: pause floor lifted from 230 to 490 so
+      // late-game stays accessible. Plateau begins to form at T6 and
+      // settles flat from T8.
+      expect(pipePauseMs(35)).toBe(490);
+      expect(pipePauseMs(100)).toBe(490);
     });
   });
 
