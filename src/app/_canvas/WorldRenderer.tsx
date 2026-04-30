@@ -92,14 +92,22 @@ type PreprocessedTheme = {
     color: ReadonlyArray<readonly [number, Oklch]>;
     haze?: ReadonlyArray<readonly [number, Oklch]>;
     gradient?: ReadonlyArray<readonly [number, Oklch]>;
+    /** v0.7 — cloudBand streak colour curve (interior shear lines). */
+    streak?: ReadonlyArray<readonly [number, Oklch]>;
   }>;
   celestials: ReadonlyArray<{
     celestial: Celestial;
     color: ReadonlyArray<readonly [number, Oklch]>;
+    /** v0.7 — gasGiantSpot rim/arc colour curve. */
+    rim?: ReadonlyArray<readonly [number, Oklch]>;
   }>;
   particles: ReadonlyArray<{
     spec: ParticleSpec;
     color?: ReadonlyArray<readonly [number, Oklch]>;
+    /** v0.7 — aurora top-edge gradient colour curve. */
+    colorTop?: ReadonlyArray<readonly [number, Oklch]>;
+    /** v0.7 — aurora bottom-edge gradient colour curve. */
+    colorBot?: ReadonlyArray<readonly [number, Oklch]>;
   }>;
 };
 
@@ -119,17 +127,27 @@ function preprocessTheme(theme: WorldTheme): PreprocessedTheme {
         band.kind === 'silhouette' && band.gradientCurve
           ? preprocessHexCurve(band.gradientCurve)
           : undefined,
+      streak: band.kind === 'cloudBand' ? preprocessHexCurve(band.streakCurve) : undefined,
     })),
     celestials: theme.celestials.map((celestial) => ({
       celestial,
       color: preprocessHexCurve(celestial.colorCurve),
+      rim:
+        celestial.kind === 'gasGiantSpot'
+          ? preprocessHexCurve(celestial.rimCurve)
+          : undefined,
     })),
     particles: theme.particles.map((spec) => ({
       spec,
       color:
-        spec.kind === 'clouds' || spec.kind === 'birds'
+        spec.kind === 'clouds' ||
+        spec.kind === 'birds' ||
+        spec.kind === 'stormClouds' ||
+        spec.kind === 'shearMotes'
           ? preprocessHexCurve(spec.colorCurve)
           : undefined,
+      colorTop: spec.kind === 'aurora' ? preprocessHexCurve(spec.colorTopCurve) : undefined,
+      colorBot: spec.kind === 'aurora' ? preprocessHexCurve(spec.colorBotCurve) : undefined,
     })),
   };
 }
@@ -272,6 +290,197 @@ const CLOUD_CLIP_PATH = (() => {
   p.addRect({ x: -300, y: -300, width: 600, height: 300 });
   return p;
 })();
+
+// ─── v0.7 — Jupiter cloudBand seeding ────────────────────────────────────
+// CloudBand path is closed: turbulent top edge → down to canvas bottom →
+// close. Because the closure goes to canvas-bottom (not band-bottom), the
+// band overpaints anything below; the next cloudBand layered in front
+// then overpaints THIS band's lower portion. Layered bands tile cleanly
+// with no sky-leak between them.
+// Path span 2.4× SCREEN_W matches the iteration tool. Drift offset is
+// applied via Group transform at draw time.
+type CloudBandSeed = {
+  path: ReturnType<typeof Skia.Path.Make>;
+  /** Pre-seeded streak positions in band-local coords. */
+  streaks: ReadonlyArray<{ x: number; y: number; len: number; opacity: number; sw: number }>;
+  /** Span the path was generated across (= SCREEN_W * 2.4). */
+  spanPx: number;
+};
+
+function seedCloudBand(
+  band: Extract<Band, { kind: 'cloudBand' }>,
+  seedHash: number,
+): CloudBandSeed {
+  const heightPx = band.heightPct * VIS_H * SCALE;
+  const yPx = band.yPct * VIS_H * SCALE;
+  // Path goes from band's top edge down to canvas bottom (so it overpaints
+  // anything below). Local coords: x ∈ [0, span], y ∈ [topEdgeY, hExtended].
+  // Renderer applies translateY(yPx) at draw time; here we compute heights
+  // local to that translated origin.
+  const hExtended = VIS_H * SCALE - yPx;
+  const rng = mulberry32(seedHash);
+  const span = SCREEN_W * 2.4;
+  const points = 96;
+  const ampTop = band.turbulence * heightPx * 0.45;
+  const j1 = rng() * 6;
+  const j2 = rng() * 6;
+  const j3 = rng() * 6;
+  const path = Skia.Path.Make();
+  // Top edge — 3-octave sine for organic festoon look. ampTop additive
+  // baseline pushes the wave below local y=0 so the edge sits inside the
+  // band region rather than slicing through it.
+  let firstY = 0;
+  let firstX = 0;
+  for (let i = 0; i <= points; i++) {
+    const x = (i / points) * span;
+    const o1 = Math.sin(x * 0.0035 + j1) * ampTop * 0.55;
+    const o2 = Math.sin(x * 0.012 + j2) * ampTop * 0.3;
+    const o3 = Math.sin(x * 0.045 + j3) * ampTop * 0.15;
+    let yEdge = o1 + o2 + o3 + ampTop;
+    if (i === 0) {
+      firstY = yEdge;
+      firstX = x;
+      // Start path at bottom-left, jump up to top edge first point.
+      path.moveTo(x, hExtended);
+      path.lineTo(x, yEdge);
+    } else {
+      // Pin last point to first so tiled copies join seamlessly.
+      if (i === points) yEdge = firstY;
+      path.lineTo(x, yEdge);
+    }
+  }
+  // Close: down to canvas bottom on the right, then close back to start.
+  path.lineTo(span, hExtended);
+  path.lineTo(firstX, hExtended);
+  path.close();
+
+  // Pre-seeded streak positions. Each streak is a horizontal line in
+  // band-local coords (y ∈ [0, heightPx]) that drifts via translateX
+  // at render time.
+  const streakOut: Array<{ x: number; y: number; len: number; opacity: number; sw: number }> = [];
+  for (let i = 0; i < band.streaks; i++) {
+    const yPct = 0.25 + (i / band.streaks) * 0.55 + rng() * 0.1;
+    const x = rng() * SCREEN_W * 2;
+    const len = SCREEN_W * (0.4 + rng() * 0.6);
+    const opacity = 0.1 + rng() * 0.1;
+    const sw = 0.6 + rng() * 0.7;
+    streakOut.push({ x, y: heightPx * yPct, len, opacity, sw });
+  }
+
+  return { path, streaks: streakOut, spanPx: span };
+}
+
+// ─── v0.7 — Jupiter stormClouds seeding ──────────────────────────────────
+// Each storm cell is a cumulus dome: 5–7 overlapping circles unioned into
+// one Skia Path at seed time (same union trick as Earth's clouds — kills
+// opacity-overlap bands and internal antialiased seams). Unlike Earth's
+// flat-bottomed cumulus, storm cells have NO clip — they float in
+// atmosphere rather than sitting on a horizon.
+type StormCellSeed = {
+  baseX: number;
+  baseY: number;
+  driftPhase: number;
+  unionPath: ReturnType<typeof Skia.Path.Make>;
+  bbox: { x: number; y: number; w: number; h: number };
+  alpha: number;
+};
+
+function seedStormClouds(
+  spec: Extract<ParticleSpec, { kind: 'stormClouds' }>,
+  seed: number,
+): StormCellSeed[] {
+  const rng = mulberry32(seed ^ 0x55aa55aa);
+  const out: StormCellSeed[] = [];
+  const yMinPx = spec.yMinPct * VIS_H * SCALE;
+  const yMaxPx = spec.yMaxPct * VIS_H * SCALE;
+  for (let i = 0; i < spec.count; i++) {
+    const baseX = rng() * SCREEN_W * 1.4;
+    const baseY = yMinPx + rng() * (yMaxPx - yMinPx);
+    const driftPhase = rng() * 1000;
+    const scale = 0.7 + rng() * 0.7;
+    const alpha = 0.85 + rng() * 0.12;
+    const bubbleCount = 5 + Math.floor(rng() * 3);
+    const baseR = (14 + rng() * 7) * scale;
+    const stepX = baseR * 0.55;
+    const totalSpan = stepX * (bubbleCount - 1);
+    const unionPath = Skia.Path.Make();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let b = 0; b < bubbleCount; b++) {
+      const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.2;
+      const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
+      const sizeFactor = 1 - distFromCenter * 0.32 + (rng() - 0.5) * 0.1;
+      const br = baseR * sizeFactor;
+      const by = -br * 0.18 + (rng() - 0.5) * br * 0.18;
+      if (b === 0) {
+        unionPath.addCircle(bx, by, br);
+      } else {
+        const cPath = Skia.Path.Make();
+        cPath.addCircle(bx, by, br);
+        unionPath.op(cPath, PathOp.Union);
+      }
+      if (bx - br < minX) minX = bx - br;
+      if (bx + br > maxX) maxX = bx + br;
+      if (by - br < minY) minY = by - br;
+      if (by + br > maxY) maxY = by + br;
+    }
+    out.push({
+      baseX,
+      baseY,
+      driftPhase,
+      unionPath,
+      bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+      alpha,
+    });
+  }
+  return out;
+}
+
+// ─── v0.7 — Jupiter shearMotes seeding ───────────────────────────────────
+// Static base positions + per-mote wobble parameters. Wobble + drift
+// computed per-frame via Math.sin / nowMs in render — no per-frame seed.
+type ShearMoteSeed = {
+  baseX: number;
+  baseY: number;
+  driftPhase: number;
+  speedJ: number;
+  wobblePhase: number;
+  wobbleFreq1: number;
+  wobbleFreq2: number;
+  wobbleAmp1: number;
+  wobbleAmp2: number;
+  r: number;
+  opacity: number;
+};
+
+function seedShearMotes(
+  spec: Extract<ParticleSpec, { kind: 'shearMotes' }>,
+  seed: number,
+): ShearMoteSeed[] {
+  const rng = mulberry32(seed ^ 0x77cc77cc);
+  const out: ShearMoteSeed[] = [];
+  const yMinPx = spec.yMinPct * VIS_H * SCALE;
+  const yMaxPx = spec.yMaxPct * VIS_H * SCALE;
+  const [minR, maxR] = spec.sizeRange;
+  for (let i = 0; i < spec.count; i++) {
+    out.push({
+      baseX: rng() * SCREEN_W * 1.4,
+      baseY: yMinPx + rng() * (yMaxPx - yMinPx),
+      driftPhase: rng() * 1000,
+      speedJ: 0.7 + rng() * 0.6,
+      wobblePhase: rng() * Math.PI * 2,
+      wobbleFreq1: 0.0008 + rng() * 0.001,
+      wobbleFreq2: 0.0024 + rng() * 0.003,
+      wobbleAmp1: 6 + rng() * 8,
+      wobbleAmp2: 2 + rng() * 4,
+      r: minR + rng() * (maxR - minR),
+      opacity: 0.25 + rng() * 0.3,
+    });
+  }
+  return out;
+}
 
 // ─── Grass tufts (round 6) ────────────────────────────────────────────────
 // Three-blade clumps with curl on the singleHill silhouette top edge. Two-
@@ -718,8 +927,13 @@ function Starfield({
   return (
     <Group>
       {stars.map((s, i) => {
+        // Amplitude bumped from [0.6, 1.0] (40% range) to [0.25, 1.0]
+        // (75% range) so the twinkle reads clearly on device — was too
+        // subtle on Moon's 80 night-dominant stars. Frequency unchanged
+        // (~1 Hz). Earth/Jupiter stars are sparse + small so the bigger
+        // range still reads as gentle flicker, not strobing.
         const twinkle = spec.twinkle
-          ? 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(nowMs / 1000 + s.phase))
+          ? 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(nowMs / 1000 + s.phase))
           : 1;
         const alpha = density * twinkle;
         if (alpha < 0.08) return null;
@@ -759,12 +973,16 @@ function CelestialBody({
   // is allocated once. For arcing celestials, the clip moves with the body —
   // but Earth's sun and moon have no phaseCurve, so this allocates-per-frame
   // case never triggers in current themes.
+  // v0.7 — `phaseCurve` lives only on the legacy union variant (sun/moon/
+  // planet/storm-eye/earth). The `gasGiantSpot` variant doesn't carry it,
+  // so we narrow with `'phaseCurve' in celestial` before accessing.
+  const phaseCurve = 'phaseCurve' in celestial ? celestial.phaseCurve : undefined;
   const bodyClip = useMemo(() => {
-    if (!celestial.phaseCurve) return null;
+    if (!phaseCurve) return null;
     const path = Skia.Path.Make();
     path.addCircle(cx, cy, r);
     return path;
-  }, [celestial.phaseCurve, cx, cy, r]);
+  }, [phaseCurve, cx, cy, r]);
 
   const glow = sampleScalarCurve(celestial.glowCurve, t);
   // Visibility rule (revised v0.5 + Jupiter): glow=0 hides body+halo only
@@ -777,8 +995,8 @@ function CelestialBody({
   const col = oklchToHex(baseOklch);
 
   let phaseShadow: React.ReactElement | null = null;
-  if (celestial.phaseCurve && bodyClip) {
-    const phase = sampleScalarCurve(celestial.phaseCurve, t);
+  if (phaseCurve && bodyClip) {
+    const phase = sampleScalarCurve(phaseCurve, t);
     if (phase < 0.99) {
       const shadowCol = oklchToHex([baseOklch[0] * 0.18, baseOklch[1] * 0.6, baseOklch[2]]);
       const terminatorX = cx + (2 * phase - 1) * r;
@@ -965,7 +1183,6 @@ function BandRender({
   const yPx = band.yPct * VIS_H * SCALE;
   const heightPx = band.heightPct * VIS_H * SCALE;
   const col = oklchToHex(sampleOklchCurve(preColor, t));
-  const dx = -((scrollX * band.parallax) % SCREEN_W);
 
   if (band.kind === 'silhouette' && silhouettePath) {
     // Parallax wrap — render two copies of the path side-by-side and wrap
@@ -1252,73 +1469,63 @@ function EarthBody({
  * StormEye — Jupiter's Great Red Spot rendering. Hardcoded behaviour keyed
  * off `kind: 'storm-eye'` (no schema additions).
  *
- * Visual: oblate ellipse (1.6× horizontal aspect) with 4 concentric flow
- * ring outlines fading inward, slowly rotating (~63s per turn). Rendered
- * AFTER bands so it overlays the SEB where the GRS sits in real Jupiter.
+ * Visual: oblate ellipse (1.6× horizontal aspect) over the SEB. Smoke-test
+ * v0.3.1: dropped the 4 concentric stroked flow rings — they read as a
+ * bullseye / vinyl record / tree-trunk cross-section, not as a storm. Also
+ * dropped the slow rotation: with asymmetric content (the rings), the
+ * ~63s turn read as a mid-rotation tilt rather than ambient flow. With
+ * the new content (rotationally symmetric body + core), rotation has
+ * nothing to tilt and adds no value — keep it static.
  *
- * Geometry is memoized per celestial-radius so re-renders don't reallocate
- * paths. Rotation is the only per-frame variable — applied via Group transform.
+ * Replaced with a single darker inner-fill oval at 0.7× scale (≈45%
+ * opacity) — gives the GRS a "core" feel without explicit ring lines.
+ * Reads as an atmospheric vortex rather than a target.
+ *
+ * Rendered AFTER bands so it overlays the SEB where the GRS sits in real
+ * Jupiter. Geometry memoized per radius so re-renders don't reallocate.
  */
 function StormEye({
   celestial,
   preColor,
   t,
-  nowMs,
 }: {
   celestial: Celestial;
   preColor: ReadonlyArray<readonly [number, Oklch]>;
   t: number;
-  nowMs: number;
 }): React.ReactElement {
   const cx = celestial.xPct * SCREEN_W;
   const cy = celestial.yPct * VIS_H * SCALE;
   const r = celestial.radius;
   const aspect = 1.6; // oblate horizontally — GRS is wider than tall
 
-  // Body + ring paths memoized per radius (static across renders).
+  // Body + core paths memoized per radius (static across renders).
   const bodyPath = useMemo(() => {
     const path = Skia.Path.Make();
     path.addOval({ x: -r * aspect, y: -r, width: 2 * r * aspect, height: 2 * r });
     return path;
   }, [r]);
 
-  const ringPaths = useMemo(() => {
-    return [0.85, 0.65, 0.45, 0.25].map((s) => {
-      const path = Skia.Path.Make();
-      path.addOval({
-        x: -r * aspect * s,
-        y: -r * s,
-        width: 2 * r * aspect * s,
-        height: 2 * r * s,
-      });
-      return path;
+  const corePath = useMemo(() => {
+    const path = Skia.Path.Make();
+    const s = 0.7;
+    path.addOval({
+      x: -r * aspect * s,
+      y: -r * s,
+      width: 2 * r * aspect * s,
+      height: 2 * r * s,
     });
+    return path;
   }, [r]);
 
   const baseOklch = sampleOklchCurve(preColor, t);
   const col = oklchToHex(baseOklch);
-  // Ring color: darker shade of body — suggests flow shadow.
-  const ringCol = oklchToHex([baseOklch[0] * 0.5, baseOklch[1] * 0.7, baseOklch[2]]);
-
-  // Slow rotation: ~0.0001 rad/ms ≈ ~63s per full turn.
-  const angle = nowMs * 0.0001;
+  // Core color: darker shade of body — suggests vortex depth without ring lines.
+  const coreCol = oklchToHex([baseOklch[0] * 0.65, baseOklch[1] * 0.85, baseOklch[2]]);
 
   return (
-    <Group
-      transform={[{ translateX: cx }, { translateY: cy }, { rotate: angle }]}
-    >
+    <Group transform={[{ translateX: cx }, { translateY: cy }]}>
       <Path path={bodyPath} color={col} style="fill" antiAlias />
-      {ringPaths.map((p, i) => (
-        <Path
-          key={i}
-          path={p}
-          color={ringCol}
-          style="stroke"
-          strokeWidth={1}
-          opacity={0.15 + i * 0.04}
-          antiAlias
-        />
-      ))}
+      <Path path={corePath} color={coreCol} style="fill" opacity={0.45} antiAlias />
     </Group>
   );
 }
@@ -1341,6 +1548,561 @@ function DriftDust({
         const x = (((d.x - scrollX * 0.6) % SCREEN_W) + SCREEN_W) % SCREEN_W;
         return <Circle key={i} cx={x} cy={d.y} r={d.r} color="#ffffff" opacity={density * 0.3} />;
       })}
+    </Group>
+  );
+}
+
+// ═══ v0.7 Jupiter components ═══════════════════════════════════════════════
+
+/**
+ * CloudBandRender — Jupiter atmospheric cloud band. Replaces silhouette+
+ * storm-bands. Pre-built festoon-edged path (closed: top wave → canvas
+ * bottom → close) is tiled twice horizontally and translated by parallax
+ * offset. Internal shear streaks drift independently at `driftSpeed`,
+ * tinted by streakCurve, drawn as horizontal stroked lines.
+ */
+function CloudBandRender({
+  band,
+  seed,
+  preColor,
+  preStreak,
+  t,
+  scrollX,
+  nowMs,
+}: {
+  band: Extract<Band, { kind: 'cloudBand' }>;
+  seed: CloudBandSeed;
+  preColor: ReadonlyArray<readonly [number, Oklch]>;
+  preStreak: ReadonlyArray<readonly [number, Oklch]>;
+  t: number;
+  scrollX: number;
+  nowMs: number;
+}): React.ReactElement {
+  // heightPx not needed at render time — the seed's pre-built path encodes
+  // all height info (top wave + canvas-bottom closure). yPx places the band.
+  const yPx = band.yPct * VIS_H * SCALE;
+  const col = oklchToHex(sampleOklchCurve(preColor, t));
+  const streakCol = oklchToHex(sampleOklchCurve(preStreak, t));
+
+  // Drift offset = parallax scroll + independent shear drift, normalised
+  // to (-SCREEN_W, 0]. JS modulo preserves sign of dividend, so for
+  // negative driftSpeeds we'd otherwise get a positive offset that exposes
+  // a vertical seam on the left edge — the (+w)%w step fixes it.
+  const sx = scrollX * band.parallax;
+  const driftPx = (nowMs * band.driftSpeed * 0.02) % SCREEN_W;
+  const totalX = sx + driftPx;
+  const offset = -(((totalX % SCREEN_W) + SCREEN_W) % SCREEN_W);
+
+  // Streaks drift faster — multiplier 1.5 (renderer was 0.03 vs 0.02 for
+  // band itself). Wraps at SCREEN_W (streak positions seeded across 2W).
+  const streakDriftPx = (nowMs * band.driftSpeed * 0.03) % SCREEN_W;
+  const streakOffset = -(((streakDriftPx % SCREEN_W) + SCREEN_W) % SCREEN_W);
+
+  // Tile two copies of the path — left and right — so the wrap seam is
+  // off-screen for most of the cycle. Same approach as silhouette bands.
+  return (
+    <Group transform={[{ translateY: yPx }]}>
+      <Group transform={[{ translateX: offset }]}>
+        <Path path={seed.path} color={col} style="fill" antiAlias />
+      </Group>
+      <Group transform={[{ translateX: offset + seed.spanPx }]}>
+        <Path path={seed.path} color={col} style="fill" antiAlias />
+      </Group>
+      {/* Interior shear streaks. Clip to band region (y ∈ [0, heightPx]) so
+          streaks don't leak below into the next band. */}
+      <Group>
+        {seed.streaks.map((s, i) => {
+          const streakPath = Skia.Path.Make();
+          // Place streak at (s.x + streakOffset, s.y); wrap at 2W via modulo.
+          const sx2 = ((s.x + streakOffset) % (SCREEN_W * 2)) - SCREEN_W * 0.2;
+          streakPath.moveTo(sx2, s.y);
+          streakPath.lineTo(sx2 + s.len, s.y);
+          return (
+            <Path
+              key={i}
+              path={streakPath}
+              color={streakCol}
+              style="stroke"
+              strokeWidth={s.sw}
+              strokeCap="round"
+              opacity={s.opacity}
+              antiAlias
+            />
+          );
+        })}
+      </Group>
+    </Group>
+  );
+}
+
+/**
+ * StormCloudField — Jupiter dark amorphous cells riding mid-band region.
+ * Same union-path technique as Earth's clouds (kills opacity-overlap
+ * bands and internal seams), but no flat-bottom clip — cells float in
+ * atmosphere. Renderer derives lightTint/darkTint from spec colorCurve
+ * for the vertical 3-stop gradient inside each cell.
+ */
+function StormCloudField({
+  cells,
+  spec,
+  preColor,
+  t,
+  nowMs,
+}: {
+  cells: StormCellSeed[];
+  spec: Extract<ParticleSpec, { kind: 'stormClouds' }>;
+  preColor: ReadonlyArray<readonly [number, Oklch]>;
+  t: number;
+  nowMs: number;
+}): React.ReactElement | null {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const baseOklch = sampleOklchCurve(preColor, t);
+  const tint = oklchToHex(baseOklch);
+  // 3-tone shading derived from base tint:
+  //   light = lerp(tint → cream, 0.50)
+  //   dark  = lerp(tint → near-black, 0.45)
+  // In oklch: lift L for light, drop L for dark; chroma trends toward 0
+  // for both extremes.
+  const lightTint = oklchToHex([
+    baseOklch[0] * 0.5 + 1.0 * 0.5,
+    baseOklch[1] * 0.5,
+    baseOklch[2],
+  ]);
+  const darkTint = oklchToHex([
+    baseOklch[0] * 0.55,
+    baseOklch[1] * 0.55,
+    baseOklch[2],
+  ]);
+  return (
+    <Group>
+      {cells.map((c, i) => {
+        const drift = (nowMs * 0.008 * spec.speed + c.driftPhase) % (SCREEN_W + 240);
+        const x = ((c.baseX + drift) % (SCREEN_W + 240)) - 120;
+        const opacity = c.alpha * density;
+        return (
+          <Group
+            key={i}
+            transform={[{ translateX: x }, { translateY: c.baseY }]}
+            opacity={opacity}
+          >
+            <Group clip={c.unionPath}>
+              <Rect
+                x={c.bbox.x - 2}
+                y={c.bbox.y - 2}
+                width={c.bbox.w + 4}
+                height={c.bbox.h + 4}
+              >
+                <LinearGradient
+                  start={vec(0, c.bbox.y)}
+                  end={vec(0, c.bbox.y + c.bbox.h)}
+                  colors={[lightTint, tint, darkTint]}
+                  positions={[0, 0.55, 1]}
+                />
+              </Rect>
+            </Group>
+          </Group>
+        );
+      })}
+    </Group>
+  );
+}
+
+/**
+ * ShearMoteField — Jupiter small fast atmospheric particles. Per-mote
+ * sinusoidal vertical wobble + slight x-jitter (pre-seeded phases /
+ * frequencies / amplitudes) so motes swirl chaotically rather than drift
+ * uniformly. Rendered as horizontal ellipses (rx = r×4, ry = r×0.9).
+ */
+function ShearMoteField({
+  motes,
+  spec,
+  preColor,
+  t,
+  nowMs,
+}: {
+  motes: ShearMoteSeed[];
+  spec: Extract<ParticleSpec, { kind: 'shearMotes' }>;
+  preColor: ReadonlyArray<readonly [number, Oklch]>;
+  t: number;
+  nowMs: number;
+}): React.ReactElement | null {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const tint = oklchToHex(sampleOklchCurve(preColor, t));
+  return (
+    <Group>
+      {motes.map((m, i) => {
+        const drift = (nowMs * 0.05 * spec.speed * m.speedJ + m.driftPhase) % (SCREEN_W + 100);
+        const xRaw = ((m.baseX + drift) % (SCREEN_W + 100)) - 50;
+        const wobble =
+          Math.sin(nowMs * m.wobbleFreq1 + m.wobblePhase) * m.wobbleAmp1 +
+          Math.sin(nowMs * m.wobbleFreq2 + m.wobblePhase * 0.7) * m.wobbleAmp2;
+        const xJitter = Math.sin(nowMs * m.wobbleFreq1 * 0.6 + m.wobblePhase * 1.3) * 4;
+        const x = xRaw + xJitter;
+        const y = m.baseY + wobble;
+        const rx = m.r * 4;
+        const ry = m.r * 0.9;
+        // Build ellipse path inline — Path.addOval expects a rect.
+        const ePath = Skia.Path.Make();
+        ePath.addOval({ x: x - rx, y: y - ry, width: rx * 2, height: ry * 2 });
+        return (
+          <Path
+            key={i}
+            path={ePath}
+            color={tint}
+            style="fill"
+            opacity={m.opacity * density}
+            antiAlias
+          />
+        );
+      })}
+    </Group>
+  );
+}
+
+/**
+ * Aurora — Jupiter top-of-sky green/violet wash, night-only. Single
+ * gradient strip from top of canvas down to ~55% of vis_h. blendMode
+ * "screen" makes it additive — bleeds light into the sky underneath
+ * rather than overlaying as paint.
+ */
+function Aurora({
+  spec,
+  preColorTop,
+  preColorBot,
+  t,
+}: {
+  spec: Extract<ParticleSpec, { kind: 'aurora' }>;
+  preColorTop: ReadonlyArray<readonly [number, Oklch]>;
+  preColorBot: ReadonlyArray<readonly [number, Oklch]>;
+  t: number;
+}): React.ReactElement | null {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const colTop = oklchToHex(sampleOklchCurve(preColorTop, t));
+  const colBot = oklchToHex(sampleOklchCurve(preColorBot, t));
+  const stripH = VIS_H * SCALE * 0.55;
+  // Iteration tool stops were [0% colTop@65%×density, 60% colBot@25%×density,
+  // 100% colBot@0%]. Skia LinearGradient takes plain colours, so we approximate
+  // the alpha-fade by making the bottom stop use colTop again (visually irrelevant
+  // because the rect's overall opacity is density-modulated AND the bottom edge
+  // just blends additively onto sky). Top stop sits at 60% — so the upper 60%
+  // of the strip carries the strong glow and the lower 40% fades through colBot
+  // into nothing, matching the original.
+  const overallAlpha = 0.65 * density;
+  return (
+    <Rect
+      x={0}
+      y={0}
+      width={SCREEN_W}
+      height={stripH}
+      opacity={overallAlpha}
+      blendMode="screen"
+    >
+      <LinearGradient
+        start={vec(0, 0)}
+        end={vec(0, stripH)}
+        colors={[colTop, colBot, '#000000']}
+        positions={[0, 0.6, 1]}
+      />
+    </Rect>
+  );
+}
+
+/**
+ * Lightning — Jupiter night flash schedule. Per-flash deterministic
+ * geometry seeded from index; whole-cycle 8s loop with 10%-attack /
+ * 90%-decay intensity envelope. blendMode "screen" on each shape so
+ * the flash adds onto bands additively. 3 layers per active flash:
+ *   1. radial bloom (cool blue-white, large soft halo)
+ *   2. bolt halo (cyan-white, wide stroke)
+ *   3. bolt core (pure white, narrow stroke)
+ * Plus an ambient white-rect fill capped at 18% opacity for "the
+ * whole atmosphere lit up" feel.
+ */
+function Lightning({
+  spec,
+  t,
+  nowMs,
+}: {
+  spec: Extract<ParticleSpec, { kind: 'lightning' }>;
+  t: number;
+  nowMs: number;
+}): React.ReactElement | null {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const cycleMs = 8000;
+  const cyclePos = (nowMs % cycleMs) / cycleMs;
+  const rng = mulberry32(909);
+  type Flash = {
+    cx: number;
+    cy: number;
+    baseRadius: number;
+    boltLen: number;
+    alpha: number;
+    geomSeed: number;
+  };
+  const flashes: Flash[] = [];
+  for (let i = 0; i < spec.count; i++) {
+    const startT = rng();
+    const duration = 0.02 + rng() * 0.04;
+    const cx = 60 + rng() * (SCREEN_W - 120);
+    const cy = VIS_H * SCALE * (0.5 + rng() * 0.3);
+    const boltLen = 80 + rng() * 110;
+    const baseRadius = 90 + rng() * 110;
+    let dt = cyclePos - startT;
+    if (dt < 0) dt += 1;
+    if (dt < duration) {
+      const u = dt / duration;
+      const intensity = u < 0.1 ? u / 0.1 : Math.pow(1 - (u - 0.1) / 0.9, 1.5);
+      flashes.push({
+        cx,
+        cy,
+        baseRadius,
+        boltLen,
+        alpha: intensity * density,
+        geomSeed: 909 + i * 137,
+      });
+    }
+  }
+  if (flashes.length === 0) return null;
+  const ambientAlpha = Math.min(
+    0.18,
+    flashes.reduce((sum, f) => sum + f.alpha * 0.08, 0),
+  );
+  return (
+    <Group>
+      {ambientAlpha > 0.005 && (
+        <Rect
+          x={0}
+          y={0}
+          width={SCREEN_W}
+          height={VIS_H * SCALE}
+          color="#ffffff"
+          opacity={ambientAlpha}
+          blendMode="screen"
+        />
+      )}
+      {flashes.map((f, i) => {
+        const r = mulberry32(f.geomSeed);
+        const startY = f.cy - f.boltLen * 0.5;
+        const endY = f.cy + f.boltLen * 0.5;
+        // Build bolt polyline with parabolic-tapered jitter.
+        const segs = 8 + Math.floor(r() * 5);
+        const boltPath = Skia.Path.Make();
+        for (let s = 0; s <= segs; s++) {
+          const tp = s / segs;
+          const ty = startY + (endY - startY) * tp;
+          const taper = 4 * tp * (1 - tp);
+          const jitter = (r() - 0.5) * 24 * taper;
+          const x = f.cx + jitter;
+          if (s === 0) boltPath.moveTo(x, ty);
+          else boltPath.lineTo(x, ty);
+        }
+        // 0–2 branch forks, downward only.
+        const branchPaths: Array<ReturnType<typeof Skia.Path.Make>> = [];
+        const segCount = segs + 1;
+        for (let b = 0; b < 2; b++) {
+          if (r() < 0.4) continue;
+          const idx = 2 + Math.floor(r() * Math.max(1, segCount - 4));
+          if (idx >= segCount) continue;
+          const sign = r() < 0.5 ? -1 : 1;
+          const angle = sign * (Math.PI * 0.2 + r() * Math.PI * 0.3);
+          const len = 22 + r() * 35;
+          const bSegs = 3 + Math.floor(r() * 3);
+          // Reconstruct branch start point — same rng walk as bolt above.
+          // Simpler: derive from idx position.
+          const tp = idx / segs;
+          const ty = startY + (endY - startY) * tp;
+          const branchPath = Skia.Path.Make();
+          branchPath.moveTo(f.cx, ty);
+          for (let s = 1; s <= bSegs; s++) {
+            const ttp = s / bSegs;
+            const bx = f.cx + Math.sin(angle) * len * ttp;
+            const by = ty + Math.abs(Math.cos(angle)) * len * ttp;
+            const j = (r() - 0.5) * 5;
+            branchPath.lineTo(bx + j, by);
+          }
+          branchPaths.push(branchPath);
+        }
+        const boltAlpha = Math.min(1, f.alpha * 1.6);
+        const haloAlpha = Math.min(1, f.alpha * 0.65);
+        const bloomR = f.baseRadius * 1.8;
+        return (
+          <Group key={i}>
+            {/* Radial bloom */}
+            <Circle cx={f.cx} cy={f.cy} r={bloomR} opacity={f.alpha} blendMode="screen">
+              <RadialGradient
+                c={vec(f.cx, f.cy)}
+                r={bloomR}
+                colors={['#e8f4ff', '#a8c0e8', '#5a78b8']}
+                positions={[0, 0.4, 1]}
+              />
+            </Circle>
+            {/* Bolt halo — cyan-white wide stroke */}
+            <Path
+              path={boltPath}
+              color="#bfd8ff"
+              style="stroke"
+              strokeWidth={6}
+              strokeCap="round"
+              strokeJoin="round"
+              opacity={haloAlpha}
+              blendMode="screen"
+              antiAlias
+            />
+            {branchPaths.map((bp, j) => (
+              <Path
+                key={`h${j}`}
+                path={bp}
+                color="#bfd8ff"
+                style="stroke"
+                strokeWidth={3}
+                strokeCap="round"
+                strokeJoin="round"
+                opacity={haloAlpha * 0.7}
+                blendMode="screen"
+                antiAlias
+              />
+            ))}
+            {/* Bolt core — bright white narrow stroke */}
+            <Path
+              path={boltPath}
+              color="#ffffff"
+              style="stroke"
+              strokeWidth={2}
+              strokeCap="round"
+              strokeJoin="round"
+              opacity={boltAlpha}
+              blendMode="screen"
+              antiAlias
+            />
+            {branchPaths.map((bp, j) => (
+              <Path
+                key={`c${j}`}
+                path={bp}
+                color="#ffffff"
+                style="stroke"
+                strokeWidth={1.2}
+                strokeCap="round"
+                strokeJoin="round"
+                opacity={boltAlpha * 0.7}
+                blendMode="screen"
+                antiAlias
+              />
+            ))}
+          </Group>
+        );
+      })}
+    </Group>
+  );
+}
+
+/**
+ * GasGiantSpot — Jupiter Great Red Spot. Oblate vortex with:
+ *   1. soft outer halo (1.25× scale, body colour, opacity 0.18)
+ *   2. radial-gradient body (centre → 0.85 → rim)
+ *   3. internal swirl arcs — 4 clipped concentric ellipses at decreasing
+ *      scale, stroked with rim colour at varying opacity
+ *   4. upper-left highlight (small light ellipse offset to upper-left,
+ *      suggests catch-light)
+ * Position is curve-driven (xCurve drifts left → centre at dusk → right
+ * at night). glowCurve modulates the whole group opacity.
+ */
+function GasGiantSpot({
+  celestial,
+  preColor,
+  preRim,
+  t,
+  rawT,
+}: {
+  celestial: Extract<Celestial, { kind: 'gasGiantSpot' }>;
+  preColor: ReadonlyArray<readonly [number, Oklch]>;
+  preRim: ReadonlyArray<readonly [number, Oklch]>;
+  t: number;
+  rawT: number;
+}): React.ReactElement | null {
+  const xPct = celestial.xCurve ? sampleScalarCurve(celestial.xCurve, rawT) : celestial.xPct;
+  const yPct = celestial.yCurve ? sampleScalarCurve(celestial.yCurve, rawT) : celestial.yPct;
+  const x = xPct * SCREEN_W;
+  const y = yPct * VIS_H * SCALE;
+  const r = celestial.radius;
+  const aspect = celestial.aspectRatio;
+  const rx = r * aspect;
+  const ry = r;
+  const glow = sampleScalarCurve(celestial.glowCurve, t);
+  if (glow <= 0.01) return null;
+  const col = oklchToHex(sampleOklchCurve(preColor, t));
+  const rim = oklchToHex(sampleOklchCurve(preRim, t));
+
+  // Build body + concentric arc paths (relative to {x, y}).
+  const haloPath = useMemo(() => {
+    const p = Skia.Path.Make();
+    p.addOval({ x: -rx * 1.25, y: -ry * 1.25, width: rx * 2.5, height: ry * 2.5 });
+    return p;
+  }, [rx, ry]);
+  const bodyPath = useMemo(() => {
+    const p = Skia.Path.Make();
+    p.addOval({ x: -rx, y: -ry, width: rx * 2, height: ry * 2 });
+    return p;
+  }, [rx, ry]);
+  // Four concentric arcs at decreasing scales, slight offsets for organic feel.
+  const arcs = useMemo(() => {
+    const make = (sx: number, sy: number, ox: number, oy: number) => {
+      const p = Skia.Path.Make();
+      p.addOval({ x: ox - rx * sx, y: oy - ry * sy, width: rx * sx * 2, height: ry * sy * 2 });
+      return p;
+    };
+    return [
+      { path: make(0.78, 0.62, 0, 0), sw: 1.2, opacity: 0.45 },
+      { path: make(0.55, 0.42, -rx * 0.05, ry * 0.05), sw: 1.1, opacity: 0.38 },
+      { path: make(0.32, 0.24, rx * 0.08, -ry * 0.03), sw: 0.9, opacity: 0.32 },
+      { path: make(0.12, 0.1, 0, 0), sw: 0.8, opacity: 0.4 },
+    ];
+  }, [rx, ry]);
+  // Highlight — small ellipse offset upper-left.
+  const highlightPath = useMemo(() => {
+    const p = Skia.Path.Make();
+    p.addOval({
+      x: -rx * 0.15 - rx * 0.12,
+      y: -ry * 0.18 - ry * 0.08,
+      width: rx * 0.24,
+      height: ry * 0.16,
+    });
+    return p;
+  }, [rx, ry]);
+
+  return (
+    <Group transform={[{ translateX: x }, { translateY: y }]} opacity={glow}>
+      {/* Outer halo — body colour at low opacity, bleeds into bands */}
+      <Path path={haloPath} color={col} style="fill" opacity={0.18} antiAlias />
+      {/* Radial-gradient body */}
+      <Path path={bodyPath} style="fill" antiAlias>
+        <RadialGradient
+          c={vec(0, 0)}
+          r={rx}
+          colors={[col, col, rim]}
+          positions={[0, 0.65, 1]}
+        />
+      </Path>
+      {/* Internal swirl arcs — clipped to body so they don't leak past rim */}
+      <Group clip={bodyPath}>
+        {arcs.map((a, i) => (
+          <Path
+            key={i}
+            path={a.path}
+            color={rim}
+            style="stroke"
+            strokeWidth={a.sw}
+            strokeCap="round"
+            opacity={a.opacity}
+            antiAlias
+          />
+        ))}
+      </Group>
+      {/* Upper-left catch-light */}
+      <Path path={highlightPath} color="#ffe8d0" style="fill" opacity={0.25} antiAlias />
     </Group>
   );
 }
@@ -1370,6 +2132,17 @@ export function WorldRenderer({
       cloudsSpec: undefined as Extract<ParticleSpec, { kind: 'clouds' }> | undefined,
       birds: [] as BirdSeed[],
       birdsSpec: undefined as Extract<ParticleSpec, { kind: 'birds' }> | undefined,
+      // v0.7 — Jupiter
+      stormCells: [] as StormCellSeed[],
+      stormCloudsSpec: undefined as
+        | Extract<ParticleSpec, { kind: 'stormClouds' }>
+        | undefined,
+      motes: [] as ShearMoteSeed[],
+      shearMotesSpec: undefined as
+        | Extract<ParticleSpec, { kind: 'shearMotes' }>
+        | undefined,
+      auroraSpec: undefined as Extract<ParticleSpec, { kind: 'aurora' }> | undefined,
+      lightningSpec: undefined as Extract<ParticleSpec, { kind: 'lightning' }> | undefined,
     };
     theme.particles.forEach((spec) => {
       if (spec.kind === 'starfield') {
@@ -1384,9 +2157,30 @@ export function WorldRenderer({
       } else if (spec.kind === 'birds') {
         result.birdsSpec = spec;
         result.birds = seedBirds(spec, seed);
+      } else if (spec.kind === 'stormClouds') {
+        result.stormCloudsSpec = spec;
+        result.stormCells = seedStormClouds(spec, seed);
+      } else if (spec.kind === 'shearMotes') {
+        result.shearMotesSpec = spec;
+        result.motes = seedShearMotes(spec, seed);
+      } else if (spec.kind === 'aurora') {
+        result.auroraSpec = spec;
+      } else if (spec.kind === 'lightning') {
+        result.lightningSpec = spec;
       }
     });
     return result;
+  }, [theme, seed]);
+
+  // v0.7 — cloudBand seeds (path + streak positions), keyed on band identity.
+  const cloudBandSeeds = useMemo(() => {
+    const out = new Map<string, CloudBandSeed>();
+    theme.bands.forEach((band) => {
+      if (band.kind === 'cloudBand') {
+        out.set(band.id, seedCloudBand(band, seed ^ themeSeed(band.id)));
+      }
+    });
+    return out;
   }, [theme, seed]);
 
   // Silhouette paths and crater rims, keyed on band identity.
@@ -1441,23 +2235,60 @@ export function WorldRenderer({
   }, [pre]);
 
   // Destructure once so TS narrowing carries through the JSX below.
-  const { stars, starsSpec, dust, dustSpec, clouds, cloudsSpec, birds, birdsSpec } =
-    particleSeeds;
+  const {
+    stars,
+    starsSpec,
+    dust,
+    dustSpec,
+    clouds,
+    cloudsSpec,
+    birds,
+    birdsSpec,
+    stormCells,
+    stormCloudsSpec,
+    motes,
+    shearMotesSpec,
+    auroraSpec,
+    lightningSpec,
+  } = particleSeeds;
   const cloudsColor = cloudsSpec ? particleCurves.get(cloudsSpec.id) : undefined;
   const birdsColor = birdsSpec ? particleCurves.get(birdsSpec.id) : undefined;
+  const stormCloudsColor = stormCloudsSpec
+    ? particleCurves.get(stormCloudsSpec.id)
+    : undefined;
+  const motesColor = shearMotesSpec
+    ? particleCurves.get(shearMotesSpec.id)
+    : undefined;
+  // Aurora colour curves (top + bot) preprocessed in pre.particles.
+  const auroraEntry = auroraSpec
+    ? pre.particles.find((p) => p.spec.id === auroraSpec.id)
+    : undefined;
 
-  // Split celestials by z-band: sky celestials (sun, moon, planet) render
-  // BEFORE bands; storm-eye renders AFTER bands so it overlays them
-  // (Jupiter's GRS sits IN the SEB, not above it).
-  const skyCelestials = pre.celestials.filter((c) => c.celestial.kind !== 'storm-eye');
+  // Split celestials by z-band: sky celestials (sun, moon, planet, earth)
+  // render BEFORE bands. storm-eye and gasGiantSpot overlay bands (Jupiter's
+  // GRS sits IN the cloud layer, not above it).
+  const skyCelestials = pre.celestials.filter(
+    (c) => c.celestial.kind !== 'storm-eye' && c.celestial.kind !== 'gasGiantSpot',
+  );
   const stormEyes = pre.celestials.filter((c) => c.celestial.kind === 'storm-eye');
+  const gasGiantSpots = pre.celestials.filter((c) => c.celestial.kind === 'gasGiantSpot');
 
   return (
     <Group>
       {/* 1. Sky */}
       <Sky pre={pre} t={t} />
 
-      {/* 2. Sky celestials — sun / moon / planet / earth (between sky and silhouettes) */}
+      {/* 2. Aurora — Jupiter night-only screen-blended overlay above sky */}
+      {auroraSpec && auroraEntry?.colorTop && auroraEntry?.colorBot && (
+        <Aurora
+          spec={auroraSpec}
+          preColorTop={auroraEntry.colorTop}
+          preColorBot={auroraEntry.colorBot}
+          t={t}
+        />
+      )}
+
+      {/* 3. Sky celestials — sun / moon / planet / earth (between sky and silhouettes) */}
       {skyCelestials.map((c) =>
         c.celestial.kind === 'earth' ? (
           <EarthBody
@@ -1478,10 +2309,10 @@ export function WorldRenderer({
         ),
       )}
 
-      {/* 3. Stars */}
+      {/* 4. Stars */}
       {starsSpec && <Starfield stars={stars} spec={starsSpec} t={t} nowMs={nowMs} />}
 
-      {/* 4. Clouds (upper sky, behind silhouettes) */}
+      {/* 5. Clouds (Earth — upper sky, behind silhouettes) */}
       {cloudsSpec && cloudsColor && (
         <CloudField
           clouds={clouds}
@@ -1492,35 +2323,95 @@ export function WorldRenderer({
         />
       )}
 
-      {/* 5. Birds (upper-mid sky, behind silhouettes) */}
+      {/* 6. Birds (Earth — upper-mid sky, behind silhouettes) */}
       {birdsSpec && birdsColor && (
         <BirdFlock birds={birds} spec={birdsSpec} preColor={birdsColor} t={t} nowMs={nowMs} />
       )}
 
-      {/* 6. Bands far→near */}
-      {pre.bands.map((b) => (
-        <BandRender
-          key={b.band.id}
-          band={b.band}
-          preColor={b.color}
-          preHaze={b.haze}
-          preGradient={b.gradient}
-          silhouettePath={silhouettePaths.get(b.band.id)}
-          grassPaths={grassPaths.get(b.band.id)}
-          craters={craters.get(b.band.id)}
-          t={t}
-          scrollX={scrollX}
-        />
-      ))}
+      {/* 7. Bands far→near. Each band routes by kind:
+          - silhouette / plain / craters → BandRender (existing path)
+          - cloudBand                    → CloudBandRender (Jupiter v0.7) */}
+      {pre.bands.map((b) => {
+        if (b.band.kind === 'cloudBand') {
+          const seed = cloudBandSeeds.get(b.band.id);
+          if (!seed || !b.streak) return null;
+          return (
+            <CloudBandRender
+              key={b.band.id}
+              band={b.band}
+              seed={seed}
+              preColor={b.color}
+              preStreak={b.streak}
+              t={t}
+              scrollX={scrollX}
+              nowMs={nowMs}
+            />
+          );
+        }
+        return (
+          <BandRender
+            key={b.band.id}
+            band={b.band}
+            preColor={b.color}
+            preHaze={b.haze}
+            preGradient={b.gradient}
+            silhouettePath={silhouettePaths.get(b.band.id)}
+            grassPaths={grassPaths.get(b.band.id)}
+            craters={craters.get(b.band.id)}
+            t={t}
+            scrollX={scrollX}
+          />
+        );
+      })}
 
-      {/* 7. Storm-eye celestials — overlay bands (Jupiter's GRS sits IN the SEB) */}
+      {/* 8. Storm clouds (Jupiter — amorphous cells riding mid bands) */}
+      {stormCloudsSpec && stormCloudsColor && (
+        <StormCloudField
+          cells={stormCells}
+          spec={stormCloudsSpec}
+          preColor={stormCloudsColor}
+          t={t}
+          nowMs={nowMs}
+        />
+      )}
+
+      {/* 9. Shear motes (Jupiter — fast atmospheric particles) */}
+      {shearMotesSpec && motesColor && (
+        <ShearMoteField
+          motes={motes}
+          spec={shearMotesSpec}
+          preColor={motesColor}
+          t={t}
+          nowMs={nowMs}
+        />
+      )}
+
+      {/* 10. Gas giant spot (Jupiter — Great Red Spot, overlays bands + cells) */}
+      {gasGiantSpots.map((c) => {
+        if (c.celestial.kind !== 'gasGiantSpot' || !c.rim) return null;
+        return (
+          <GasGiantSpot
+            key={c.celestial.id}
+            celestial={c.celestial}
+            preColor={c.color}
+            preRim={c.rim}
+            t={t}
+            rawT={positionT}
+          />
+        );
+      })}
+
+      {/* 11. Lightning flashes (Jupiter night — top of GRS + bands) */}
+      {lightningSpec && <Lightning spec={lightningSpec} t={t} nowMs={nowMs} />}
+
+      {/* 12. Storm-eye celestials — overlay bands (legacy v0.5 GRS path,
+          unused once jupiter.ts uses gasGiantSpot, but kept for back-compat) */}
       {stormEyes.map((c) => (
         <StormEye
           key={c.celestial.id}
           celestial={c.celestial}
           preColor={c.color}
           t={t}
-          nowMs={nowMs}
         />
       ))}
 

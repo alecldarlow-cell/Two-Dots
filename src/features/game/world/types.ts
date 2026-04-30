@@ -4,6 +4,15 @@
  * See docs/world-system.md §1 for the rationale and locked decisions.
  *
  * Schema changelog:
+ *   v0.7 — Jupiter v0.7 ingest from iteration tool. New band kind:
+ *          'cloudBand' (festoon top edge + internal shear streaks, with
+ *          independent driftSpeed). New particle kinds: 'stormClouds'
+ *          (amorphous cells riding mid bands), 'shearMotes' (fast
+ *          horizontal motes with turbulent paths), 'aurora' (top-sky
+ *          green/violet wash, night-only), 'lightning' (rare night
+ *          flashes). New celestial kind: 'gasGiantSpot' (oblate vortex
+ *          with concentric rim arcs, halo, drift across cycle). All
+ *          additions are purely additive — existing kinds unchanged.
  *   v0.6 — `Celestial.kind: 'earth'` — Earth-from-Moon stylised body
  *          (blue ocean + Africa/Europe/Americas/Madagascar continents +
  *          polar ice caps + atmospheric halo + soft terminator). Triggers
@@ -109,6 +118,28 @@ export type Band =
       heightPct: number;
       parallax: number;
       colorCurve: ColorStop[];
+    }
+  | {
+      // v0.7 — Jupiter cloud band. Festoon-style turbulent top edge
+      // (3-octave sine, amplitude scaled by `turbulence`) over a base
+      // colour fill, with `streaks` count of horizontal shear-streak lines
+      // drifting INTERNALLY at `driftSpeed` (independent of the band's
+      // own parallax). Sells laminar zonal flow + atmospheric shear.
+      id: string;
+      kind: 'cloudBand';
+      yPct: number;
+      heightPct: number;
+      parallax: number;
+      /** 0–1, drives wave amplitude on the band's top festoon edge. */
+      turbulence: number;
+      /** Signed unitless multiplier. Independent of parallax — drives the
+       *  internal shear-streak drift, NOT the band itself. ±0.5–1.1 typical. */
+      driftSpeed: number;
+      /** Number of internal horizontal shear-streak lines (4–7 typical). */
+      streaks: number;
+      colorCurve: ColorStop[];
+      /** Streak line colour over ToD — typically darker than colorCurve. */
+      streakCurve: ColorStop[];
     };
 
 export type ParticleSpec =
@@ -150,29 +181,107 @@ export type ParticleSpec =
       /** Per-bird scale multiplier. 2.2 reads cleanly at 390px width. */
       sizeMul: number;
       colorCurve: ColorStop[];
+    }
+  | {
+      // v0.7 — Jupiter storm cells. Amorphous dark cloud blobs riding the
+      // mid-band region (y ∈ [yMinPct, yMaxPct]). Distinct from Earth's
+      // 'clouds' — no cumulus dome, no flat-bottom clip, elongated by the
+      // zonal flow. Renderer derives lightTint/darkTint from `colorCurve`.
+      id: string;
+      kind: 'stormClouds';
+      count: number;
+      /** Unitless drift-speed multiplier. */
+      speed: number;
+      /** Vertical band region the storm cells inhabit (fraction of VIS_H). */
+      yMinPct: number;
+      yMaxPct: number;
+      densityCurve: ScalarStop[];
+      /** Mid-tone body colour; renderer derives highlight/shadow via lerp. */
+      colorCurve: ColorStop[];
+    }
+  | {
+      // v0.7 — Jupiter shear motes. Small fast horizontal-ellipse particles
+      // with sinusoidal vertical wobble + slight x-jitter. Sells eye-level
+      // atmospheric shear without aliasing. Spread across the full atmosphere
+      // (yMinPct→yMaxPct).
+      id: string;
+      kind: 'shearMotes';
+      count: number;
+      densityCurve: ScalarStop[];
+      /** Unitless drift-speed multiplier. */
+      speed: number;
+      /** Per-mote scale range [min, max]. */
+      sizeRange: [number, number];
+      yMinPct: number;
+      yMaxPct: number;
+      colorCurve: ColorStop[];
+    }
+  | {
+      // v0.7 — Jupiter aurora. Full-width gradient strip at the top of the
+      // sky, screen-blended over the sky gradient. Two-curve gradient: top
+      // of strip → bottom of strip. Night-dominant (densityCurve fades it
+      // in at dusk, peaks at night, gone by dawn).
+      id: string;
+      kind: 'aurora';
+      densityCurve: ScalarStop[];
+      /** Top edge of aurora strip colour over ToD. */
+      colorTopCurve: ColorStop[];
+      /** Bottom edge of aurora strip colour over ToD (typically violet). */
+      colorBotCurve: ColorStop[];
+    }
+  | {
+      // v0.7 — Jupiter lightning. Rare bright flash bloom inside cloud
+      // bands, scheduled in slots so multiple flashes can coexist briefly.
+      // Colour is hardcoded white-cyan radial bloom — no colorCurve needed.
+      id: string;
+      kind: 'lightning';
+      /** Max simultaneous flash slots. */
+      count: number;
+      densityCurve: ScalarStop[];
     };
 
-export type Celestial = {
-  id: string;
-  kind: 'planet' | 'sun' | 'moon' | 'storm-eye' | 'earth';
-  /** Static fallback position, used when xCurve/yCurve are absent. */
-  xPct: number;
-  yPct: number;
-  radius: number;
-  /** Optional position curves — sample with raw t (continuous player time),
-   *  not profile-eased t. Renderer rule: position uses rawT; color/glow/phase
-   *  use profile-eased t. Omit for static celestials. */
-  xCurve?: ScalarStop[];
-  yCurve?: ScalarStop[];
-  colorCurve: ColorStop[];
-  glowCurve: ScalarStop[];
-  /** v0.5 — phase 0..1: 0 = new (fully shadowed), 0.5 = half, 1 = full (fully lit).
-   *  Renderer cuts a terminator: lit hemisphere fills with `colorCurve`,
-   *  shadowed hemisphere fills with body colour × 0.18. Authored as narrative
-   *  (slow drift across ToD), not real celestial mechanics.
-   *  Omit for `sun` / `storm-eye` (always full-lit). */
-  phaseCurve?: ScalarStop[];
-};
+export type Celestial =
+  | {
+      id: string;
+      kind: 'planet' | 'sun' | 'moon' | 'storm-eye' | 'earth';
+      /** Static fallback position, used when xCurve/yCurve are absent. */
+      xPct: number;
+      yPct: number;
+      radius: number;
+      /** Optional position curves — sample with raw t (continuous player time),
+       *  not profile-eased t. Renderer rule: position uses rawT; color/glow/phase
+       *  use profile-eased t. Omit for static celestials. */
+      xCurve?: ScalarStop[];
+      yCurve?: ScalarStop[];
+      colorCurve: ColorStop[];
+      glowCurve: ScalarStop[];
+      /** v0.5 — phase 0..1: 0 = new (fully shadowed), 0.5 = half, 1 = full (fully lit).
+       *  Renderer cuts a terminator: lit hemisphere fills with `colorCurve`,
+       *  shadowed hemisphere fills with body colour × 0.18. Authored as narrative
+       *  (slow drift across ToD), not real celestial mechanics.
+       *  Omit for `sun` / `storm-eye` (always full-lit). */
+      phaseCurve?: ScalarStop[];
+    }
+  | {
+      // v0.7 — Jupiter Great Red Spot. Oblate vortex (rx = radius × aspectRatio).
+      // Distinct from `storm-eye` because it carries new fields (aspectRatio,
+      // rimCurve) and renders very differently: radial-gradient body + outer
+      // halo + 3–4 clipped concentric rim arcs + upper-left highlight.
+      id: string;
+      kind: 'gasGiantSpot';
+      xPct: number;
+      yPct: number;
+      /** ry; rx = radius × aspectRatio. */
+      radius: number;
+      /** Horizontal aspect (1.35 typical — wider than tall). */
+      aspectRatio: number;
+      xCurve?: ScalarStop[];
+      yCurve?: ScalarStop[];
+      colorCurve: ColorStop[];
+      /** Outer rim + concentric inner arcs colour over ToD. */
+      rimCurve: ColorStop[];
+      glowCurve: ScalarStop[];
+    };
 
 export type WorldTheme = {
   id: 'moon' | 'earth' | 'jupiter';

@@ -1,45 +1,47 @@
 /**
- * Jupiter — banded · weighty · alien · ×1.5 score · high gravity
+ * Jupiter — banded · turbulent · alien · ×1.5 score · heavy gravity
  *
- * v0.5-worlds — third WorldTheme. Conforms to types.ts (locked v0.5 schema).
- * Frozen `as const`. Static. Never mutated per-frame. No schema additions —
- * works within Earth's v0.5 spec (per "try v0.5 first, add only if forced").
+ * v0.7-worlds — third WorldTheme. Conforms to types.ts v0.7 schema.
+ * Frozen `as const`. Static. Never mutated per-frame.
  *
- * Identity: bands, Great Red Spot, scale, weight. Player flies through
- * Jovian atmosphere — there is no surface. Pipes and dots hover against
- * stacked atmospheric ribbons that drift in alternating zonal flow
- * (negative parallax = retrograde).
+ * Vantage: floating in upper atmosphere. No ground; you're inside the storm.
+ * The "world" is four horizontal cloud bands stretching to a curved horizon.
  *
- * Bands (atmospheric, top → bottom; all `kind: 'silhouette'` profile
- * 'storm-bands'). Sky is barely visible — only top ~10% — because the
- * upper polar haze covers from 10% downward. Negative parallax values
- * are interpreted by the renderer as retrograde flow (right-to-left) vs
- * the prograde norm (left-to-right):
+ * ToD reinterpretation:
+ *   t=0.00  DAWN   storm approaching   → turbulence rising, deeper colors
+ *   t=0.25  DAY    calm laminar bands  → cream/ochre, clearest read
+ *   t=0.50  DUSK   GRS crossing        → red spot at peak, warmest light
+ *   t=0.75  NIGHT  shadow side          → dark amber, lightning, aurora
  *
- *   1 upperPolarHaze   yPct 0.10  height 0.10  parallax  0.10
- *   2 ntrZone          yPct 0.20  height 0.10  parallax -0.15  (NTrZ cream)
- *   3 nebBelt          yPct 0.30  height 0.13  parallax  0.20  (orange-brown)
- *   4 equatorialZone   yPct 0.43  height 0.14  parallax -0.30  (bright cream)
- *   5 sebBelt          yPct 0.57  height 0.13  parallax  0.25  (chocolate)
- *   6 lowerZone        yPct 0.70  height 0.30  parallax -0.18  (extends to bottom)
+ * Bands (top → bottom, all `kind: 'cloudBand'`). Counter-drift on alternating
+ * bands sells zonal shear. Streaks per band increase toward the foreground
+ * (4 → 7) — closer to the player = more visible motion. Generous sky strip
+ * (0.0–0.22) above topmost band gives aurora and GRS-approach visual room.
+ *
+ *   farBand2   yPct 0.22  height 0.20  parallax 0.10  drift -0.5  4 streaks
+ *   midBand2   yPct 0.41  height 0.20  parallax 0.32  drift  0.7  5 streaks
+ *   nearBand1  yPct 0.60  height 0.20  parallax 0.50  drift -0.9  6 streaks
+ *   nearBand2  yPct 0.79  height 0.21  parallax 0.85  drift  1.1  7 streaks
+ *
+ * Particles:
+ *   stormCells   6  amorphous dark cloud cells riding mid bands
+ *   shearMotes  18  fast small motes with sinusoidal vertical wobble
+ *   aurora       1  full-width green/violet wash at top of sky, night-only
+ *   lightning    6  rare bright flashes with bolt + halo + bloom
  *
  * Celestials:
- *   - sun  small + distant (radius 12, ⅓ of Earth's). Same arc shape as Earth's.
- *   - GRS  storm-eye, oval (renderer hardcodes 1.6× horizontal aspect),
- *          static lower-mid, slow rotation, 4 concentric flow rings.
- *   - Io / Europa  Galilean moons drifting across upper sky at different
- *          rates and altitudes. Hidden during day plateau via glow=0.
+ *   greatRedSpot — `gasGiantSpot`, drifts off-screen-left → centre at dusk
+ *                  → off-screen-right at night. Renders OVER bands + cells.
  *
- * Particles: sparse starfield, sizeMul 0.7. No clouds (the bands ARE the
- * clouds). No birds (no birds on Jupiter). No drift dust.
+ * Cycle: 'atmospheric' (40/10/40/10).
  *
- * Cycle: 'atmospheric' (Jupiter scatters light through dense haze).
- *
- * Renderer rules invoked:
- *   - Negative parallax → retrograde flow (existing JS modulo behaviour).
- *   - storm-eye kind → oval body + concentric rings + slow rotation;
- *     rendered AFTER bands (so it overlays them — it's IN the SEB).
- *   - sun / moon glow=0 hides body; storm-eye / planet always visible.
+ * Round-7 deltas (from earlier v0.5 silhouette+storm-bands stub):
+ *   - 6 silhouette bands → 4 cloudBands with festoon edges + interior streaks
+ *   - storm-eye GRS → gasGiantSpot (radial body, concentric arcs, halo, highlight)
+ *   - Added stormClouds, shearMotes, aurora, lightning (full v0.7 ingest)
+ *   - Removed Io / Europa moons (not in iteration tool design)
+ *   - Removed sun (Jovian sun is occluded by haze at game scale)
+ *   - Sky stops rebuilt against iteration-tool reference
  */
 
 import type { WorldTheme } from '../types';
@@ -47,125 +49,122 @@ import type { WorldTheme } from '../types';
 export const jupiterTheme = {
   id: 'jupiter',
   label: 'Jupiter',
-  tagline: 'banded · weighty · alien',
-  gravityMul: 1.4,
+  tagline: 'banded · turbulent · alien',
+  gravityMul: 1.5,
   scoreMul: 1.5,
   cycleProfile: 'atmospheric',
 
-  // ─── SKY ─────────────────────────────────────────────────────────────────
-  // Only the top ~10% is visible (above the upper polar haze band). Mid/bot
-  // stops are authored for completeness but rarely read.
+  // ─── SKY — only top ~22% visible, rest covered by bands ─────────────────
   sky: {
     topCurve: [
-      { t: 0.0, color: '#2a2540' }, // dawn  — deep storm-indigo
-      { t: 0.25, color: '#4a5475' }, // day   — Jovian high-atmosphere blue
-      { t: 0.5, color: '#4a3050' }, // dusk  — deep mauve
-      { t: 0.75, color: '#050810' }, // night — near-black
+      { t: 0.0, color: '#3a2820' }, // dawn — deep dusty rust
+      { t: 0.25, color: '#a87248' }, // day  — warm caramel
+      { t: 0.5, color: '#5a2820' }, // dusk — deep maroon-rust
+      { t: 0.75, color: '#0a0608' }, // night — near-black with violet hint
     ],
     midCurve: [
-      { t: 0.0, color: '#6c5a70' },
-      { t: 0.25, color: '#a48c6c' },
-      { t: 0.5, color: '#a87050' },
-      { t: 0.75, color: '#181428' },
+      { t: 0.0, color: '#5a3a28' },
+      { t: 0.25, color: '#c89868' }, // day  — cream-ochre
+      { t: 0.5, color: '#8a3018' }, // dusk — burnt sienna
+      { t: 0.75, color: '#1a0a14' }, // night — deep plum-black
     ],
     bottomCurve: [
-      { t: 0.0, color: '#a07858' },
-      { t: 0.25, color: '#c89878' },
-      { t: 0.5, color: '#a04830' },
-      { t: 0.75, color: '#08060a' },
+      { t: 0.0, color: '#7a5a40' },
+      { t: 0.25, color: '#d8b078' }, // day  — pale cream haze blending into top band
+      { t: 0.5, color: '#a04830' }, // dusk — golden rust
+      { t: 0.75, color: '#2a1820' }, // night — deep ember
     ],
   },
 
-  // ─── BANDS — atmospheric ribbons, no surface ─────────────────────────────
+  // ─── BANDS — 4 cloudBands stacked to fill the canvas ────────────────────
   bands: [
     {
-      // Upper polar haze — dim brown, slow eastward drift
-      id: 'upperPolarHaze',
-      kind: 'silhouette',
-      yPct: 0.1,
-      heightPct: 0.1,
+      id: 'farBand2',
+      kind: 'cloudBand',
+      yPct: 0.22,
+      heightPct: 0.2,
       parallax: 0.1,
-      profile: 'storm-bands',
+      turbulence: 0.45,
+      driftSpeed: -0.5, // counter-drift sells shear
+      streaks: 4,
       colorCurve: [
-        { t: 0.0, color: '#4a3a32' },
-        { t: 0.25, color: '#6e5440' },
-        { t: 0.5, color: '#6b3e2c' },
-        { t: 0.75, color: '#1a1410' },
+        { t: 0.0, color: '#7a5230' },
+        { t: 0.25, color: '#d4a070' }, // day — warmer cream-ochre
+        { t: 0.5, color: '#a86038' },
+        { t: 0.75, color: '#1c1010' },
+      ],
+      streakCurve: [
+        { t: 0.0, color: '#3a2818' },
+        { t: 0.25, color: '#4a2e18' },
+        { t: 0.5, color: '#4a1e10' },
+        { t: 0.75, color: '#080404' },
       ],
     },
     {
-      // North Tropical Zone — cream, retrograde drift
-      id: 'ntrZone',
-      kind: 'silhouette',
-      yPct: 0.2,
-      heightPct: 0.1,
-      parallax: -0.15,
-      profile: 'storm-bands',
+      id: 'midBand2',
+      kind: 'cloudBand',
+      yPct: 0.41,
+      heightPct: 0.2,
+      parallax: 0.32,
+      turbulence: 0.55,
+      driftSpeed: 0.7,
+      streaks: 5,
       colorCurve: [
-        { t: 0.0, color: '#c8a896' },
-        { t: 0.25, color: '#e8c8a0' },
-        { t: 0.5, color: '#d8946a' },
-        { t: 0.75, color: '#281e1a' },
-      ],
-    },
-    {
-      // North Equatorial Belt — saturated orange-brown, prograde
-      id: 'nebBelt',
-      kind: 'silhouette',
-      yPct: 0.3,
-      heightPct: 0.13,
-      parallax: 0.2,
-      profile: 'storm-bands',
-      colorCurve: [
-        { t: 0.0, color: '#c08868' },
-        { t: 0.25, color: '#b87850' },
-        { t: 0.5, color: '#a04830' },
-        { t: 0.75, color: '#1c1008' },
-      ],
-    },
-    {
-      // Equatorial Zone — bright cream, fast retrograde (the iconic central band)
-      id: 'equatorialZone',
-      kind: 'silhouette',
-      yPct: 0.43,
-      heightPct: 0.14,
-      parallax: -0.3,
-      profile: 'storm-bands',
-      colorCurve: [
-        { t: 0.0, color: '#e8b89c' },
-        { t: 0.25, color: '#f0d8b0' },
-        { t: 0.5, color: '#e09870' },
-        { t: 0.75, color: '#2a1f1a' },
-      ],
-    },
-    {
-      // South Equatorial Belt — chocolate, prograde. The GRS sits here.
-      id: 'sebBelt',
-      kind: 'silhouette',
-      yPct: 0.57,
-      heightPct: 0.13,
-      parallax: 0.25,
-      profile: 'storm-bands',
-      colorCurve: [
-        { t: 0.0, color: '#6e4838' },
-        { t: 0.25, color: '#6a4030' },
-        { t: 0.5, color: '#5c2c1c' },
+        { t: 0.0, color: '#4a2818' },
+        { t: 0.25, color: '#e0b070' }, // day — pale cream zone
+        { t: 0.5, color: '#a04020' },
         { t: 0.75, color: '#100808' },
       ],
+      streakCurve: [
+        { t: 0.0, color: '#1a0c08' },
+        { t: 0.25, color: '#5a3818' },
+        { t: 0.5, color: '#3a1008' },
+        { t: 0.75, color: '#000000' },
+      ],
     },
     {
-      // Lower zone — extends to bottom of canvas. Pale tan, retrograde.
-      id: 'lowerZone',
-      kind: 'silhouette',
-      yPct: 0.7,
-      heightPct: 0.3,
-      parallax: -0.18,
-      profile: 'storm-bands',
+      id: 'nearBand1',
+      kind: 'cloudBand',
+      yPct: 0.6,
+      heightPct: 0.2,
+      parallax: 0.5,
+      turbulence: 0.65,
+      driftSpeed: -0.9,
+      streaks: 6,
       colorCurve: [
-        { t: 0.0, color: '#c89880' },
-        { t: 0.25, color: '#d8b894' },
-        { t: 0.5, color: '#c47452' },
-        { t: 0.75, color: '#1a1410' },
+        { t: 0.0, color: '#2e1810' }, // dawn — deep brown
+        { t: 0.25, color: '#3a1810' }, // day  — deep mahogany
+        { t: 0.5, color: '#3e1008' }, // dusk — bloody rust
+        { t: 0.75, color: '#0a0404' },
+      ],
+      streakCurve: [
+        { t: 0.0, color: '#0a0404' },
+        { t: 0.25, color: '#1a0c04' },
+        { t: 0.5, color: '#1a0404' },
+        { t: 0.75, color: '#000000' },
+      ],
+    },
+    {
+      // Foreground band — fastest scroll, most turbulent. "Where the player is."
+      id: 'nearBand2',
+      kind: 'cloudBand',
+      yPct: 0.79,
+      heightPct: 0.21,
+      parallax: 0.85,
+      turbulence: 0.75,
+      driftSpeed: 1.1,
+      streaks: 7,
+      colorCurve: [
+        { t: 0.0, color: '#3e2418' }, // dawn — warm dark brown
+        { t: 0.25, color: '#5a3a20' }, // day  — warm mahogany
+        { t: 0.5, color: '#4a1a10' }, // dusk — bloody rust
+        { t: 0.75, color: '#180a08' }, // night — still dark but not pitch
+      ],
+      streakCurve: [
+        { t: 0.0, color: '#1a0c08' },
+        { t: 0.25, color: '#2a1808' },
+        { t: 0.5, color: '#280a08' },
+        { t: 0.75, color: '#080404' },
       ],
     },
   ],
@@ -173,151 +172,128 @@ export const jupiterTheme = {
   // ─── PARTICLES ───────────────────────────────────────────────────────────
   particles: [
     {
-      // Sparse, distant stars — barely visible at night through Jovian haze.
-      id: 'stars',
-      kind: 'starfield',
-      count: 40,
+      id: 'stormCells',
+      kind: 'stormClouds',
+      count: 6,
+      speed: 0.55,
+      yMinPct: 0.32,
+      yMaxPct: 0.72,
       densityCurve: [
-        { t: 0.0, value: 0.05 }, // dawn — almost gone
-        { t: 0.25, value: 0.0 }, // day  — invisible
-        { t: 0.5, value: 0.1 }, // dusk — emerging
-        { t: 0.75, value: 0.7 }, // night — visible but soft
+        { t: 0.0, value: 0.65 }, // dawn — visible
+        { t: 0.25, value: 0.95 }, // day  — full
+        { t: 0.5, value: 0.75 }, // dusk
+        { t: 0.75, value: 0.3 }, // night — sparse, lightning dominates
       ],
-      twinkle: true,
-      sizeMul: 0.7, // smaller than Moon's (1.0) and Earth's (0.85)
+      // Mid-tone for cumulus body; renderer derives lightTint/darkTint via lerp.
+      colorCurve: [
+        { t: 0.0, color: '#8a5a40' }, // dawn — warm rust-tan
+        { t: 0.25, color: '#b48868' }, // day  — warm cream-tan
+        { t: 0.5, color: '#c88058' }, // dusk — warm burning orange
+        { t: 0.75, color: '#4a3a30' }, // night — dim warm grey
+      ],
+    },
+    {
+      id: 'shearMotes',
+      kind: 'shearMotes',
+      count: 18,
+      speed: 1.6,
+      sizeRange: [0.6, 1.6],
+      yMinPct: 0.2,
+      yMaxPct: 0.95,
+      densityCurve: [
+        { t: 0.0, value: 0.55 },
+        { t: 0.25, value: 0.85 },
+        { t: 0.5, value: 0.75 },
+        { t: 0.75, value: 0.2 }, // night — sparse so lightning dominates
+      ],
+      colorCurve: [
+        { t: 0.0, color: '#bc9070' }, // dawn — soft warm dust
+        { t: 0.25, color: '#e8d4a8' }, // day  — soft cream
+        { t: 0.5, color: '#e8a878' }, // dusk — warm catch-light
+        { t: 0.75, color: '#5a4030' }, // night — dim
+      ],
+    },
+    {
+      id: 'aurora',
+      kind: 'aurora',
+      densityCurve: [
+        { t: 0.0, value: 0.0 },
+        { t: 0.25, value: 0.0 },
+        { t: 0.5, value: 0.25 }, // dusk — beginning to glow
+        { t: 0.75, value: 1.0 }, // night — full
+      ],
+      colorTopCurve: [
+        { t: 0.0, color: '#1a3a30' },
+        { t: 0.25, color: '#1a3a30' },
+        { t: 0.5, color: '#2a8068' }, // dusk — emerald
+        { t: 0.75, color: '#3aa888' }, // night — vivid green
+      ],
+      colorBotCurve: [
+        { t: 0.0, color: '#2a1a40' },
+        { t: 0.25, color: '#2a1a40' },
+        { t: 0.5, color: '#5a3088' }, // dusk — violet hint
+        { t: 0.75, color: '#7848b8' }, // night — vivid violet
+      ],
+    },
+    {
+      id: 'lightning',
+      kind: 'lightning',
+      count: 6,
+      densityCurve: [
+        { t: 0.0, value: 0.1 }, // dawn — distant residual storm
+        { t: 0.25, value: 0.0 }, // day  — calm
+        { t: 0.5, value: 0.4 }, // dusk — building
+        { t: 0.75, value: 1.0 }, // night — full storm
+      ],
     },
   ],
 
   // ─── CELESTIALS ──────────────────────────────────────────────────────────
   celestials: [
     {
-      // Distant sun — much smaller from Jupiter's orbit (~5× further than Earth).
-      // Same arc shape as Earth's sun but smaller body and weaker glow.
-      id: 'sun',
-      kind: 'sun',
-      radius: 12,
+      // Great Red Spot — drifts across the frame at dusk, peaking centred
+      // around the dusk→night transition. Sized to feel "huge but not
+      // all-consuming" — about 40% of frame width.
+      id: 'greatRedSpot',
+      kind: 'gasGiantSpot',
+      radius: 70, // ry; rx = radius × aspectRatio
+      aspectRatio: 1.35,
+      xPct: 0.5, // fallback; xCurve drives it
+      yPct: 0.5, // sits in the midBand2 region
       xCurve: [
-        { t: 0.0, value: 0.1 },
-        { t: 0.25, value: 0.5 },
-        { t: 0.5, value: 0.9 },
-        { t: 0.75, value: 1.3 },
+        { t: 0.0, value: -0.4 }, // dawn  — far off-screen left
+        { t: 0.25, value: -0.25 }, // day   — still off-screen, approaching
+        { t: 0.5, value: 0.5 }, // dusk  — centred (signature moment)
+        { t: 0.75, value: 1.05 }, // night — drifted off right edge
       ],
       yCurve: [
-        { t: 0.0, value: 0.18 },
-        { t: 0.25, value: 0.06 },
-        { t: 0.5, value: 0.18 },
-        { t: 0.75, value: 0.3 },
-      ],
-      xPct: 0.5,
-      yPct: 0.1,
-      colorCurve: [
-        { t: 0.0, color: '#ffe0a0' },
-        { t: 0.25, color: '#ffffe8' },
-        { t: 0.5, color: '#ff9050' },
-        { t: 0.75, color: '#603848' },
-      ],
-      glowCurve: [
         { t: 0.0, value: 0.5 },
-        { t: 0.25, value: 0.4 },
-        { t: 0.5, value: 0.6 },
-        { t: 0.75, value: 0.0 }, // hidden at night
-      ],
-    },
-    {
-      // Great Red Spot — three-Earths-wide oval storm in the SEB.
-      // Static position (doesn't arc — it's a feature of the planet itself).
-      // Renderer hardcodes oval shape (1.6× horizontal), 4 concentric flow
-      // rings, slow rotation (~60s per turn) keyed off `kind: 'storm-eye'`.
-      // Rendered AFTER bands (overlays sebBelt). Always visible regardless
-      // of glow value — physical feature, not a light source.
-      id: 'grs',
-      kind: 'storm-eye',
-      radius: 38,
-      xPct: 0.32,
-      yPct: 0.6,
-      colorCurve: [
-        { t: 0.0, color: '#c4684e' }, // dawn — warm rust
-        { t: 0.25, color: '#d87858' }, // day  — vivid red-orange
-        { t: 0.5, color: '#b8482c' }, // dusk — deep auburn
-        { t: 0.75, color: '#5a2418' }, // night — visible but dim
-      ],
-      glowCurve: [
-        { t: 0.0, value: 0.0 }, // GRS doesn't glow — it's a storm, not a light
-        { t: 0.25, value: 0.0 },
-        { t: 0.5, value: 0.0 },
-        { t: 0.75, value: 0.0 },
-      ],
-    },
-    {
-      // Io — sulfur-yellow, sized small (real Io is ¼ Earth's diameter,
-      // far away as seen from "near" Jupiter). Drifts left across day, hidden
-      // briefly mid-day in glare, then visible again at dusk and night.
-      id: 'io',
-      kind: 'moon',
-      radius: 5,
-      xCurve: [
-        { t: 0.0, value: 0.2 },
-        { t: 0.25, value: 0.7 },
-        { t: 0.5, value: 0.9 },
-        { t: 0.75, value: -0.1 }, // wraps to far left, drifts back across night
-      ],
-      yCurve: [
-        { t: 0.0, value: 0.08 },
-        { t: 0.25, value: 0.04 },
-        { t: 0.5, value: 0.08 },
-        { t: 0.75, value: 0.06 },
-      ],
-      xPct: 0.5,
-      yPct: 0.07,
-      colorCurve: [
-        { t: 0.0, color: '#f0e0a0' }, // pale sulfur-yellow
-        { t: 0.25, color: '#fff0b8' },
-        { t: 0.5, color: '#f0c878' },
-        { t: 0.75, color: '#d8c08a' },
-      ],
-      glowCurve: [
-        { t: 0.0, value: 0.4 },
-        { t: 0.25, value: 0.0 }, // washed out by daytime glare
+        { t: 0.25, value: 0.5 },
         { t: 0.5, value: 0.5 },
-        { t: 0.75, value: 0.7 },
+        { t: 0.75, value: 0.5 },
       ],
-    },
-    {
-      // Europa — icy white, slightly smaller than Io. Different orbital
-      // velocity → opposite drift direction across the cycle.
-      id: 'europa',
-      kind: 'moon',
-      radius: 4,
-      xCurve: [
-        { t: 0.0, value: 0.85 },
-        { t: 0.25, value: 0.3 },
-        { t: 0.5, value: 0.1 },
-        { t: 0.75, value: 0.55 },
-      ],
-      yCurve: [
-        { t: 0.0, value: 0.06 },
-        { t: 0.25, value: 0.1 },
-        { t: 0.5, value: 0.05 },
-        { t: 0.75, value: 0.04 },
-      ],
-      xPct: 0.5,
-      yPct: 0.07,
       colorCurve: [
-        { t: 0.0, color: '#ece8d0' },
-        { t: 0.25, color: '#fafaf0' },
-        { t: 0.5, color: '#e8d8c0' },
-        { t: 0.75, color: '#d4d0c4' },
+        { t: 0.0, color: '#8a3020' }, // dawn — muted (off-screen anyway)
+        { t: 0.25, color: '#a04028' }, // day  — terracotta
+        { t: 0.5, color: '#c84020' }, // dusk — vivid signature red
+        { t: 0.75, color: '#5a1810' }, // night — deep ember
+      ],
+      rimCurve: [
+        { t: 0.0, color: '#3a1410' },
+        { t: 0.25, color: '#4a1810' },
+        { t: 0.5, color: '#6a1810' },
+        { t: 0.75, color: '#1a0808' },
       ],
       glowCurve: [
-        { t: 0.0, value: 0.3 },
-        { t: 0.25, value: 0.0 },
-        { t: 0.5, value: 0.4 },
-        { t: 0.75, value: 0.6 },
+        { t: 0.0, value: 0.6 },
+        { t: 0.25, value: 0.7 },
+        { t: 0.5, value: 1.0 }, // dusk — full presence
+        { t: 0.75, value: 0.85 },
       ],
     },
   ],
 
-  // ─── PALETTE (game overlay — locked warm/cool, navy pipe family) ─────────
+  // ─── PALETTE (game overlay — locked navy/ice family) ─────────────────────
   palette: {
     pipeWall: '#10355c',
     pipeEdge: '#7ac0e8',

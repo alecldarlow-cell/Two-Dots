@@ -25,7 +25,7 @@
 import React from 'react';
 import { Canvas, Circle, Group, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 
-import { LANE_L, LANE_R, PIPE_W, W } from '@features/game/engine';
+import { LANE_L, LANE_R, PIPE_W } from '@features/game/engine';
 import type { WorldTheme } from '@features/game/world';
 import {
   COL_L,
