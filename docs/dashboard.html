@@ -79,6 +79,21 @@
   .footer td:first-child { color: var(--muted); }
   .err { color: var(--red); font-size: 12px; padding: 12px 0; }
   .ok { color: var(--green); }
+  .filters { display: flex; flex-wrap: wrap; gap: 18px 28px; margin: 0 0 18px; }
+  .filter-row { display: flex; align-items: center; gap: 6px; }
+  .filter-label {
+    font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1.5px; margin-right: 4px;
+  }
+  .filter-btn {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    padding: 4px 10px; font-size: 11px; font-family: inherit; cursor: pointer;
+    border-radius: 4px;
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--text); }
+  .filter-btn.active {
+    color: var(--text); border-color: var(--cyan); background: rgba(46, 207, 255, 0.08);
+  }
 </style>
 </head>
 <body>
@@ -91,17 +106,31 @@
     <button onclick="window.location.reload()">Refresh</button>
   </div>
 </header>
-<p class="subtitle">Read-only aggregates from the analytics_events queue. Targets are industry-benchmark (top-quartile) values from Adjust 2026, GameAnalytics arcade benchmarks, and Tenjin 2025; sources at the bottom.</p>
+<div class="filters">
+  <div class="filter-row" id="device-filter">
+    <span class="filter-label">DEVICES</span>
+    <button class="filter-btn" data-device="all">All</button>
+    <button class="filter-btn" data-device="tester">Testers</button>
+    <button class="filter-btn" data-device="internal">Internal</button>
+  </div>
+  <div class="filter-row" id="since-filter">
+    <span class="filter-label">SINCE</span>
+    <button class="filter-btn" data-since="all">All time</button>
+    <button class="filter-btn" data-since="7d">Last 7d</button>
+    <button class="filter-btn" data-since="24h">Last 24h</button>
+  </div>
+</div>
+<p class="subtitle" id="subtitle">Read-only aggregates from the analytics_events queue. Targets are industry-benchmark (top-quartile) values from Adjust 2026, GameAnalytics arcade benchmarks, and Tenjin 2025; sources at the bottom.</p>
 
 <div class="grid" id="kpi-grid">
-  <div class="card"><div class="label">TOTAL RUNS</div><div class="value" id="kpi-runs">—</div><div class="target">all-time</div></div>
+  <div class="card"><div class="label">TOTAL RUNS</div><div class="value" id="kpi-runs">—</div><div class="target window-label">all-time</div></div>
   <div class="card"><div class="label">RETRY RATE</div><div class="value" id="kpi-retry">—<span class="unit">%</span></div><div class="target" id="kpi-retry-target">target ≥70% (Phase 1 gate)</div></div>
   <div class="card"><div class="label">MEAN RUN LENGTH</div><div class="value" id="kpi-runlen">—<span class="unit">s</span></div><div class="target" id="kpi-runlen-target">target 25–60s (genre band)</div></div>
   <div class="card"><div class="label">CLOSE-CALLS / RUN</div><div class="value" id="kpi-cc">—</div><div class="target" id="kpi-cc-target">target ≥1.0 (engagement)</div></div>
-  <div class="card"><div class="label">TOTAL DEVICES</div><div class="value" id="kpi-devices">—</div><div class="target">distinct testers</div></div>
+  <div class="card"><div class="label">TOTAL DEVICES</div><div class="value" id="kpi-devices">—</div><div class="target" id="kpi-devices-target">distinct testers</div></div>
   <div class="card"><div class="label">D1 RETENTION</div><div class="value" id="kpi-d1">—<span class="unit">%</span></div><div class="target" id="kpi-d1-target">target ≥40% (top quartile)</div></div>
   <div class="card"><div class="label">D7 RETENTION</div><div class="value" id="kpi-d7">—<span class="unit">%</span></div><div class="target" id="kpi-d7-target">target ≥20% (top quartile)</div></div>
-  <div class="card"><div class="label">SESSIONS</div><div class="value" id="kpi-sessions">—</div><div class="target">all-time</div></div>
+  <div class="card"><div class="label">SESSIONS</div><div class="value" id="kpi-sessions">—</div><div class="target window-label">all-time</div></div>
 </div>
 
 <div class="chart-card">
@@ -164,13 +193,69 @@ function setTargetStatus(targetElId, current, threshold, comparator) {
   el.innerHTML = '<span class="dot ' + dot + '"></span>' + el.textContent;
 }
 
-async function load() {
+// ─── Filter state ─────────────────────────────────────────────────────────
+// device: 'all' | 'tester' | 'internal'   (default: 'tester')
+// since:  'all' | '7d'     | '24h'         (default: 'all')
+// Persisted to localStorage so the user's pick survives a refresh.
+const STORAGE_KEY = 'twodots-dashboard-filters-v1';
+function readFilters() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const f = JSON.parse(raw);
+      return {
+        device: ['all','tester','internal'].includes(f.device) ? f.device : 'tester',
+        since:  ['all','7d','24h'].includes(f.since)           ? f.since  : 'all',
+      };
+    }
+  } catch (_) { /* ignore */ }
+  return { device: 'tester', since: 'all' };
+}
+function writeFilters(f) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(f)); } catch (_) { /* ignore */ }
+}
+function sinceToTimestamp(since) {
+  if (since === '24h') return new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  if (since === '7d')  return new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  return null;
+}
+const SINCE_LABEL = { all: 'all-time', '7d': 'last 7 days', '24h': 'last 24 hours' };
+const DEVICE_LABEL = { all: 'all devices', tester: 'external testers', internal: 'internal devices' };
+
+let chartInstance = null;
+
+function paintActive(filters) {
+  document.querySelectorAll('#device-filter .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.device === filters.device);
+  });
+  document.querySelectorAll('#since-filter .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.since === filters.since);
+  });
+}
+
+function paintLabels(filters) {
+  setText('subtitle',
+    'Showing ' + DEVICE_LABEL[filters.device] + ' · ' + SINCE_LABEL[filters.since] +
+    '. Targets are industry-benchmark (top-quartile) values from Adjust 2026, GameAnalytics arcade, and Tenjin 2025.');
+  document.querySelectorAll('.window-label').forEach(el => {
+    el.textContent = SINCE_LABEL[filters.since];
+  });
+  const devTarget = document.getElementById('kpi-devices-target');
+  if (devTarget) devTarget.textContent = filters.device === 'internal' ? 'internal devices' : 'distinct testers';
+}
+
+async function load(filters) {
   let hadError = false;
   const errEl = document.getElementById('error-block');
 
+  const rpcArgs = {
+    p_filter: filters.device,
+    p_since: sinceToTimestamp(filters.since),
+  };
+
   // Overview KPIs
   try {
-    const { data, error } = await sb.rpc('kpi_overview').single();
+    const { data, error } = await sb.rpc('kpi_overview', rpcArgs).single();
     if (error) throw error;
     if (data) {
       setText('kpi-runs', fmt(data.total_runs));
@@ -191,7 +276,7 @@ async function load() {
 
   // Retention
   try {
-    const { data, error } = await sb.rpc('kpi_retention').single();
+    const { data, error } = await sb.rpc('kpi_retention', rpcArgs).single();
     if (error) throw error;
     if (data) {
       setText('kpi-d1', data.d1_retention_pct != null ? fmt(data.d1_retention_pct) : '—');
@@ -206,13 +291,14 @@ async function load() {
 
   // Drop-off by tier (chart)
   try {
-    const { data, error } = await sb.rpc('kpi_drop_off_by_tier');
+    const { data, error } = await sb.rpc('kpi_drop_off_by_tier', rpcArgs);
     if (error) throw error;
     const sorted = (data || []).slice().sort((a, b) => a.tier - b.tier);
     const labels = sorted.map(r => 'T' + r.tier);
     const counts = sorted.map(r => r.deaths);
     const ctx = document.getElementById('tier-chart').getContext('2d');
-    new Chart(ctx, {
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
       type: 'bar',
       data: {
         labels,
@@ -243,7 +329,32 @@ async function load() {
   if (hadError) errEl.hidden = false;
 }
 
-load();
+// ─── Wire up filters and run ──────────────────────────────────────────────
+let currentFilters = readFilters();
+
+function applyAndReload(next) {
+  currentFilters = next;
+  writeFilters(currentFilters);
+  paintActive(currentFilters);
+  paintLabels(currentFilters);
+  // Reset value cells and chart so stale numbers don't linger if a fetch errors.
+  ['kpi-runs','kpi-retry','kpi-runlen','kpi-cc','kpi-devices','kpi-d1','kpi-d7','kpi-sessions']
+    .forEach(id => setText(id, '—'));
+  setText('updated', 'Loading…');
+  document.getElementById('error-block').hidden = true;
+  load(currentFilters);
+}
+
+document.querySelectorAll('#device-filter .filter-btn').forEach(b => {
+  b.addEventListener('click', () => applyAndReload({ ...currentFilters, device: b.dataset.device }));
+});
+document.querySelectorAll('#since-filter .filter-btn').forEach(b => {
+  b.addEventListener('click', () => applyAndReload({ ...currentFilters, since: b.dataset.since }));
+});
+
+paintActive(currentFilters);
+paintLabels(currentFilters);
+load(currentFilters);
 </script>
 </body>
 </html>
