@@ -1842,7 +1842,6 @@ function ShearMoteField({
 }): React.ReactElement | null {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
-  const tint = oklchToHex(sampleOklchCurve(preColor, t));
   // v0.7.1 r2 — leaf-in-wind motion + 3-octave path variation + two-tone
   // circular shape.
   // Path: 3 sine octaves on the lateral axis, with prime-ratio frequencies
@@ -2135,7 +2134,6 @@ function Lightning({
         }
         const boltAlpha = Math.min(1, f.alpha * 1.6);
         const haloAlpha = Math.min(1, f.alpha * 0.65);
-        const bloomR = f.baseRadius * 1.8;
         return (
           <Group key={i}>
             {/* v0.7.1 r2 — Full-canvas radial bloom. A Rect spanning the
@@ -2250,12 +2248,12 @@ function GasGiantSpot({
   const aspect = celestial.aspectRatio;
   const rx = r * aspect;
   const ry = r;
-  const glow = sampleScalarCurve(celestial.glowCurve, t);
-  if (glow <= 0.01) return null;
-  const col = oklchToHex(sampleOklchCurve(preColor, t));
-  const rim = oklchToHex(sampleOklchCurve(preRim, t));
 
-  // Build body + concentric arc paths (relative to {x, y}).
+  // Path memos hoisted above the glow gate so React's rules-of-hooks are
+  // honoured (hooks must run in the same order on every render). rx/ry are
+  // derived from the static celestial spec, so these memos are effectively
+  // no-ops when the spot is hidden — the early return below still skips
+  // their use, just not their declaration.
   const haloPath = useMemo(() => {
     const p = Skia.Path.Make();
     p.addOval({ x: -rx * 1.25, y: -ry * 1.25, width: rx * 2.5, height: ry * 2.5 });
@@ -2291,6 +2289,11 @@ function GasGiantSpot({
     });
     return p;
   }, [rx, ry]);
+
+  const glow = sampleScalarCurve(celestial.glowCurve, t);
+  if (glow <= 0.01) return null;
+  const col = oklchToHex(sampleOklchCurve(preColor, t));
+  const rim = oklchToHex(sampleOklchCurve(preRim, t));
 
   return (
     <Group transform={[{ translateX: x }, { translateY: y }]} opacity={glow}>
