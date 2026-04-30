@@ -301,8 +301,18 @@ const CLOUD_CLIP_PATH = (() => {
 // applied via Group transform at draw time.
 type CloudBandSeed = {
   path: ReturnType<typeof Skia.Path.Make>;
-  /** Pre-seeded streak positions in band-local coords. */
-  streaks: ReadonlyArray<{ x: number; y: number; len: number; opacity: number; sw: number }>;
+  /** v0.7.1 — pre-seeded SHADOW swirl-puff positions/sizes in band-local
+   *  coords. Tinted from `streakCurve` (darker than band base) at render
+   *  time. Each is an elongated horizontal ellipse with a soft radial
+   *  alpha falloff (transparent edges) drifting at the band's
+   *  `driftSpeed`. Reads as cloud-shadow chunks. */
+  darkPuffs: ReadonlyArray<{ x: number; y: number; rx: number; ry: number; opacity: number }>;
+  /** v0.7.1 r2 — pre-seeded HIGHLIGHT puffs. Tinted from band's `colorCurve`
+   *  lifted toward white at render time. Fewer count + slightly lower
+   *  opacity range than darkPuffs. Reads as bright cream cloud zones —
+   *  the missing counterpart that gives Jovian banding photography its
+   *  light/shadow texture. */
+  lightPuffs: ReadonlyArray<{ x: number; y: number; rx: number; ry: number; opacity: number }>;
   /** Span the path was generated across (= SCREEN_W * 2.4). */
   spanPx: number;
 };
@@ -354,20 +364,50 @@ function seedCloudBand(
   path.lineTo(firstX, hExtended);
   path.close();
 
-  // Pre-seeded streak positions. Each streak is a horizontal line in
-  // band-local coords (y ∈ [0, heightPx]) that drifts via translateX
-  // at render time.
-  const streakOut: Array<{ x: number; y: number; len: number; opacity: number; sw: number }> = [];
-  for (let i = 0; i < band.streaks; i++) {
-    const yPct = 0.25 + (i / band.streaks) * 0.55 + rng() * 0.1;
+  // v0.7.1 r5 — perf + busyness pass. Halved puff counts:
+  //   darkCount: streaks × 2.5 → × 1.2
+  //   lightCount: streaks × 1.8 → × 0.7
+  // For typical band.streaks 4-7 this drops total puffs per band from
+  // ~17-29 to ~6-12, and overall scene puff count from ~70-115 to ~25-50.
+  // Visual: less busy / more readable; perf: ~½ the GPU shader work
+  // for puff RadialGradients.
+  // v0.7.1 r6 — per-puff cull below `particleZoneY` (yPct 0.67). Particles
+  // (shearMotes) live in the bottom third; band puffs there overlap with
+  // them creating visual noise. Skipping any puff whose absolute centre
+  // would land in the particle zone keeps farBand2 + midBand2 fully
+  // textured, drops the lower half of nearBand1, drops nearBand2 entirely.
+  const bandYPx = band.yPct * VIS_H * SCALE;
+  const particleZoneY = 0.67 * VIS_H * SCALE;
+  type PuffSeed = { x: number; y: number; rx: number; ry: number; opacity: number };
+  const darkCount = Math.max(3, Math.floor(band.streaks * 1.2));
+  const darkPuffOut: PuffSeed[] = [];
+  for (let i = 0; i < darkCount; i++) {
+    const yPct = 0.15 + (i / darkCount) * 0.7 + (rng() - 0.5) * 0.3;
+    const yPctClamped = Math.max(0.05, Math.min(0.95, yPct));
+    const yAbs = bandYPx + heightPx * yPctClamped;
+    if (yAbs >= particleZoneY) continue;
     const x = rng() * SCREEN_W * 2;
-    const len = SCREEN_W * (0.4 + rng() * 0.6);
-    const opacity = 0.1 + rng() * 0.1;
-    const sw = 0.6 + rng() * 0.7;
-    streakOut.push({ x, y: heightPx * yPct, len, opacity, sw });
+    const rx = SCREEN_W * (0.08 + rng() * 0.1);
+    const ry = heightPx * (0.14 + rng() * 0.12);
+    const opacity = 0.18 + rng() * 0.14;
+    darkPuffOut.push({ x, y: heightPx * yPctClamped, rx, ry, opacity });
   }
 
-  return { path, streaks: streakOut, spanPx: span };
+  const lightCount = Math.max(2, Math.floor(band.streaks * 0.7));
+  const lightPuffOut: PuffSeed[] = [];
+  for (let i = 0; i < lightCount; i++) {
+    const yPct = 0.15 + (i / lightCount) * 0.7 + (rng() - 0.5) * 0.3;
+    const yPctClamped = Math.max(0.05, Math.min(0.95, yPct));
+    const yAbs = bandYPx + heightPx * yPctClamped;
+    if (yAbs >= particleZoneY) continue;
+    const x = rng() * SCREEN_W * 2;
+    const rx = SCREEN_W * (0.08 + rng() * 0.1);
+    const ry = heightPx * (0.14 + rng() * 0.12);
+    const opacity = 0.16 + rng() * 0.1;
+    lightPuffOut.push({ x, y: heightPx * yPctClamped, rx, ry, opacity });
+  }
+
+  return { path, darkPuffs: darkPuffOut, lightPuffs: lightPuffOut, spanPx: span };
 }
 
 // ─── v0.7 — Jupiter stormClouds seeding ──────────────────────────────────
@@ -397,7 +437,10 @@ function seedStormClouds(
     const baseX = rng() * SCREEN_W * 1.4;
     const baseY = yMinPx + rng() * (yMaxPx - yMinPx);
     const driftPhase = rng() * 1000;
-    const scale = 0.7 + rng() * 0.7;
+    // v0.7.1 — scale bumped from 0.7-1.4 → 1.0-1.8. Cells are now in the top
+    // third (away from playing field), so they can read larger without
+    // distracting from gameplay.
+    const scale = 1.0 + rng() * 0.8;
     const alpha = 0.85 + rng() * 0.12;
     const bubbleCount = 5 + Math.floor(rng() * 3);
     const baseR = (14 + rng() * 7) * scale;
@@ -439,8 +482,10 @@ function seedStormClouds(
 }
 
 // ─── v0.7 — Jupiter shearMotes seeding ───────────────────────────────────
-// Static base positions + per-mote wobble parameters. Wobble + drift
-// computed per-frame via Math.sin / nowMs in render — no per-frame seed.
+// Static base positions + per-mote wobble parameters. Wobble + drift +
+// rotation computed per-frame via Math.sin / nowMs in render — no
+// per-frame seeding.
+// v0.7.1 — added rotPhase + rotFreq for leaf-in-wind tumble effect.
 type ShearMoteSeed = {
   baseX: number;
   baseY: number;
@@ -453,6 +498,10 @@ type ShearMoteSeed = {
   wobbleAmp2: number;
   r: number;
   opacity: number;
+  /** v0.7.1 — initial rotation in radians [0, 2π). */
+  rotPhase: number;
+  /** v0.7.1 — signed rotation rate in rad/ms. ±slow tumble. */
+  rotFreq: number;
 };
 
 function seedShearMotes(
@@ -476,7 +525,12 @@ function seedShearMotes(
       wobbleAmp1: 6 + rng() * 8,
       wobbleAmp2: 2 + rng() * 4,
       r: minR + rng() * (maxR - minR),
-      opacity: 0.25 + rng() * 0.3,
+      // v0.7.1 — opacity range 0.25-0.55 → 0.55-0.95 for better visibility
+      // now that motes are confined to the bottom third (smaller stage).
+      opacity: 0.55 + rng() * 0.4,
+      // Slow tumble — ±0.0008 rad/ms = up to one full rotation every ~7s.
+      rotPhase: rng() * Math.PI * 2,
+      rotFreq: (rng() - 0.5) * 0.0016,
     });
   }
   return out;
@@ -1565,7 +1619,6 @@ function CloudBandRender({
   band,
   seed,
   preColor,
-  preStreak,
   t,
   scrollX,
   nowMs,
@@ -1573,7 +1626,6 @@ function CloudBandRender({
   band: Extract<Band, { kind: 'cloudBand' }>;
   seed: CloudBandSeed;
   preColor: ReadonlyArray<readonly [number, Oklch]>;
-  preStreak: ReadonlyArray<readonly [number, Oklch]>;
   t: number;
   scrollX: number;
   nowMs: number;
@@ -1581,8 +1633,24 @@ function CloudBandRender({
   // heightPx not needed at render time — the seed's pre-built path encodes
   // all height info (top wave + canvas-bottom closure). yPx places the band.
   const yPx = band.yPct * VIS_H * SCALE;
-  const col = oklchToHex(sampleOklchCurve(preColor, t));
-  const streakCol = oklchToHex(sampleOklchCurve(preStreak, t));
+  const baseOklch = sampleOklchCurve(preColor, t);
+  const col = oklchToHex(baseOklch);
+  // v0.7.1 r4 — both puff tints now derived from the band's own colorCurve
+  // (not streakCurve). Smaller L deltas so puffs read as in-band cloud
+  // variation — same hue family, just slightly brighter/darker — rather
+  // than as foreign overlays. streakCurve no longer sampled here (preStreak
+  // prop still received for back-compat) but stays in the schema for
+  // potential future use (e.g., proper streak overlay if needed).
+  const darkTint = oklchToHex([
+    Math.max(0, baseOklch[0] - 0.12),
+    baseOklch[1] * 0.95,
+    baseOklch[2],
+  ]);
+  const lightTint = oklchToHex([
+    Math.min(1, baseOklch[0] + 0.18),
+    baseOklch[1] * 0.85,
+    baseOklch[2],
+  ]);
 
   // Drift offset = parallax scroll + independent shear drift, normalised
   // to (-SCREEN_W, 0]. JS modulo preserves sign of dividend, so for
@@ -1608,26 +1676,71 @@ function CloudBandRender({
       <Group transform={[{ translateX: offset + seed.spanPx }]}>
         <Path path={seed.path} color={col} style="fill" antiAlias />
       </Group>
-      {/* Interior shear streaks. Clip to band region (y ∈ [0, heightPx]) so
-          streaks don't leak below into the next band. */}
-      <Group>
-        {seed.streaks.map((s, i) => {
-          const streakPath = Skia.Path.Make();
-          // Place streak at (s.x + streakOffset, s.y); wrap at 2W via modulo.
-          const sx2 = ((s.x + streakOffset) % (SCREEN_W * 2)) - SCREEN_W * 0.2;
-          streakPath.moveTo(sx2, s.y);
-          streakPath.lineTo(sx2 + s.len, s.y);
+      {/* v0.7.1 r2 — Two-tone swirl puffs (dark + light) with radial alpha
+          falloff for soft cloud-like edges. Each puff is rendered as a
+          unit Circle inside a non-uniform-scaled Group (scaleX = 1,
+          scaleY = ry/rx) — the Circle becomes an ellipse, and the
+          circular RadialGradient inside it stretches to match. Gradient
+          stops fade from full-opacity tint at centre to fully transparent
+          (alpha 00) at edge, giving each puff the soft falloff real
+          clouds have.
+          Both puff sets are clipped to the band's festoon path so they
+          respect the band's actual painted region. Dark puffs read as
+          shadow zones; light puffs (band base lifted toward white) read
+          as bright cream highlights — together they give the band the
+          light/shadow texture of real Jovian banding. */}
+      <Group clip={seed.path}>
+        {/* Dark / shadow puffs */}
+        {seed.darkPuffs.map((p, i) => {
+          const sx2 = ((p.x + streakOffset) % (SCREEN_W * 2)) - SCREEN_W * 0.2;
           return (
-            <Path
-              key={i}
-              path={streakPath}
-              color={streakCol}
-              style="stroke"
-              strokeWidth={s.sw}
-              strokeCap="round"
-              opacity={s.opacity}
-              antiAlias
-            />
+            <Group
+              key={`d${i}`}
+              transform={[
+                { translateX: sx2 },
+                { translateY: p.y },
+                { scaleX: 1 },
+                { scaleY: p.ry / p.rx },
+              ]}
+              opacity={p.opacity}
+            >
+              <Circle cx={0} cy={0} r={p.rx}>
+                {/* v0.7.1 r4 — dark puff tint = band base darkened in oklch
+                    (same hue family). Sharper falloff: inner 60% fully
+                    opaque, outer 40% feathers to transparent. */}
+                <RadialGradient
+                  c={vec(0, 0)}
+                  r={p.rx}
+                  colors={[darkTint, darkTint, darkTint + '00']}
+                  positions={[0, 0.6, 1]}
+                />
+              </Circle>
+            </Group>
+          );
+        })}
+        {/* Light / highlight puffs */}
+        {seed.lightPuffs.map((p, i) => {
+          const sx2 = ((p.x + streakOffset) % (SCREEN_W * 2)) - SCREEN_W * 0.2;
+          return (
+            <Group
+              key={`l${i}`}
+              transform={[
+                { translateX: sx2 },
+                { translateY: p.y },
+                { scaleX: 1 },
+                { scaleY: p.ry / p.rx },
+              ]}
+              opacity={p.opacity}
+            >
+              <Circle cx={0} cy={0} r={p.rx}>
+                <RadialGradient
+                  c={vec(0, 0)}
+                  r={p.rx}
+                  colors={[lightTint, lightTint, lightTint + '00']}
+                  positions={[0, 0.6, 1]}
+                />
+              </Circle>
+            </Group>
           );
         })}
       </Group>
@@ -1730,31 +1843,61 @@ function ShearMoteField({
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
   const tint = oklchToHex(sampleOklchCurve(preColor, t));
+  // v0.7.1 r2 — leaf-in-wind motion + 3-octave path variation + two-tone
+  // circular shape.
+  // Path: 3 sine octaves on the lateral axis, with prime-ratio frequencies
+  // (×0.4, ×0.3, ×0.17) and a cos in the third — breaks the obvious-sine
+  // pattern so each mote's trajectory looks distinct rather than
+  // pendulum-like. Vertical wobble also gets a third octave for chaos.
+  // Shape: two concentric circles. Dark body (1.2r) sits behind a light
+  // highlight (0.5r, offset 0.3r at the per-mote rotation angle). The
+  // highlight ORBITS around the body as the mote tumbles, giving a
+  // dimensional speck-with-catch-light feel. Tints derived from base
+  // tint via oklch L modulation (toward black for dark, toward white
+  // for light).
+  const baseOklch = sampleOklchCurve(preColor, t);
+  const darkTint = oklchToHex([baseOklch[0] * 0.55, baseOklch[1] * 0.85, baseOklch[2]]);
+  const lightTint = oklchToHex([
+    baseOklch[0] * 0.45 + 0.55,
+    baseOklch[1] * 0.7,
+    baseOklch[2],
+  ]);
   return (
     <Group>
       {motes.map((m, i) => {
         const drift = (nowMs * 0.05 * spec.speed * m.speedJ + m.driftPhase) % (SCREEN_W + 100);
         const xRaw = ((m.baseX + drift) % (SCREEN_W + 100)) - 50;
+        // 3-octave lateral swing — first two as before, third uses cos +
+        // prime-ratio (1.7×) frequency to break the layered-sine pattern.
+        const lateralSwing =
+          Math.sin(nowMs * m.wobbleFreq1 * 0.4 + m.wobblePhase) * 25 +
+          Math.sin(nowMs * m.wobbleFreq2 * 0.3 + m.wobblePhase * 0.7) * 12 +
+          Math.cos(nowMs * m.wobbleFreq1 * 1.7 + m.wobblePhase * 2.1) * 7;
+        // 3-octave vertical wobble. Third octave (cos) breaks the pendulum.
         const wobble =
-          Math.sin(nowMs * m.wobbleFreq1 + m.wobblePhase) * m.wobbleAmp1 +
-          Math.sin(nowMs * m.wobbleFreq2 + m.wobblePhase * 0.7) * m.wobbleAmp2;
-        const xJitter = Math.sin(nowMs * m.wobbleFreq1 * 0.6 + m.wobblePhase * 1.3) * 4;
-        const x = xRaw + xJitter;
+          Math.sin(nowMs * m.wobbleFreq1 * 0.7 + m.wobblePhase * 1.3) * m.wobbleAmp1 * 0.6 +
+          Math.sin(nowMs * m.wobbleFreq2 * 0.6 + m.wobblePhase) * m.wobbleAmp2 * 0.5 +
+          Math.cos(nowMs * m.wobbleFreq2 * 1.3 + m.wobblePhase * 0.9) * m.wobbleAmp2 * 0.35;
+        const x = xRaw + lateralSwing;
         const y = m.baseY + wobble;
-        const rx = m.r * 4;
-        const ry = m.r * 0.9;
-        // Build ellipse path inline — Path.addOval expects a rect.
-        const ePath = Skia.Path.Make();
-        ePath.addOval({ x: x - rx, y: y - ry, width: rx * 2, height: ry * 2 });
+        // Highlight orbit — angle drifts at rotFreq, offset is 0.3r at that angle.
+        const angle = m.rotPhase + nowMs * m.rotFreq;
+        const hlOffsetX = Math.cos(angle) * m.r * 0.3;
+        const hlOffsetY = Math.sin(angle) * m.r * 0.3;
+        const bodyR = m.r * 1.2;
+        const hlR = m.r * 0.5;
+        const op = m.opacity * density;
         return (
-          <Path
-            key={i}
-            path={ePath}
-            color={tint}
-            style="fill"
-            opacity={m.opacity * density}
-            antiAlias
-          />
+          <Group key={i}>
+            <Circle cx={x} cy={y} r={bodyR} color={darkTint} opacity={op} />
+            <Circle
+              cx={x + hlOffsetX}
+              cy={y + hlOffsetY}
+              r={hlR}
+              color={lightTint}
+              opacity={op}
+            />
+          </Group>
         );
       })}
     </Group>
@@ -1823,15 +1966,24 @@ function Aurora({
  */
 function Lightning({
   spec,
+  cells,
+  cellsSpec,
   t,
   nowMs,
 }: {
   spec: Extract<ParticleSpec, { kind: 'lightning' }>;
+  /** Storm cells provide the strike anchor points. Lightning bolts snap
+   *  to specific cells so the bolt top truly emerges from a cloud bottom. */
+  cells: StormCellSeed[];
+  cellsSpec: Extract<ParticleSpec, { kind: 'stormClouds' }> | undefined;
   t: number;
   nowMs: number;
 }): React.ReactElement | null {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
+  // No cells = no anchor points = skip lightning. Defensive — the iteration
+  // tool's design pairs lightning WITH stormClouds in Jupiter's theme.
+  if (cells.length === 0 || !cellsSpec) return null;
   const cycleMs = 8000;
   const cyclePos = (nowMs % cycleMs) / cycleMs;
   const rng = mulberry32(909);
@@ -1843,13 +1995,37 @@ function Lightning({
     alpha: number;
     geomSeed: number;
   };
+  // v0.7.1 r3 — filter cells to ON-SCREEN-with-margin first, then snap each
+  // flash slot to one of those. Cells drift across [-120, SCREEN_W + 120],
+  // so without filtering up to ~40% of slots fire off-screen and waste a
+  // flash. With filtering, every slot strikes a visible cell — apparent
+  // frequency goes up even though `count` stayed the same.
+  type OnScreenCell = { cellX: number; cellBottomY: number };
+  const onScreen: OnScreenCell[] = [];
+  for (const cell of cells) {
+    const drift = (nowMs * 0.008 * cellsSpec.speed + cell.driftPhase) % (SCREEN_W + 240);
+    const cellX = ((cell.baseX + drift) % (SCREEN_W + 240)) - 120;
+    // Margin of 30px from each screen edge so bolts (with ±20px jitter)
+    // can't fire too close to the canvas edge.
+    if (cellX >= 30 && cellX <= SCREEN_W - 30) {
+      const cellBottomY = cell.baseY + cell.bbox.y + cell.bbox.h;
+      onScreen.push({ cellX, cellBottomY });
+    }
+  }
+  if (onScreen.length === 0) return null;
+
   const flashes: Flash[] = [];
   for (let i = 0; i < spec.count; i++) {
     const startT = rng();
     const duration = 0.02 + rng() * 0.04;
-    const cx = 60 + rng() * (SCREEN_W - 120);
-    const cy = VIS_H * SCALE * (0.5 + rng() * 0.3);
+    const anchor = onScreen[i % onScreen.length]!;
+    const xJitter = (rng() - 0.5) * 40;
+    const cx = anchor.cellX + xJitter;
+    // Bolt top sits a few px below cell bottom for a clean "fork emerging
+    // from underside of cloud" read.
+    const topY = anchor.cellBottomY + 4;
     const boltLen = 80 + rng() * 110;
+    const cy = topY + boltLen / 2;
     const baseRadius = 90 + rng() * 110;
     let dt = cyclePos - startT;
     if (dt < 0) dt += 1;
@@ -1886,6 +2062,37 @@ function Lightning({
       )}
       {flashes.map((f, i) => {
         const r = mulberry32(f.geomSeed);
+        // v0.7.1 r2 — per-flash hue palette. Roll weights rebalanced (40
+        // cyan / 35 purple / 25 magenta) to make non-cyan flashes show up
+        // more often. Halos pushed more saturated, AND the bolt core now
+        // tints slightly toward the palette — previously the pure-white
+        // core dominated the reading and washed out the hue. Subtle on
+        // the core (90% white + 10% hue) so the strike still reads bright.
+        const hueRoll = r();
+        const palette =
+          hueRoll < 0.4
+            ? {
+                core: '#ffffff', // pure white — Jovian default
+                halo: '#80b8ff', // saturated cyan
+                bloomA: '#d8ecff',
+                bloomB: '#80a8ff',
+                bloomC: '#3050b0',
+              }
+            : hueRoll < 0.75
+              ? {
+                  core: '#f0e0ff', // hint of violet
+                  halo: '#9070ff', // saturated purple
+                  bloomA: '#e8d8ff',
+                  bloomB: '#9070ff',
+                  bloomC: '#4828a0',
+                }
+              : {
+                  core: '#ffe8fc', // hint of pink
+                  halo: '#e070d8', // saturated magenta
+                  bloomA: '#ffd8f4',
+                  bloomB: '#e070d8',
+                  bloomC: '#883080',
+                };
         const startY = f.cy - f.boltLen * 0.5;
         const endY = f.cy + f.boltLen * 0.5;
         // Build bolt polyline with parabolic-tapered jitter.
@@ -1931,19 +2138,31 @@ function Lightning({
         const bloomR = f.baseRadius * 1.8;
         return (
           <Group key={i}>
-            {/* Radial bloom */}
-            <Circle cx={f.cx} cy={f.cy} r={bloomR} opacity={f.alpha} blendMode="screen">
+            {/* v0.7.1 r2 — Full-canvas radial bloom. A Rect spanning the
+                whole canvas carries a RadialGradient centred at the strike
+                point with falloff radius ≈ canvas diagonal, so brightness
+                peaks at the bolt origin and decays evenly out to all four
+                edges. Reads as the sky itself flashing rather than a local
+                glow around the bolt. */}
+            <Rect
+              x={0}
+              y={0}
+              width={SCREEN_W}
+              height={VIS_H * SCALE}
+              opacity={f.alpha}
+              blendMode="screen"
+            >
               <RadialGradient
                 c={vec(f.cx, f.cy)}
-                r={bloomR}
-                colors={['#e8f4ff', '#a8c0e8', '#5a78b8']}
+                r={Math.max(SCREEN_W, VIS_H * SCALE) * 0.85}
+                colors={[palette.bloomA, palette.bloomB, palette.bloomC]}
                 positions={[0, 0.4, 1]}
               />
-            </Circle>
-            {/* Bolt halo — cyan-white wide stroke */}
+            </Rect>
+            {/* Bolt halo — palette-tinted wide stroke (cyan / purple / magenta) */}
             <Path
               path={boltPath}
-              color="#bfd8ff"
+              color={palette.halo}
               style="stroke"
               strokeWidth={6}
               strokeCap="round"
@@ -1956,7 +2175,7 @@ function Lightning({
               <Path
                 key={`h${j}`}
                 path={bp}
-                color="#bfd8ff"
+                color={palette.halo}
                 style="stroke"
                 strokeWidth={3}
                 strokeCap="round"
@@ -1966,10 +2185,10 @@ function Lightning({
                 antiAlias
               />
             ))}
-            {/* Bolt core — bright white narrow stroke */}
+            {/* Bolt core — palette-tinted near-white narrow stroke */}
             <Path
               path={boltPath}
-              color="#ffffff"
+              color={palette.core}
               style="stroke"
               strokeWidth={2}
               strokeCap="round"
@@ -1982,7 +2201,7 @@ function Lightning({
               <Path
                 key={`c${j}`}
                 path={bp}
-                color="#ffffff"
+                color={palette.core}
                 style="stroke"
                 strokeWidth={1.2}
                 strokeCap="round"
@@ -2334,14 +2553,13 @@ export function WorldRenderer({
       {pre.bands.map((b) => {
         if (b.band.kind === 'cloudBand') {
           const seed = cloudBandSeeds.get(b.band.id);
-          if (!seed || !b.streak) return null;
+          if (!seed) return null;
           return (
             <CloudBandRender
               key={b.band.id}
               band={b.band}
               seed={seed}
               preColor={b.color}
-              preStreak={b.streak}
               t={t}
               scrollX={scrollX}
               nowMs={nowMs}
@@ -2364,29 +2582,8 @@ export function WorldRenderer({
         );
       })}
 
-      {/* 8. Storm clouds (Jupiter — amorphous cells riding mid bands) */}
-      {stormCloudsSpec && stormCloudsColor && (
-        <StormCloudField
-          cells={stormCells}
-          spec={stormCloudsSpec}
-          preColor={stormCloudsColor}
-          t={t}
-          nowMs={nowMs}
-        />
-      )}
-
-      {/* 9. Shear motes (Jupiter — fast atmospheric particles) */}
-      {shearMotesSpec && motesColor && (
-        <ShearMoteField
-          motes={motes}
-          spec={shearMotesSpec}
-          preColor={motesColor}
-          t={t}
-          nowMs={nowMs}
-        />
-      )}
-
-      {/* 10. Gas giant spot (Jupiter — Great Red Spot, overlays bands + cells) */}
+      {/* 8. Gas giant spot (Jupiter — Great Red Spot, overlays bands).
+          Rendered BEFORE motes/clouds — both pass in front of it. */}
       {gasGiantSpots.map((c) => {
         if (c.celestial.kind !== 'gasGiantSpot' || !c.rim) return null;
         return (
@@ -2401,8 +2598,45 @@ export function WorldRenderer({
         );
       })}
 
-      {/* 11. Lightning flashes (Jupiter night — top of GRS + bands) */}
-      {lightningSpec && <Lightning spec={lightningSpec} t={t} nowMs={nowMs} />}
+      {/* 9. Shear motes (Jupiter — fast atmospheric particles).
+          v0.7.1 — moved BEFORE storm clouds so they read as small flecks
+          deep in the haze, with the larger cloud formations in front. */}
+      {shearMotesSpec && motesColor && (
+        <ShearMoteField
+          motes={motes}
+          spec={shearMotesSpec}
+          preColor={motesColor}
+          t={t}
+          nowMs={nowMs}
+        />
+      )}
+
+      {/* 10. Storm clouds (Jupiter — frontmost atmospheric layer).
+          v0.7.1 — render LAST among atmospheric elements so cells occlude
+          bands, GRS, and motes. Only lightning sits above. */}
+      {stormCloudsSpec && stormCloudsColor && (
+        <StormCloudField
+          cells={stormCells}
+          spec={stormCloudsSpec}
+          preColor={stormCloudsColor}
+          t={t}
+          nowMs={nowMs}
+        />
+      )}
+
+      {/* 11. Lightning flashes (Jupiter night — top of GRS + bands).
+          v0.7.1 r2 — bolts snap to storm cells via the cells/cellsSpec
+          props so the strike origin emerges from a real cloud bottom
+          rather than a random point in the cloud y-range. */}
+      {lightningSpec && (
+        <Lightning
+          spec={lightningSpec}
+          cells={stormCells}
+          cellsSpec={stormCloudsSpec}
+          t={t}
+          nowMs={nowMs}
+        />
+      )}
 
       {/* 12. Storm-eye celestials — overlay bands (legacy v0.5 GRS path,
           unused once jupiter.ts uses gasGiantSpot, but kept for back-compat) */}

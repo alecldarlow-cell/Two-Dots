@@ -172,12 +172,15 @@ export const jupiterTheme = {
   // ─── PARTICLES ───────────────────────────────────────────────────────────
   particles: [
     {
+      // v0.7.1 — moved to top third (yMinPct 0.32 → 0.05, yMaxPct 0.72 → 0.30)
+      // so they don't crowd the lower playing field. Count 6 → 8 to cover the
+      // wider y-band evenly. Speed 0.55 → 1.1 for more atmospheric flow read.
       id: 'stormCells',
       kind: 'stormClouds',
-      count: 6,
-      speed: 0.55,
-      yMinPct: 0.32,
-      yMaxPct: 0.72,
+      count: 8,
+      speed: 1.1,
+      yMinPct: 0.05,
+      yMaxPct: 0.3,
       densityCurve: [
         { t: 0.0, value: 0.65 }, // dawn — visible
         { t: 0.25, value: 0.95 }, // day  — full
@@ -193,12 +196,18 @@ export const jupiterTheme = {
       ],
     },
     {
+      // v0.7.1 — bigger + more visible, confined to bottom third so the
+      // central playfield (where dots fall through pipes) stays clear.
+      // Storm clouds occupy the top third; motes the bottom third —
+      // symmetrical atmospheric framing of the gameplay zone.
+      // sizeRange [0.6, 1.6] → [2.5, 5.0] (≈3× larger)
+      // yMinPct 0.20 → 0.67 (top of bottom third)
       id: 'shearMotes',
       kind: 'shearMotes',
       count: 18,
       speed: 1.6,
-      sizeRange: [0.6, 1.6],
-      yMinPct: 0.2,
+      sizeRange: [2.5, 5.0],
+      yMinPct: 0.67,
       yMaxPct: 0.95,
       densityCurve: [
         { t: 0.0, value: 0.55 },
@@ -236,9 +245,11 @@ export const jupiterTheme = {
       ],
     },
     {
+      // v0.7.1 — count 6 → 3. Halves simultaneous flash slots; with the
+      // 8s cycle that's now ~1 flash per ~2.5s instead of ~1.3s.
       id: 'lightning',
       kind: 'lightning',
-      count: 6,
+      count: 3,
       densityCurve: [
         { t: 0.0, value: 0.1 }, // dawn — distant residual storm
         { t: 0.25, value: 0.0 }, // day  — calm
@@ -254,23 +265,31 @@ export const jupiterTheme = {
       // Great Red Spot — drifts across the frame at dusk, peaking centred
       // around the dusk→night transition. Sized to feel "huge but not
       // all-consuming" — about 40% of frame width.
+      // v0.7.1 — radius 70 → 38 and y position 0.5 → 0.22 so the GRS sits
+      // up near the storm-cloud band rather than dominating the centre of
+      // the playing field. Still the signature dusk moment, but no longer
+      // crowds the lanes where dots fall.
       id: 'greatRedSpot',
       kind: 'gasGiantSpot',
-      radius: 70, // ry; rx = radius × aspectRatio
+      radius: 38, // ry; rx = radius × aspectRatio
       aspectRatio: 1.35,
       xPct: 0.5, // fallback; xCurve drives it
-      yPct: 0.5, // sits in the midBand2 region
+      yPct: 0.22, // sits up in the storm-cloud band region
       xCurve: [
         { t: 0.0, value: -0.4 }, // dawn  — far off-screen left
         { t: 0.25, value: -0.25 }, // day   — still off-screen, approaching
         { t: 0.5, value: 0.5 }, // dusk  — centred (signature moment)
         { t: 0.75, value: 1.05 }, // night — drifted off right edge
       ],
+      // Slight arc — sits lower at dawn (off-screen anyway), rises to a
+      // peak at dusk for the signature centring moment, descends again at
+      // night. Subtle (max 8% vis_h variation) — sells "drifting up + over
+      // + back down" without becoming a noticeable bounce.
       yCurve: [
-        { t: 0.0, value: 0.5 },
-        { t: 0.25, value: 0.5 },
-        { t: 0.5, value: 0.5 },
-        { t: 0.75, value: 0.5 },
+        { t: 0.0, value: 0.26 }, // dawn  — low (off-screen)
+        { t: 0.25, value: 0.2 }, // day   — rising
+        { t: 0.5, value: 0.18 }, // dusk  — peak (signature moment)
+        { t: 0.75, value: 0.24 }, // night — descending (off-screen)
       ],
       colorCurve: [
         { t: 0.0, color: '#8a3020' }, // dawn — muted (off-screen anyway)
