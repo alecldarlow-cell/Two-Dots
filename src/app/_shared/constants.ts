@@ -19,13 +19,21 @@ export const COL_L = '#FF5E35';
 export const COL_R = '#2ECFFF';
 export const COL_BG = '#07070f';
 export const COL_BG_FLASH = '#1c0404'; // brief reddish bg on death
-// Pipe wall colour — both halves use WALL_R; the prototype briefly draws a
-// WALL_L underlay before overwriting with WALL_R on the right half, but the RN
-// port skips the underlay since it's never visible.
-export const WALL_R = '#10355c';
-// Pipe gap edge — bright sky blue, deliberately not COL_R (cyan) so it doesn't
-// claim the right lane semantically. Stage 2.2 redesign: orange/cyan are now
-// reserved for "left dot / right dot"; pipes live in their own blue family.
+// Pipe body colour — v0.3-worlds redesign: dark desaturated navy. Sits in
+// the same hue family as Moon's mid-sky and Earth's night sky, so the pipe
+// reads as a foreground silhouette without the brutalist hardness of pure
+// black. Softer than the prototype's WALL_R = '#10355c' (which felt over-
+// saturated against the new painterly worlds), darker than that and lower-
+// chroma so it recedes properly against any sky. Name retained for minimal
+// call-site diff; consider renaming to PIPE_BODY in a future pass.
+export const WALL_R = '#0a2c44';
+// Pipe inner-edge highlight — 1px pinstripe just inside the body's left and
+// right edges. Warm-neutral so it ties subtly to the gold gap-cap (warm
+// family) and reads as "edge lit by the threshold" against any world.
+export const PIPE_INNER_EDGE = '#2a2620';
+// Legacy sky-blue tone — kept for back-compat in case anything references it,
+// but the v0.3 pipe redesign no longer uses it (gap caps now use GOLD; body
+// has no scanline overlay).
 export const PIPE_EDGE = '#7ac0e8';
 export const GOLD = '#FFD046';
 

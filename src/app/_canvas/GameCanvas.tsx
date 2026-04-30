@@ -31,7 +31,8 @@ import {
   COL_L,
   COL_R,
   GAME_H,
-  PIPE_EDGE,
+  GOLD,
+  PIPE_INNER_EDGE,
   SCALE,
   SCREEN_W,
   WALL_R,
@@ -40,7 +41,6 @@ import {
 import type { DisplaySnapshot } from '../_shared/snapshot';
 
 import { Dot } from './Dot';
-import { PipeScanlines } from './PipeScanlines';
 import { TitleBloom } from './TitleBloom';
 import { WorldRenderer } from './WorldRenderer';
 
@@ -145,45 +145,39 @@ export function GameCanvas({
           <Group key={pipe.id}>
             {segments.map((seg, segIdx) => (
               <Group key={segIdx}>
-                {/* Left half (WALL_R base — prototype draws WALL_L then overwrites with WALL_R) */}
-                <Rect x={pipeLeft} y={seg.y} width={halfW} height={seg.h} color={WALL_R} />
+                {/* v0.3-worlds — Edge-lit silhouette pipe.
+                 *  Body: solid near-black-with-cool (WALL_R) so the pipe reads
+                 *  as a foreground silhouette against any world's sky.
+                 *  Inner edges: 1px warm-neutral pinstripe (PIPE_INNER_EDGE)
+                 *  on each side, suggesting catchlight on a beveled object;
+                 *  warm-leaning hue ties subtly to the gold gap-cap.
+                 *  Gap cap: universal gold kill-line (GOLD) with a 14px
+                 *  inward bleed so the cap feels integrated, not stamped on.
+                 *  No scanlines (legacy retro-arcade treatment removed). */}
 
-                {/* Right half (WALL_R, COL_R inner edge) */}
+                {/* Solid body */}
+                <Rect x={pipeLeft} y={seg.y} width={sx(PIPE_W)} height={seg.h} color={WALL_R} />
+
+                {/* Inner-edge pinstripes — 1px hard line just inside the
+                    left and right edges of the body. */}
                 <Rect
-                  x={pipeLeft + halfW}
-                  y={seg.y}
-                  width={halfW}
-                  height={seg.h}
-                  color={WALL_R}
-                />
-
-                {/* Scanline texture — recoloured to PIPE_EDGE so the pipe
-                    stays in a single blue family. Stage 2.2 redesign:
-                    orange/cyan no longer appear on pipes. */}
-                <PipeScanlines
                   x={pipeLeft}
                   y={seg.y}
-                  width={sx(PIPE_W)}
+                  width={sx(1)}
                   height={seg.h}
-                  edgeCol={PIPE_EDGE}
+                  color={PIPE_INNER_EDGE}
+                />
+                <Rect
+                  x={pipeLeft + sx(PIPE_W) - sx(1)}
+                  y={seg.y}
+                  width={sx(1)}
+                  height={seg.h}
+                  color={PIPE_INNER_EDGE}
                 />
 
-                {/* Stage 2.2: outer-edge orange/cyan glow gradients and
-                    the hard 1px lane-coloured edges have been removed.
-                    Reduces the pipe's palette from 4 colours to 2 (navy
-                    body + sky-blue gap edge), freeing orange/cyan to mean
-                    only "left dot / right dot" in the visual language. */}
-
-                {/* Gap-facing cap (Stage 2.2 redesign): unified solid gold
-                    kill-line with an inner glow that fades into the pipe
-                    body. Replaces the previous two-half bicolor cap that
-                    read as jarring/separate. Gold ties the cap into the
-                    existing milestone/score visual language and reads as
-                    "the goal" rather than "left dot's edge / right dot's
-                    edge". The 6px hard edge gives players a clear contact
-                    line for the death condition; the 14px inner glow above
-                    (top seg) or below (bottom seg) bleeds the cap into the
-                    navy body so it feels integrated, not stamped on. */}
+                {/* Gap-facing cap — universal gold kill-line with a 14px
+                    inward bleed into the body so the cap reads as
+                    integrated rather than stamped on. */}
                 {seg.isTop ? (
                   /* Top segment: glow fades upward into body, then 6px solid edge */
                   <>
@@ -196,7 +190,7 @@ export function GameCanvas({
                       <LinearGradient
                         start={vec(0, seg.y + seg.h - sx(20))}
                         end={vec(0, seg.y + seg.h - sx(6))}
-                        colors={[PIPE_EDGE + '00', PIPE_EDGE + '99']}
+                        colors={[GOLD + '00', GOLD + '99']}
                       />
                     </Rect>
                     <Rect
@@ -204,7 +198,7 @@ export function GameCanvas({
                       y={seg.y + seg.h - sx(6)}
                       width={sx(PIPE_W)}
                       height={sx(6)}
-                      color={PIPE_EDGE}
+                      color={GOLD}
                     />
                   </>
                 ) : (
@@ -215,13 +209,13 @@ export function GameCanvas({
                       y={seg.y}
                       width={sx(PIPE_W)}
                       height={sx(6)}
-                      color={PIPE_EDGE}
+                      color={GOLD}
                     />
                     <Rect x={pipeLeft} y={seg.y + sx(6)} width={sx(PIPE_W)} height={sx(14)}>
                       <LinearGradient
                         start={vec(0, seg.y + sx(6))}
                         end={vec(0, seg.y + sx(20))}
-                        colors={[PIPE_EDGE + '99', PIPE_EDGE + '00']}
+                        colors={[GOLD + '99', GOLD + '00']}
                       />
                     </Rect>
                   </>
