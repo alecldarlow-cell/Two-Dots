@@ -3,7 +3,6 @@
  *   - Divider bilateral soft glow (COL_L left / COL_R right) + hard centre line
  *   - Survival pulse on divider
  *   - Pipes: solid base + scanlines + gold-cap edge + clear flash + pause shimmer
- *   - Milestone gold screen wash (full canvas tint during milestone pop)
  *   - Death particles
  *   - Left + right dots (with all per-dot effects via the <Dot> component)
  *   - Idle title bloom glow (idle phase only)
@@ -50,11 +49,10 @@ export interface GameCanvasProps {
   dotLDisplayY: number;
   dotRDisplayY: number;
   pauseShimmerOpacity: number;
-  goldWashAlpha: number;
   freezeAlpha: number;
-  // v0.3-worlds — when present, WorldRenderer mounts as the first child
-  // (behind divider/pipes/dots/particles). Optional to keep existing
-  // snapshot tests untouched; if absent, canvas renders as it did pre-v0.3.
+  // When present, WorldRenderer mounts as the first child (behind pipes/
+  // dots/particles). Optional to keep existing snapshot tests untouched;
+  // if absent, canvas renders without a planetary background.
   worldTheme?: WorldTheme;
   /** Time-of-day cycle ∈ [0,1]. 0=dawn, 0.25=day, 0.5=dusk, 0.75=night. */
   worldTod?: number;
@@ -68,7 +66,6 @@ export function GameCanvas({
   dotLDisplayY,
   dotRDisplayY,
   pauseShimmerOpacity,
-  goldWashAlpha,
   freezeAlpha,
   worldTheme,
   worldTod = 0.25,
@@ -100,9 +97,8 @@ export function GameCanvas({
         />
       )}
 
-      {/* v0.3-worlds redesign — split-screen tint, hard centre line, and
-       *  survival pulse all removed. The warm/cool dot pair (amber-L +
-       *  ice-R) carries L/R identity on its own. */}
+      {/* (Split-screen tint, hard centre line, and survival pulse all
+       *  removed. The warm/cool dot pair carries L/R identity on its own.) */}
 
       {/* ── Pipes with all visual effects ── */}
       {display.pipes.map((pipe) => {
@@ -125,7 +121,7 @@ export function GameCanvas({
           <Group key={pipe.id}>
             {segments.map((seg, segIdx) => (
               <Group key={segIdx}>
-                {/* v0.3-worlds — Edge-lit silhouette pipe.
+                {/* Edge-lit silhouette pipe.
                  *  Body: solid near-black-with-cool (WALL_R) so the pipe reads
                  *  as a foreground silhouette against any world's sky.
                  *  Inner edges: 1px warm-neutral pinstripe (PIPE_INNER_EDGE)
@@ -246,17 +242,6 @@ export function GameCanvas({
         );
       })}
 
-      {/* ── Milestone gold screen wash ── */}
-      {goldWashAlpha > 0 && (
-        <Rect
-          x={0}
-          y={0}
-          width={SCREEN_W}
-          height={GAME_H}
-          color={`rgba(255,208,70,${goldWashAlpha.toFixed(3)})`}
-        />
-      )}
-
       {/* ── Death particles ── */}
       {display.deathParticles.map((p, i) => (
         <Circle
@@ -270,8 +255,8 @@ export function GameCanvas({
       ))}
 
       {/* ── Left dot with all effects ── */}
-      {/* v0.3-worlds — dot colour comes from the active world's palette
-       *  (warm amber per world). Falls back to COL_L for legacy/no-world. */}
+      {/* Dot colour comes from the active world's palette (warm amber per
+       *  world). Falls back to COL_L if no world theme is active. */}
       <Dot
         cx={sx(LANE_L)}
         cy={dotLDisplayY * SCALE}

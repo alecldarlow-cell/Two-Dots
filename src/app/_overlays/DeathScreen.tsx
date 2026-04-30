@@ -2,7 +2,7 @@
  * DeathScreen — minimalist end-of-run overlay. Gated by
  * deathCountFrames <= scoreCountFrames in the parent (see showDeathOverlay).
  *
- * v0.3-worlds redesign — eyebrow + hero + footer pattern:
+ * Eyebrow + hero + footer pattern:
  *   1. World eyebrow on top — small all-caps "MOON" / "EARTH" / "JUPITER".
  *      Always visible (no countDone gate); names the context immediately.
  *   2. Big gold score — count-up animated, dead-centre, the hero.

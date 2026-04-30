@@ -54,7 +54,7 @@ import { DeathScreen } from './_overlays/DeathScreen';
 import { IdleScreen } from './_overlays/IdleScreen';
 import { PlayingHUD } from './_overlays/PlayingHUD';
 
-// v0.3-worlds — planetary backgrounds. Three worlds are now authored
+// Planetary backgrounds. Three worlds are authored
 // (Moon, Earth, Jupiter) and the WorldRenderer is wired through to the
 // gate-anchored ToD cycle and the score-derived theme picker. Set to
 // false to fall back to the pre-v0.3 dark background.
@@ -70,7 +70,7 @@ export default function GameScreen(): React.ReactElement {
   // ─── Derived render values ─────────────────────────────────────────────────
   const nowMs = Date.now();
 
-  // v0.3-worlds — world selection is now derived from player score:
+  // World selection is derived from player score:
   //   gates  0– 9 → Moon, 10–19 → Earth, 20+ → Jupiter (terminal).
   // No persistence; every run starts on Moon and progresses with the score.
   // Engine `gravityMul` wiring still pending — see spec §6.
@@ -103,8 +103,7 @@ export default function GameScreen(): React.ReactElement {
   const bgColor =
     display.flash > 6 ? (worldTheme.palette.bgFlash ?? COL_BG_FLASH) : COL_BG;
 
-  // Live score pop animation. v0.3-worlds: dropped the orange/cyan offset
-  // shadow values (shadowOff) since the redesigned HUD score has no
+  // Live score pop animation. No shadow offset — the HUD score has no
   // shadows — single gold core, scale-pop animation only.
   const popT = display.scorePop / 18;
   const scoreScale = 1 + popT * 0.4;
@@ -127,10 +126,9 @@ export default function GameScreen(): React.ReactElement {
       : 0;
   const mDriftY = (1 - mT) * 30;
 
-  // Survival pulse on the centre divider — removed in v0.3-worlds. The
-  // divider itself was removed when the warm/cool dot pair started carrying
-  // L/R identity; the pulse rendering became dead. Engine state field also
-  // cleaned up — see state.ts and step.ts.
+  // (Survival pulse + centre divider were removed when the warm/cool dot pair
+  //  started carrying L/R identity. Engine state field also cleaned up — see
+  //  state.ts and step.ts.)
 
   // Death overlay
   const showDeathOverlay =
@@ -139,11 +137,9 @@ export default function GameScreen(): React.ReactElement {
   // Count-up completion — gates the "reached <world>" caption reveal.
   const countDone = display.deathCountFrames === 0;
 
-  // Breathing thumb circles (prototype: 38 ± 5px radius, 700ms period).
-  // v0.3-worlds: thumbFillAlpha bumped from 0.05±0.03 (range 0.02–0.08, near
-  // invisible against the new world backgrounds) to 0.20±0.05 (range
-  // 0.15–0.25). Light-but-translucent white inside the tap circles so the
-  // affordance reads against any sky.
+  // Breathing thumb circles (38 ± 5px radius, 700ms period). thumbFillAlpha
+  // is 0.20±0.05 (range 0.15–0.25) — light-but-translucent white inside the
+  // tap circles so the affordance reads against any sky.
   const thumbR = (38 + 5 * Math.sin(nowMs / 700)) * SCALE;
   const thumbY = VIS_H * 0.72 * SCALE;
   const thumbFillAlpha = (0.2 + 0.05 * Math.sin(nowMs / 700)).toFixed(3);
@@ -157,25 +153,17 @@ export default function GameScreen(): React.ReactElement {
   const STANDARD_STATUS_BAR = 30;
   const notchOffset = Math.max(0, insets.top - STANDARD_STATUS_BAR);
 
-  // Tier-based HUD dots removed (v0.3-worlds): the in-game progression
-  // dots now derive from world reached (computed inside PlayingHUD), not
-  // from engine tiers. tierFor still drives engine difficulty curves but
-  // is no longer surfaced in the HUD.
+  // HUD progression dots derive from world reached (computed inside
+  // PlayingHUD), not from engine tiers. tierFor still drives engine
+  // difficulty curves but is no longer surfaced in the HUD.
 
-  // Divider glow + hard centre line removed (v0.3-worlds — see GameCanvas).
   // Pause shimmer — white overlay on each pipe segment, pulsing at ~8Hz
   const pauseShimmerOpacity = 0.08 + 0.08 * Math.sin(nowMs / 120);
 
-  // Gold screen wash — full-canvas tint during milestone pop window.
-  // Tier-boundary pop is more subdued (0.15 peak) than regular milestone (0.22 peak).
-  // v0.3-worlds: also gated on display.flash <= 6 so the wash doesn't
-  // composite on top of the death-flash bg (which would read as red-orange
-  // from gold + red blend). Clean separation between celebration and death
-  // feedback frames.
-  const goldWashAlpha =
-    display.milestonePop > 0 && display.phase === 'playing' && display.flash <= 6
-      ? (isTierBoundary ? 0.15 : 0.22) * mAlpha
-      : 0;
+  // (Gold screen wash removed — the full-canvas tint every 5 gates was too
+  //  intrusive against the planetary backgrounds. The "★ N ★" milestone HUD
+  //  pop and the chord_five / tier-boundary chord audio still mark the
+  //  moment; visual celebration is restricted to the HUD overlay.)
 
   // Freeze ramp — black overlay that ramps 0→0.45 during the particle freeze window
   // (deathCountFrames > scoreCountFrames). Gives weight to the death moment.
@@ -208,13 +196,12 @@ export default function GameScreen(): React.ReactElement {
       style={[styles.root, { backgroundColor: bgColor }]}
     >
       <View style={{ width: SCREEN_W, height: GAME_H, overflow: 'hidden' }}>
-        {/* v0.3-worlds — Lane backgrounds removed. Under the legacy
-         *  pre-worlds theme these warm-L / cool-R tint Views ramped alpha
-         *  by tier (LANE_ALPHA_BY_TIER) to amplify progression tension on
-         *  a dark canvas. With WorldRenderer owning the full background
-         *  and the warm/cool dot pair carrying L/R identity on its own,
-         *  the lane tints fought the world palette and produced an
-         *  unintended "darkens as you progress" effect. */}
+        {/* (Legacy lane backgrounds removed. Pre-worlds, warm-L / cool-R
+         *  tint Views ramped alpha by tier (LANE_ALPHA_BY_TIER) to amplify
+         *  progression tension on a dark canvas. With WorldRenderer owning
+         *  the full background and the dot pair carrying L/R identity, the
+         *  lane tints fought the world palette and read as "darkens as you
+         *  progress".) */}
 
         {/* ── Skia canvas — all in-game visual effects ── */}
         <GameCanvas
@@ -223,9 +210,8 @@ export default function GameScreen(): React.ReactElement {
           dotLDisplayY={dotLDisplayY}
           dotRDisplayY={dotRDisplayY}
           pauseShimmerOpacity={pauseShimmerOpacity}
-          goldWashAlpha={goldWashAlpha}
           freezeAlpha={freezeAlpha}
-          // v0.3-worlds — planetary background. worldTheme switches based on
+          // Planetary background. worldTheme switches based on
           // score (Moon → Earth → Jupiter), worldTod cycles per 10 gates with
           // adaptive tween between clears (see useWorldTod). worldScrollX
           // ticks gently from nowMs so parallax bands have motion independent

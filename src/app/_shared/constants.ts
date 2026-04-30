@@ -15,34 +15,28 @@ import { Dimensions } from 'react-native';
 import { W, VIS_H_MIN, VIS_H_MAX } from '@features/game/engine';
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
-// v0.3-worlds: dot palette softened from the prototype's vivid orange-red /
-// cyan to the theme palette's amber / ice. Affects everywhere COL_L /
-// COL_R is consumed — dots themselves, pulse rings, particles on death,
-// close-call rings, etc. Single-source change so the warm/cool identity
-// stays consistent across all surfaces.
+// Dot palette: amber-L / ice-R. Single source so the warm/cool identity
+// stays consistent across dots, pulse rings, particles, close-call rings.
 export const COL_L = '#FFB13B';
 export const COL_R = '#7FE5E8';
 export const COL_BG = '#07070f';
-// Legacy hardcoded death bg flash. v0.3-worlds: bg flash now driven by
-// the active world's theme.palette.bgFlash (Moon #1c0418, Earth #2a0814,
+// Legacy hardcoded death bg flash. The bg flash is now driven by the
+// active world's theme.palette.bgFlash (Moon #1c0418, Earth #2a0814,
 // Jupiter #3a1408) — this constant is kept as a safety fallback for any
 // pre-worlds code path that might still reference it.
 export const COL_BG_FLASH = '#1c0404';
-// Pipe body colour — v0.3-worlds redesign: dark desaturated navy. Sits in
-// the same hue family as Moon's mid-sky and Earth's night sky, so the pipe
-// reads as a foreground silhouette without the brutalist hardness of pure
-// black. Softer than the prototype's WALL_R = '#10355c' (which felt over-
-// saturated against the new painterly worlds), darker than that and lower-
-// chroma so it recedes properly against any sky. Name retained for minimal
-// call-site diff; consider renaming to PIPE_BODY in a future pass.
+// Pipe body colour — dark desaturated navy. Sits in the same hue family
+// as Moon's mid-sky and Earth's night sky, so the pipe reads as a
+// foreground silhouette without the hardness of pure black. Lower chroma
+// than the prototype's '#10355c' so it recedes against any sky. Name
+// retained for minimal call-site diff; consider renaming to PIPE_BODY.
 export const WALL_R = '#0a2c44';
 // Pipe inner-edge highlight — 1px pinstripe just inside the body's left and
 // right edges. Warm-neutral so it ties subtly to the gold gap-cap (warm
 // family) and reads as "edge lit by the threshold" against any world.
 export const PIPE_INNER_EDGE = '#2a2620';
-// Legacy sky-blue tone — kept for back-compat in case anything references it,
-// but the v0.3 pipe redesign no longer uses it (gap caps now use GOLD; body
-// has no scanline overlay).
+// Legacy sky-blue tone — kept for back-compat in case anything references it.
+// Current pipe rendering uses GOLD for gap caps and no scanline overlay.
 export const PIPE_EDGE = '#7ac0e8';
 export const GOLD = '#FFD046';
 

@@ -1,7 +1,7 @@
 /**
  * PlayingHUD — the bundle of overlays shown during the 'playing' phase:
- *   1. Live score — single gold Text, scale-pop animated. Shadows dropped
- *      in v0.3-worlds redesign (matches death-screen treatment).
+ *   1. Live score — single gold Text, scale-pop animated. No shadows
+ *      (matches death-screen treatment).
  *   2. World progress dots — three dots, first N filled by current world
  *      (Moon=1 / Earth=2 / Jupiter=3). Replaced the prior tier-based 1–7
  *      dot ramp + survival pulsing dot once the world progression became
@@ -80,11 +80,11 @@ export function PlayingHUD({
       </View>
 
       {/* ── Milestone pop overlay ──
-       *  v0.3-worlds: tier-name reveal ("Drift" / "Swing" / "Push" …) at
-       *  every-5-gate boundaries replaced with a world-transition reveal at
-       *  the two world-swap gates (10 → EARTH, 20 → JUPITER). Other gate
-       *  milestones (5, 15, 25, 30, 35) still get the extended celebratory
-       *  pop and the ★ N ★ headline, just no name reveal. */}
+       *  World-transition reveal at the two world-swap gates (10 → EARTH,
+       *  20 → JUPITER). Other gate milestones (5, 15, 25, 30, 35) get the
+       *  extended celebratory pop and the ★ N ★ headline, no name reveal.
+       *  (Replaces the prior tier-name reveal, "Drift" / "Swing" / "Push"
+       *  …, at every-5-gate boundaries.) */}
       {display.milestonePop > 0 && (
         <View
           pointerEvents="none"

@@ -1,7 +1,7 @@
 /**
  * Moon — clinical · starlit · exposed · ×0.7 score · low gravity
  *
- * v0.3-worlds — first WorldTheme, conforms to types.ts (see world-system.md §1).
+ * First WorldTheme — conforms to types.ts (see world-system.md §1).
  * Frozen `as const`. Static. Never mutated per-frame.
  *
  * Locked semantics (per spec §1):
@@ -44,15 +44,13 @@ export const moonTheme = {
   // once the visual pass is locked.
   gravityMul: 1.0,
   scoreMul: 0.7,
-  // v0.5 — sharp horizon snap (Moon has no atmosphere). Day/night dominate;
-  // dawn/dusk are just brief transitions through the horizon line.
-  // TODO(post-v0.3): at 10-gate cycle resolution the 47/3/47/3 plateau
-  // weighting makes the dawn/dusk transitions ~30% of one gate-clear
-  // interval each, which reads as imperceptible. Consider rebalancing to
-  // 40/10/40/10 (still plateau-dominant but with full-gate transitions)
-  // for more legible cycling without losing the airless feel. Confirmed
-  // working as designed in v0.3 — Moon's regolith plain and star density
-  // do shift across the cycle, just subtly.
+  // Sharp horizon snap (Moon has no atmosphere). Day/night dominate;
+  // dawn/dusk are brief transitions through the horizon line.
+  //
+  // Known characteristic: at 10-gate cycle resolution the 47/3/47/3
+  // plateau weighting makes the dawn/dusk transitions ~30% of one gate
+  // each — visually subtle by design. The regolith plain and star density
+  // do shift across the cycle, just quietly. Accepted as the airless feel.
   cycleProfile: 'airless',
 
   sky: {
@@ -159,11 +157,11 @@ export const moonTheme = {
       id: 'earth',
       kind: 'earth',
       xPct: 0.78,
-      // v0.3-worlds idle-screen tweak: yPct lifted from 0.18 to 0.10 so the
-      // Earth-from-Moon celestial sits higher in the sky and clears the
-      // TWO/DOTS idle title (which lands around logical y=170, ~23% of
-      // VIS_H from top). Earth's radius=28 means body spans (yPct*VIS_H ±
-      // 28); at 0.10 the bottom edge sits well above the title baseline.
+      // yPct=0.10 keeps the Earth-from-Moon celestial high in the sky so
+      // it clears the TWO/DOTS idle title (which lands around logical
+      // y=170, ~23% of VIS_H from top). Earth's radius=28 means body spans
+      // (yPct*VIS_H ± 28); at 0.10 the bottom edge sits well above the
+      // title baseline.
       yPct: 0.1,
       radius: 28,
       colorCurve: [

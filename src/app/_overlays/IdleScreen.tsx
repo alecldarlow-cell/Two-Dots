@@ -2,13 +2,12 @@
  * IdleScreen — the full-screen overlay shown during the 'idle' phase, before
  * the first tap of a run.
  *
- * v0.3-worlds redesign: refined split-title direction (Direction A). Drops
- * the prototype's +3px cross-lane ghost duplicate (which read as
- * retro-arcade against the new painterly worlds), softens the title hues
- * from the vivid prototype lane colours (COL_L/COL_R = #FF5E35 / #2ECFFF)
- * to the theme palette's amber/ice family (#FFB13B / #7FE5E8). Lane hints
- * are dimmed via opacity. Thumb circles get a more visible white fill so
- * the breathing affordance reads against the dark/atmospheric world.
+ * Refined split-title direction (Direction A). Drops the prototype's
+ * +3px cross-lane ghost duplicate (which read as retro-arcade against the
+ * painterly worlds), softens the title hues to the theme palette's
+ * amber/ice family (#FFB13B / #7FE5E8). Lane hints are dimmed via
+ * opacity. Thumb circles get a visible white fill so the breathing
+ * affordance reads against any atmospheric world.
  *
  * Layered (top to bottom):
  *   - "TWO" on left lane (amber) / "DOTS" on right lane (ice).
@@ -139,10 +138,9 @@ export function IdleScreen({
         <Text style={[styles.thumbLabel, { color: TITLE_R }]}>TAP</Text>
       </View>
 
-      {/* Lane labels removed (v0.3-worlds): the tap circles + the dot
-       *  positions in their respective lanes already teach the L/R
-       *  control mapping. Explicit "LEFT" / "RIGHT" text was redundant
-       *  and added visual noise to the idle screen. */}
+      {/* (No lane labels — the tap circles and the in-lane dot positions
+       *  already teach the L/R control mapping. Explicit "LEFT" / "RIGHT"
+       *  text was redundant and added visual noise.) */}
     </View>
   );
 }
