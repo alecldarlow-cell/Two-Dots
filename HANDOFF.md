@@ -79,7 +79,7 @@ From `UX_AUDIT.md`:
 | `package.json`                                                        | `expo-audio ~1.1.x` for audio (migrated from `expo-av` during the SDK 54 upgrade)         |
 | `app.config.ts`                                                       | Expo config — bundle ID `com.newco.twodots`, icons, splash, plugins                       |
 | `eas.json`                                                            | EAS profiles (dev/preview/prod). `projectId` empty until `eas init`                       |
-| `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`, `004_analytics_kpi_views.sql` (superseded), `005_kpi_functions_and_invoker_views.sql` (current public-aggregate surface for the dashboard) |
+| `supabase/migrations/`                                                | `001_devices.sql`, `002_scores.sql`, `003_analytics_events.sql`, `004_analytics_kpi_views.sql` (superseded), `005_kpi_functions_and_invoker_views.sql` (current public-aggregate surface), `006_devices_role_and_kpi_filter.sql` (adds `role` column to devices + filters), `007_kpi_filter_param.sql` (single-arg `p_filter`, superseded by 008), `008_kpi_date_filter_param.sql` (current — `p_filter` + `p_since` two-arg signature), `009_drop_no_arg_kpi_signatures.sql` (cleanup — drops the zero-arg overloads from 005 so each kpi_* function has one canonical signature) |
 | `docs/dashboard.html`                                                 | Static read-only KPI dashboard. Calls `supabase.rpc('kpi_overview' \| 'kpi_retention' \| 'kpi_drop_off_by_tier')`. Anon key + URL baked in; safe because RLS on `analytics_events` is service-role-only and the RPC functions only return aggregates. **Footgun:** local variable holding the client must NOT be named `supabase` — collides with the `@supabase/supabase-js@2` UMD's top-level `let supabase`. We use `sb`. |
 | `PLAN.md`                                                             | Sequenced roadmap of remaining stages                                                     |
 | `BUG_AUDIT.md`                                                        | Stage 2.1 audit log                                                                       |
@@ -255,7 +255,7 @@ Run with `npm test`.
 
 Three tables, all with RLS enabled:
 
-- **`devices`** — `device_id UUID PK`, `created_at`
+- **`devices`** — `device_id UUID PK`, `created_at`, `role` (`'tester'` default | `'internal'`, added in 006). Internal devices are excluded from the public dashboard's default view.
 - **`scores`** — `id`, `device_id FK`, `session_id`, `score`, `tier`, `death_side`, `created_at`
 - **`analytics_events`** — `id`, `device_id FK`, `session_id`, `run_index`, `event_type`, `payload JSONB`, `created_at`
 
@@ -266,9 +266,11 @@ Two leaderboard views over `scores` + `devices` (publicly readable, `WITH (secur
 
 Three RPC functions over `analytics_events` (`SECURITY DEFINER`, `EXECUTE` granted to `anon`, `search_path = ''` pinned — see migration 005). They are the *only* public read surface for analytics; the underlying table is service-role-read-only:
 
-- **`kpi_overview()`** — singleton row: total_runs, total_devices, total_sessions, retry_rate_pct, mean_run_length_ms, mean_close_calls_per_run
-- **`kpi_drop_off_by_tier()`** — death histogram by tier (1–8)
-- **`kpi_retention()`** — D1 / D7 retention plus eligible-cohort sizes
+- **`kpi_overview(p_filter, p_since)`** — singleton row: total_runs, total_devices, total_sessions, retry_rate_pct, mean_run_length_ms, mean_close_calls_per_run
+- **`kpi_drop_off_by_tier(p_filter, p_since)`** — death histogram by tier (1–8)
+- **`kpi_retention(p_filter, p_since)`** — D1 / D7 retention plus eligible-cohort sizes
+
+All three accept the same two optional parameters: `p_filter` ∈ `'all' | 'tester' | 'internal'` (default `'tester'`) and `p_since timestamptz` (default NULL = all time). The dashboard exposes both as toggle rows.
 
 Migrations in `supabase/migrations/` (currently 001–005). Connection via `.env` (gitignored):
 

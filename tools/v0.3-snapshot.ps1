@@ -4,8 +4,10 @@
 #   .\tools\v0.3-snapshot.ps1 "moon point 3 — crater field rewrite"
 #   .\tools\v0.3-snapshot.ps1 "earth point 5 — bird wing-flap fix"
 #
-# Stages everything and commits with a "round 6: <message>" prefix so
+# Stages everything and commits with a "round 8: <message>" prefix so
 # history is readable and grep-able. No checkpoints lost — git owns it now.
+# Round number bumped each session — keep this comment + the commit -m line
+# in sync (currently round 8, polish on Jupiter).
 
 param(
     [Parameter(Mandatory = $true)]
@@ -25,7 +27,7 @@ Write-Host "Staging:" -ForegroundColor Cyan
 Write-Host $status
 
 git add -A
-git commit -m "round 6: $Message"
+git commit -m "round 8: $Message"
 
 Write-Host ""
 Write-Host "Snapshot committed. Inspect: git log --oneline -5" -ForegroundColor Green

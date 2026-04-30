@@ -23,12 +23,18 @@
   <script src="world/theme-schema.js?v=2"></script>
   <script src="world/theme-moon.js"></script>
   <script src="world/theme-earth.js?v=4"></script>
+  <!-- Shared geometry bundle (built from src/features/game/world/geometry
+       via `npm run build:geometry` — auto-rebuilt by serve-design-iteration.ps1).
+       Single source of truth for path generators, crater/cloud/bird/grass
+       seeders, Earth continents. Same code consumed by the Skia production
+       renderer. Registers `window.WorldGeometry`. -->
+  <script src="world/geometry-bundle.js?v=6"></script>
   <script>
     window.CURRENT_THEME = window.EarthTheme;
     window.CURRENT_THEME_INDEX = '02';
     window.CURRENT_THEME_GRAVITY_LABEL = 'standard gravity';
   </script>
-  <script type="text/babel" src="world/world-renderer.jsx"></script>
+  <script type="text/babel" src="world/world-renderer.jsx?v=6"></script>
   <script type="text/babel" src="world/game-overlay.jsx"></script>
 
   <script type="text/babel" src="app.jsx"></script>

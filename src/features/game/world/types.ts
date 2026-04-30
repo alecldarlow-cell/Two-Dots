@@ -4,6 +4,13 @@
  * See docs/world-system.md §1 for the rationale and locked decisions.
  *
  * Schema changelog:
+ *   v0.6 — `Celestial.kind: 'earth'` — Earth-from-Moon stylised body
+ *          (blue ocean + Africa/Europe/Americas/Madagascar continents +
+ *          polar ice caps + atmospheric halo + soft terminator). Triggers
+ *          a dedicated render path that supersedes the abstract-blob
+ *          'planet' rendering for the Moon's earth-in-sky celestial.
+ *          phaseCurve is ignored for `kind: 'earth'` — the dedicated
+ *          render path bakes its own static terminator.
  *   v0.5 — `Celestial.phaseCurve?` (terminator); `Celestial.xCurve?` /
  *          `yCurve?` (arcing celestials); `WorldTheme.cycleProfile` ('atmospheric'
  *          for plateau-weighted day/night, 'airless' for sharp transitions);
@@ -147,7 +154,7 @@ export type ParticleSpec =
 
 export type Celestial = {
   id: string;
-  kind: 'planet' | 'sun' | 'moon' | 'storm-eye';
+  kind: 'planet' | 'sun' | 'moon' | 'storm-eye' | 'earth';
   /** Static fallback position, used when xCurve/yCurve are absent. */
   xPct: number;
   yPct: number;

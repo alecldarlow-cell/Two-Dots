@@ -46,148 +46,18 @@ function SkyBand({ theme, t, w, h }) {
 }
 
 // ─── Silhouette path generators ──────────────────────────────────────────────
-// 'soft-craters' — gentle wavy horizon
-function softCraterPath(w, h, scrollX, seed) {
-  const rng = mulberry32(seed);
-  const points = 24;
-  const pts = [];
-  for (let i = 0; i <= points; i++) {
-    const x = (i / points) * w * 2;
-    const y =
-      Math.sin((x + scrollX) * 0.012) * h * 0.35 +
-      Math.sin((x + scrollX) * 0.04 + rng() * 6) * h * 0.18 +
-      h * 0.55;
-    pts.push([x - (scrollX % w), y]);
-  }
-  let d = `M ${pts[0][0]},${h} L ${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]},${pts[i][1]}`;
-  d += ` L ${pts[pts.length - 1][0]},${h} Z`;
-  return d;
-}
-
-// 'cratered-horizon' — Moon mid ridge. Three octaves + crater dips. Higher
-// resolution (96 points across 2.4× width) eliminates the polygon-ish feel
-// from the 36-point version. Per Moon point 5 (round 6).
-function crateredHorizonPath(w, h, scrollX, seed) {
-  const rng = mulberry32(seed);
-  const j1 = rng() * 6;
-  const j2 = rng() * 6;
-  const j3 = rng() * 6;
-  const points = 96;
-  const span = w * 2.4;
-  const offset = -(scrollX % w);
-  const pts = [];
-  for (let i = 0; i <= points; i++) {
-    const x = (i / points) * span;
-    // Three-octave silhouette: large primary peaks + medium variation + fine
-    // surface detail. Base shifted up (0.40 vs 0.45) so peaks reach higher.
-    const base =
-      Math.sin(x * 0.018 + j1) * h * 0.55 +
-      Math.sin(x * 0.07 + j2) * h * 0.20 +
-      Math.sin(x * 0.18 + j3) * h * 0.06 +
-      h * 0.40;
-    // Wider crater dip events (~every 200x) for sharper foreground crater feel.
-    const crater = Math.sin(x * 0.005) > 0.85 ? -h * 0.12 : 0;
-    pts.push([x + offset, base + crater]);
-  }
-  let d = `M ${pts[0][0]},${h} L ${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]},${pts[i][1]}`;
-  d += ` L ${pts[pts.length - 1][0]},${h} Z`;
-  return d;
-}
-
-// 'mountains' — broad rounded silhouette anchored to the bottom of its band.
-// Peaks lowered (was 0.65-0.95 of band height, now 0.45-0.75) per Earth
-// point 4 (round 6) — gentler slopes, less aggressive silhouette.
-function mountainsPath(w, h, scrollX, seed) {
-  const rng = mulberry32(seed);
-
-  const span = w * 2.5;
-  const numNodes = 5;
-  const nodes = [];
-  for (let i = 0; i <= numNodes; i++) {
-    const x = (i / numNodes) * span;
-    const isPeak = i % 2 === 1;
-    let heightFrac;
-    if (isPeak) {
-      heightFrac = 0.45 + rng() * 0.30; // peaks reach 45-75% of band height
-    } else {
-      heightFrac = 0.15 + rng() * 0.20; // valleys 15-35%
-    }
-    nodes.push([x, h * (1 - heightFrac)]);
-  }
-
-  const offset = -(scrollX % w);
-
-  let d = `M ${nodes[0][0] + offset},${h}`;
-  d += ` L ${nodes[0][0] + offset},${nodes[0][1]}`;
-
-  for (let i = 1; i < nodes.length; i++) {
-    const p0 = nodes[i - 1];
-    const p1 = nodes[i];
-    const dx = p1[0] - p0[0];
-    const c1x = p0[0] + dx * 0.4 + offset;
-    const c1y = p0[1];
-    const c2x = p1[0] - dx * 0.4 + offset;
-    const c2y = p1[1];
-    d += ` C ${c1x},${c1y} ${c2x},${c2y} ${p1[0] + offset},${p1[1]}`;
-  }
-
-  const last = nodes[nodes.length - 1];
-  d += ` L ${last[0] + offset},${h} Z`;
-  return d;
-}
-
-// 'hills' — gentle low-frequency rolling sine. Soft, broad shoulders, no peaks.
-// Anchored to bottom of band; top edge undulates ~25-50% of band height.
-function hillsPath(w, h, scrollX, seed) {
-  const rng = mulberry32(seed);
-  const points = 60;
-  const span = w * 2.4;
-  const offset = -(scrollX % w);
-  // Pre-jitter to break symmetry
-  const j1 = rng() * 6;
-  const j2 = rng() * 6;
-  const pts = [];
-  for (let i = 0; i <= points; i++) {
-    const x = (i / points) * span;
-    // Two overlaid low-frequency sines + tiny detail
-    const y =
-      Math.sin(x * 0.0035 + j1) * h * 0.30 +
-      Math.sin(x * 0.011 + j2) * h * 0.13 +
-      Math.sin(x * 0.045 + rng() * 6) * h * 0.04 +
-      h * 0.55;
-    pts.push([x + offset, y]);
-  }
-  let d = `M ${pts[0][0]},${h} L ${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]},${pts[i][1]}`;
-  d += ` L ${pts[pts.length - 1][0]},${h} Z`;
-  return d;
-}
-
-// 'singleHill' — flat foreground rise per Earth point 3 (round 6 review).
-// Bell curve with peak lowered (h*0.05 → h*0.55), no surface ripple, 120
-// points for smoother lines.
-function singleHillPath(w, h, scrollX, seed) {
-  const span = w * 2.0;
-  const offset = -(scrollX % w);
-  const peakX = span * 0.42;
-  const peakY = h * 0.55;
-  const points = 120;
-  const pts = [];
-  for (let i = 0; i <= points; i++) {
-    const x = (i / points) * span;
-    const dx = (x - peakX) / (span * 0.55);
-    const bell = 1 / (1 + dx * dx);
-    const tilt = (x - peakX) > 0 ? -dx * 0.04 * h : 0;
-    const y = h - (h - peakY) * bell + tilt;
-    pts.push([x + offset, y]);
-  }
-  let d = `M ${pts[0][0]},${h} L ${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]},${pts[i][1]}`;
-  d += ` L ${pts[pts.length - 1][0]},${h} Z`;
-  return d;
-}
+// Shared path generators (mountains, hills, singleHill, cratered-horizon,
+// soft-craters) live in @features/game/world/geometry/paths — built into
+// window.WorldGeometry by `npm run build:geometry` (auto-rebuilt by
+// serve-design-iteration.ps1). Single source of truth with the Skia
+// production renderer.
+//
+// Storm-bands stays inline below — Jupiter design is in flight (round 7);
+// don't share until it locks.
+//
+// Scroll offset is now applied at the SilhouetteBand wrapper via translate(),
+// not baked into the path coordinates. The shared geometry returns paths in
+// band-local coords (y=0 at top, y=heightPx at bottom) with no scroll bake-in.
 
 // 'storm-bands' — Jupiter — atmospheric ribbon with subtle flow undulation
 // along the top edge. Amplitude ~6% of band height. Used by Jupiter's bands
@@ -215,119 +85,40 @@ function stormBandsPath(w, h, scrollX, seed) {
 // singleHill silhouette. Two-tone (lighter front blade over darker side
 // blades) for depth, ToD-aware colours, parallax-scrolling. Per Earth
 // foreground review (round 6 — "tufts of three blades, varied angles").
-function renderGrassTufts(band, h, sx, t, w) {
-  // Two grass colour curves — light (front blade) and dark (back blades).
-  // Both shift through the day cycle: vivid in day, muted dawn/dusk, near
-  // black at night. Light/dark contrast gives the clumps depth.
-  const grassLightCurve = [
-    { t: 0.00, color: '#6a8458' }, // dawn — cool muted green
-    { t: 0.25, color: '#5aa040' }, // day  — vivid grass green
-    { t: 0.50, color: '#7a8038' }, // dusk — warm olive
-    { t: 0.75, color: '#0a1410' }, // night — near-black green
-  ];
-  const grassDarkCurve = [
-    { t: 0.00, color: '#3e5430' }, // dawn — deep moss
-    { t: 0.25, color: '#356528' }, // day  — saturated forest
-    { t: 0.50, color: '#4f5020' }, // dusk — dark olive
-    { t: 0.75, color: '#050a08' }, // night — almost black
-  ];
-  const grassLight = sampleColorCurve(grassLightCurve, t);
-  const grassDark = sampleColorCurve(grassDarkCurve, t);
+function renderGrassTufts(band, h, t, w) {
+  // Blade specs + colour stops + computeBladePoints all live in the shared
+  // geometry bundle (window.WorldGeometry). Returns band-local coords; the
+  // SilhouetteBand wrapper applies translate(dx, y) so blades scroll with
+  // the silhouette and sit on the bell-curve top edge.
+  const G = window.WorldGeometry;
+  const grassLight = sampleColorCurve([...G.GRASS_LIGHT_STOPS], t);
+  const grassDark = sampleColorCurve([...G.GRASS_DARK_STOPS], t);
+  const seed = 7777;
+  const { light: lightBlades, dark: darkBlades } = G.seedGrassBlades(w, h, seed);
 
-  const span = w * 2.0;
-  const offset = -(sx % w);
-  const peakX = span * 0.42;
-  const peakY = h * 0.55; // matches singleHillPath
-  const rng = mulberry32(7777);
-  const clumpSpacing = 22; // wider so bigger clumps don't pile up
-  const darkBlades = [];
-  const lightBlades = [];
-
-  // Build a single curved blade as a closed Q-curve path.
-  //   xBase, yBase   blade attachment point (on the silhouette top edge)
-  //   angle          tilt from vertical, in radians (0 = straight up)
-  //   length         blade length in px
-  //   baseWidth      half-width of blade base
-  //   curlDir        bend direction along the blade (-1 ↔ +1)
-  function makeBlade(xBase, yBase, angle, length, baseWidth, curlDir) {
-    const tipX = xBase + Math.sin(angle) * length;
-    const tipY = yBase - Math.cos(angle) * length;
-    const midX = xBase + Math.sin(angle) * length * 0.5;
-    const midY = yBase - Math.cos(angle) * length * 0.5;
-    // Curl: shift mid perpendicular to blade direction
-    const curlAmount = length * 0.15 * curlDir;
-    const curlX = Math.cos(angle) * curlAmount;
-    const curlY = Math.sin(angle) * curlAmount;
-    // Perpendicular offset for blade thickness
-    const perpX = Math.cos(angle) * baseWidth * 0.5;
-    const perpY = Math.sin(angle) * baseWidth * 0.5;
+  function bladeToPath(blade) {
+    const pts = G.computeBladePoints(blade);
     return (
-      `M ${xBase - baseWidth},${yBase} ` +
-      `Q ${(midX + curlX - perpX).toFixed(2)},${(midY + curlY - perpY).toFixed(2)} ` +
-      `${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
-      `Q ${(midX + curlX + perpX).toFixed(2)},${(midY + curlY + perpY).toFixed(2)} ` +
-      `${xBase + baseWidth},${yBase} Z`
+      `M ${pts.baseLeft[0]},${pts.baseLeft[1]} ` +
+      `Q ${pts.ctrl1[0].toFixed(2)},${pts.ctrl1[1].toFixed(2)} ` +
+      `${pts.tip[0].toFixed(2)},${pts.tip[1].toFixed(2)} ` +
+      `Q ${pts.ctrl2[0].toFixed(2)},${pts.ctrl2[1].toFixed(2)} ` +
+      `${pts.baseRight[0]},${pts.baseRight[1]} Z`
     );
   }
 
-  for (let x = 0; x <= span; x += clumpSpacing) {
-    if (rng() < 0.18) continue; // ~18% gaps — creates visible clusters and gaps
-    const dx = (x - peakX) / (span * 0.55);
-    const bell = 1 / (1 + dx * dx);
-    const tilt = (x - peakX) > 0 ? -dx * 0.04 * h : 0;
-    const yEdge = h - (h - peakY) * bell + tilt;
-    // Per-clump x jitter so positions aren't on a fixed grid
-    const xJitter = (rng() - 0.5) * clumpSpacing * 0.4;
-    const xPos = x + offset + xJitter;
-    const clumpScale = 0.7 + rng() * 0.7; // 0.7-1.4 — wider variation
-
-    // Center blade — tallest, mostly vertical with stronger wobble. Lighter
-    // shade so it pops against the side blades behind it.
-    const centerAngle = (rng() - 0.5) * 0.5; // ±~14° wobble (was ±~9°)
-    const centerH = (16 + rng() * 10) * clumpScale; // ~11-36px tall
-    const centerBaseW = (1.8 + rng() * 0.6) * clumpScale;
-    const centerCurl = (rng() - 0.5) * 1.2;
-    lightBlades.push(makeBlade(xPos, yEdge, centerAngle, centerH, centerBaseW, centerCurl));
-
-    // Left blade — angled out left, shorter. Darker shade (recedes).
-    const leftAngle = -0.45 + (rng() - 0.5) * 0.45; // wider angle range
-    const leftH = (12 + rng() * 5) * clumpScale; // ~8-24px
-    const leftBaseW = (1.3 + rng() * 0.4) * clumpScale;
-    const leftCurl = 0.5 + rng() * 0.5; // 0.5-1.0
-    darkBlades.push(makeBlade(xPos - 2, yEdge, leftAngle, leftH, leftBaseW, leftCurl));
-
-    // Right blade — angled out right, shorter. Darker.
-    const rightAngle = 0.45 + (rng() - 0.5) * 0.45;
-    const rightH = (12 + rng() * 5) * clumpScale;
-    const rightBaseW = (1.3 + rng() * 0.4) * clumpScale;
-    const rightCurl = -(0.5 + rng() * 0.5);
-    darkBlades.push(makeBlade(xPos + 2, yEdge, rightAngle, rightH, rightBaseW, rightCurl));
-
-    // Occasionally (20%) add a 4th rogue blade for more variety. Random
-    // angle, light shade, helps break up the symmetric 3-blade pattern.
-    if (rng() < 0.2) {
-      const rogueAngle = (rng() - 0.5) * 1.0; // wide range -29° to +29°
-      const rogueH = (10 + rng() * 6) * clumpScale;
-      const rogueBaseW = (1.2 + rng() * 0.4) * clumpScale;
-      const rogueCurl = (rng() - 0.5) * 1.5;
-      const rogueOffset = (rng() - 0.5) * 4;
-      lightBlades.push(
-        makeBlade(xPos + rogueOffset, yEdge, rogueAngle, rogueH, rogueBaseW, rogueCurl),
-      );
-    }
-  }
   return (
     <g>
       {/* Dark side blades render first (behind) */}
       <g fill={grassDark}>
-        {darkBlades.map((d, i) => (
-          <path key={i} d={d} />
+        {darkBlades.map((b, i) => (
+          <path key={i} d={bladeToPath(b)} />
         ))}
       </g>
       {/* Light center blades render on top */}
       <g fill={grassLight}>
-        {lightBlades.map((d, i) => (
-          <path key={i} d={d} />
+        {lightBlades.map((b, i) => (
+          <path key={i} d={bladeToPath(b)} />
         ))}
       </g>
     </g>
@@ -404,32 +195,68 @@ function CloudBand({ band, theme, t, w, gameH, scrollX, scrollSpeed, nowMs }) {
   d += ` L ${topPts[topPts.length - 1][0]},${hExtended}`;
   d += ' Z';
 
-  // Interior shear streaks — drifted slightly faster than the band itself.
-  // Subtler than v1 (was strokeWidth up to 2.5 + opacity to 0.36 — read as
-  // drawn lines on the band rather than atmospheric flow). Now sw 0.6-1.3,
-  // opacity 0.10-0.20.
+  // Interior shear streaks — wavy paths (sine undulation) in muted band-tinted
+  // colour. Was straight band-tinted lines (round 6 — read as drawn pinstripes),
+  // then desaturated 55% toward grey at low opacity (round 7 — too subtle to
+  // read), now: keep the wavy shape, lift opacity + stroke width, and drop the
+  // grey lerp from 55% → 25% so streaks retain band pigment for contrast
+  // without sliding back into pinstripe territory. Per round 8 visibility pass.
   const streakColor = band.streakCurve ? sampleColorCurve(band.streakCurve, t) : null;
   const streakCount = band.streaks || 0;
   const streaks = [];
   if (streakCount > 0 && streakColor) {
+    // Light desaturation only — pulls about a quarter of the way toward
+    // atmospheric grey, leaving most of the band's pigment so streaks read
+    // as cloud striations against the band fill.
+    const { lerpHex } = window.ThemeSchema;
+    const greyTint = lerpHex(streakColor, '#808078', 0.25);
     const streakDrift = (nowMs * (band.driftSpeed || 0) * 0.03) % w;
     for (let i = 0; i < streakCount; i++) {
       const yPct = 0.25 + (i / streakCount) * 0.55 + rng() * 0.1;
       const sxStreak = ((rng() * w * 2) - streakDrift) % (w * 2) - w * 0.2;
       const length = w * (0.4 + rng() * 0.6);
-      const opacity = 0.10 + rng() * 0.10;
-      const sw = 0.6 + rng() * 0.7;
-      streaks.push({ x: sxStreak, y: h * yPct, len: length, opacity, sw });
+      // Opacity 0.25–0.45 (was 0.10–0.20) and stroke 1.2–2.2 (was 0.6–1.3)
+      // so streaks actually read against the band fill at frame size.
+      const opacity = 0.25 + rng() * 0.20;
+      const sw = 1.2 + rng() * 1.0;
+      // Wavy path — gentle sin undulation along the streak's length.
+      const phase = rng() * Math.PI * 2;
+      const ampY = 1.2 + rng() * 1.8;             // peak vertical deviation
+      const wavelength = length / (1.5 + rng() * 1.5); // 1.5-3 waves over length
+      const y0 = h * yPct;
+      const segments = 24;
+      let pd = '';
+      for (let j = 0; j <= segments; j++) {
+        const tp = j / segments;
+        const xj = sxStreak + tp * length;
+        const wave = Math.sin((tp * length) / wavelength * Math.PI * 2 + phase) * ampY;
+        pd += (j === 0 ? 'M ' : 'L ') + xj.toFixed(1) + ',' + (y0 + wave).toFixed(1) + ' ';
+      }
+      streaks.push({ d: pd.trim(), opacity, sw, color: greyTint });
     }
   }
 
+  // Streaks are clipped to the band's own fill path so they can never breach
+  // the turbulent top edge. Without the clip, a streak whose y-position sits
+  // above a low spot in the wavy top edge would render OUTSIDE the band on
+  // top of whatever's behind (sky, or the band above) — visible as "lines
+  // overlapping layers". Per round 8 streak-containment pass.
+  const clipId = `cloudband-clip-${theme.id}-${band.id}`;
+
   return (
     <g transform={`translate(0, ${y})`}>
+      {streaks.length > 0 && (
+        <defs>
+          <clipPath id={clipId}>
+            <path d={d} />
+          </clipPath>
+        </defs>
+      )}
       <path d={d} fill={color} />
       {streaks.length > 0 && (
-        <g>
+        <g clipPath={`url(#${clipId})`}>
           {streaks.map((s, i) => (
-            <line key={i} x1={s.x} y1={s.y} x2={s.x + s.len} y2={s.y} stroke={streakColor} strokeWidth={s.sw} opacity={s.opacity} strokeLinecap="round" />
+            <path key={i} d={s.d} stroke={s.color} strokeWidth={s.sw} fill="none" opacity={s.opacity} strokeLinecap="round" strokeLinejoin="round" />
           ))}
         </g>
       )}
@@ -455,17 +282,25 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
     band.id === 'equatorialZone' ? 4455 :
     band.id === 'sebBelt' ? 5566 :
     band.id === 'lowerZone' ? 6677 : 9012;
-  const pathFn =
-    band.profile === 'cratered-horizon' ? crateredHorizonPath :
-    band.profile === 'mountains' ? mountainsPath :
-    band.profile === 'hills' ? hillsPath :
-    band.profile === 'singleHill' ? singleHillPath :
-    band.profile === 'storm-bands' ? stormBandsPath :
-    softCraterPath;
-  const d = pathFn(w, h, sx, seed);
+
+  // Storm-bands stays inline (Jupiter — round-7, in flight). All other
+  // profiles dispatch to the shared geometry bundle, which produces band-
+  // local paths (no scroll bake-in). Scroll offset moves to the wrapper
+  // translate below.
+  let d, dx;
+  if (band.profile === 'storm-bands') {
+    d = stormBandsPath(w, h, sx, seed);
+    dx = 0; // storm-bands bakes scroll into path; wrapper doesn't translate
+  } else {
+    const builder = window.WorldGeometry.SILHOUETTE_PATH_BUILDERS[band.profile];
+    d = builder(w, h, seed);
+    dx = -(sx % w);
+  }
 
   // Grass tufts — only for the closest foreground band (singleHill profile).
-  const grassTufts = band.profile === 'singleHill' ? renderGrassTufts(band, h, sx, t, w) : null;
+  // renderGrassTufts now produces band-local geometry too, so it lives inside
+  // the same translate(dx, y) wrapper.
+  const grassTufts = band.profile === 'singleHill' ? renderGrassTufts(band, h, t, w) : null;
 
   // Optional internal vertical gradient (lighter top edge, darker base —
   // adds depth so the silhouette doesn't read as a flat shape).
@@ -474,7 +309,7 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
     const gradId = `silgrad-${theme.id}-${band.id}`;
     const clipId = `silclip-${theme.id}-${band.id}`;
     return (
-      <g transform={`translate(0, ${y})`}>
+      <g transform={`translate(${dx}, ${y})`}>
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={topColor} />
@@ -492,7 +327,7 @@ function SilhouetteBand({ band, theme, t, w, gameH, scrollX, scrollSpeed }) {
   }
 
   return (
-    <g transform={`translate(0, ${y})`}>
+    <g transform={`translate(${dx}, ${y})`}>
       <path d={d} fill={color} />
       {grassTufts}
     </g>
@@ -529,47 +364,13 @@ function PlainBand({ band, theme, t, w, gameH }) {
 //   - Power-law size distribution (mostly small, rare large) — moon-realistic.
 //   - Heavy density (~32 visible) without a feature crater.
 function CraterField({ band, theme, t, w, gameH }) {
+  // Crater seeding (count, sizing, overlap rejection) lives in the shared
+  // geometry bundle. Rendering primitives stay here (SVG <ellipse>).
   const bowlColor = sampleColorCurve(band.colorCurve, t);
   const rimColor = window.ThemeSchema.lerpHex(bowlColor, '#ffffff', 0.25);
   const y = band.yPct * gameH;
   const h = band.heightPct * gameH;
-  const rng = mulberry32(42);
-  const craters = [];
-  const targetCount = 32;
-  // Scaled up across the board so smaller craters read on mobile (round 6.2),
-  // and reject placements that overlap existing craters with a 10% buffer.
-  for (let i = 0; i < targetCount; i++) {
-    const sizeRoll = rng();
-    let rx, ry;
-    if (sizeRoll < 0.75) {
-      rx = 6 + rng() * 8;         // 6-14 (small)
-      ry = 2 + rng() * 2;         // 2-4
-    } else if (sizeRoll < 0.95) {
-      rx = 14 + rng() * 14;       // 14-28 (medium)
-      ry = 4 + rng() * 3;         // 4-7
-    } else {
-      rx = 28 + rng() * 22;       // 28-50 (large — rare)
-      ry = 7 + rng() * 5;         // 7-12
-    }
-    // Try up to 25 placements; skip if we can't avoid overlap.
-    let placed = false;
-    for (let attempt = 0; attempt < 25 && !placed; attempt++) {
-      const cx = rng() * w;
-      const cy = y + h * 0.05 + rng() * h * 0.9;
-      let overlaps = false;
-      for (const e of craters) {
-        const dx = cx - e.x;
-        const dy = cy - e.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const minDist = (rx + e.rx) * 1.1; // 10% buffer
-        if (dist < minDist) { overlaps = true; break; }
-      }
-      if (!overlaps) {
-        craters.push({ x: cx, y: cy, rx, ry, o: 0.55 + rng() * 0.35 });
-        placed = true;
-      }
-    }
-  }
+  const craters = window.WorldGeometry.seedCraters(w, y, h, 42);
   return (
     <g>
       {craters.map((c, i) => (
@@ -581,18 +382,16 @@ function CraterField({ band, theme, t, w, gameH }) {
             rx={c.rx * 1.08}
             ry={c.ry * 1.08}
             fill={rimColor}
-            opacity={c.o * 0.4}
+            opacity={c.opacity * 0.4}
           />
-          {/* Inner bowl — darker, offset slightly upward to suggest depth.
-              The visual implication: viewing from above, the bowl's far wall
-              is shadowed; the near wall catches some indirect light. */}
+          {/* Inner bowl — darker, offset slightly upward to suggest depth. */}
           <ellipse
             cx={c.x}
             cy={c.y - c.ry * 0.15}
             rx={c.rx * 0.85}
             ry={c.ry * 0.8}
             fill={bowlColor}
-            opacity={c.o}
+            opacity={c.opacity}
           />
         </g>
       ))}
@@ -667,56 +466,25 @@ function DustField({ spec, theme, t, w, gameH, nowMs }) {
 // as a clump of separate balls. Bigger overall scale + flat baseline aligned
 // to bottom-most circles gives a proper cumulus profile.
 function CloudField({ spec, theme, t, w, gameH, nowMs }) {
+  // Cloud bubble layout (positions, radii, baseline) lives in the shared
+  // geometry bundle. Drift + rendering primitives stay here.
   const density = sampleScalarCurve(spec.densityCurve, t);
   const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#ffffff';
-  const rng = mulberry32(33);
-  const clouds = [];
-  for (let i = 0; i < spec.count; i++) {
-    const baseX = rng() * w * 1.4;
-    const baseY = (gameH * 0.06) + rng() * gameH * 0.28;
-    const drift = (nowMs * 0.01 * spec.speed + rng() * 1000) % (w + 240);
-    const x = ((baseX + drift) % (w + 240)) - 120;
-    const scale = 0.85 + rng() * 0.55;
-    const o = (0.75 + rng() * 0.2) * density;
-
-    // Bigger, more bubbles, much tighter spacing.
-    // Base radius ~18-26; bubbles step ~9px apart (≈0.4× radius) so they fuse.
-    const bubbleCount = 6 + Math.floor(rng() * 3); // 6-8 bubbles
-    const baseR = (18 + rng() * 8) * scale;
-    const stepX = baseR * 0.42; // tight overlap
-    const totalSpan = stepX * (bubbleCount - 1);
-    const bubbles = [];
-    for (let b = 0; b < bubbleCount; b++) {
-      // Position along x, then nudge slightly
-      const bx = b * stepX - totalSpan / 2 + (rng() - 0.5) * stepX * 0.3;
-      // Vary radius — bigger in the middle, smaller at edges, gives the
-      // classic cumulus dome silhouette
-      const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
-      const sizeFactor = 1 - distFromCenter * 0.30 + (rng() - 0.5) * 0.15;
-      const br = baseR * sizeFactor;
-      // ALL bubble bottoms extend slightly BELOW the cloud baseline (clip
-      // line at y=0). The clip-path then uniformly truncates every bubble
-      // to a flat bottom. If a bubble didn't extend past the baseline, its
-      // natural arc would show through, breaking the flat look. Per Earth
-      // point 6 follow-up (round 6).
-      const by = -br + br * 0.12;
-      bubbles.push({ bx, by, br });
-    }
-    clouds.push({ x, y: baseY, bubbles, o });
-  }
+  const G = window.WorldGeometry;
+  const seeds = G.seedClouds(w, gameH, spec.count, 33);
   return (
     <g>
-      {clouds.map((c, i) => {
-        // Clip everything below the baseline (y=0 in local coords) so the
-        // cloud bottom is geometrically flat. Without this, each circle's
-        // bottom is an arc and the envelope between adjacent bubbles dips
-        // upward, creating a scalloped wavy bottom. Per Earth point 6.
+      {seeds.map((c, i) => {
+        const drift = (nowMs * 0.01 * spec.speed + c.driftPhase) % (w + 240);
+        const x = ((c.baseX + drift) % (w + 240)) - 120;
+        const opacity = c.alpha * density;
         const clipId = `cloudclip-${theme.id}-${i}`;
+        const r = G.CLOUD_CLIP_RECT;
         return (
-          <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.o}>
+          <g key={i} transform={`translate(${x},${c.baseY})`} opacity={opacity}>
             <defs>
               <clipPath id={clipId}>
-                <rect x={-300} y={-300} width={600} height={300} />
+                <rect x={r.x} y={r.y} width={r.width} height={r.height} />
               </clipPath>
             </defs>
             <g clipPath={`url(#${clipId})`}>
@@ -733,67 +501,32 @@ function CloudField({ spec, theme, t, w, gameH, nowMs }) {
 
 // ─── Bird flock ('v'/chevron shapes drifting at dawn/dusk) ───────────────────
 function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
+  // Bird seeding + per-frame wing geometry live in the shared geometry
+  // bundle. Drift wrap and rendering primitives stay here.
   const density = sampleScalarCurve(spec.densityCurve, t);
   const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#1a1a2a';
   if (density < 0.05) return null;
   const sizeMul = spec.sizeMul || 1;
-  const rng = mulberry32(77);
-  const birds = [];
-  for (let i = 0; i < spec.count; i++) {
-    const baseX = rng() * w * 1.2;
-    const baseY = gameH * 0.18 + rng() * gameH * 0.25;
-    const drift = (nowMs * 0.04 * spec.speed + rng() * 1000) % (w + 100);
-    const x = ((baseX + drift) % (w + 100)) - 50;
-    // Wing flap — wingtips oscillate up/down, body stays fixed. Slowed to
-    // ~1.3 Hz (was ~2 Hz) — more like real flight, less frantic.
-    const wingPhase = nowMs * 0.008 + rng() * Math.PI * 2;
-    const tipLift = Math.sin(wingPhase) * 0.7; // signed, swings through zero
-    const size = (4 + rng() * 3) * sizeMul;
-    birds.push({ x, y: baseY, size, tipLift, o: (0.55 + rng() * 0.3) * density });
-  }
+  const G = window.WorldGeometry;
+  const birds = G.seedBirds(w, gameH, spec.count, sizeMul, 77);
   return (
     <g>
       {birds.map((b, i) => {
-        // Wingtip y oscillates above/below body y. Body stays at b.y.
-        // Each wing's control point is placed PERPENDICULAR to the tip→body
-        // line by curlMag, so the arc magnitude stays consistent regardless
-        // of where the wing is in the flap cycle. Curl always points upward
-        // (negative y) — gives each wing a clear soft arc rather than a
-        // chevron straight line. Per Earth point 5 follow-up (round 6).
-        const tipY = b.y + b.size * b.tipLift;
-        const sw = Math.max(0.9, b.size * 0.18);
-        const curlMag = b.size * 0.45;
-
-        // Left wing: tip → body
-        const lDx = b.size; // body.x - tip.x
-        const lDy = b.y - tipY;
-        const lLen = Math.sqrt(lDx * lDx + lDy * lDy);
-        const lPerpX = lDy / lLen; // perpendicular, normalised
-        const lPerpY = -lDx / lLen; // always negative (points up)
-        const lCtrlX = (b.x - b.size + b.x) / 2 + lPerpX * curlMag;
-        const lCtrlY = (tipY + b.y) / 2 + lPerpY * curlMag;
-
-        // Right wing: body → tip (mirror)
-        const rDx = b.size;
-        const rDy = tipY - b.y;
-        const rLen = Math.sqrt(rDx * rDx + rDy * rDy);
-        const rPerpX = rDy / rLen;
-        const rPerpY = -rDx / rLen;
-        const rCtrlX = (b.x + b.x + b.size) / 2 + rPerpX * curlMag;
-        const rCtrlY = (b.y + tipY) / 2 + rPerpY * curlMag;
-
+        const x = G.birdScreenX(b, w, spec.speed, nowMs);
+        const pts = G.computeBirdWingPoints(x, b, nowMs);
+        const sw = G.birdStrokeWidth(b);
         return (
           <path
             key={i}
             d={
-              `M ${b.x - b.size},${tipY} ` +
-              `Q ${lCtrlX.toFixed(2)},${lCtrlY.toFixed(2)} ${b.x},${b.y} ` +
-              `Q ${rCtrlX.toFixed(2)},${rCtrlY.toFixed(2)} ${b.x + b.size},${tipY}`
+              `M ${pts.lTip[0]},${pts.lTip[1]} ` +
+              `Q ${pts.lCtrl[0].toFixed(2)},${pts.lCtrl[1].toFixed(2)} ${pts.body[0]},${pts.body[1]} ` +
+              `Q ${pts.rCtrl[0].toFixed(2)},${pts.rCtrl[1].toFixed(2)} ${pts.rTip[0]},${pts.rTip[1]}`
             }
             stroke={tint}
             strokeWidth={sw}
             fill="none"
-            opacity={b.o}
+            opacity={b.alpha * density}
             strokeLinecap="round"
           />
         );
@@ -817,6 +550,13 @@ function BirdFlock({ spec, theme, t, w, gameH, nowMs }) {
 function Lightning({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
+
+  // Find storm cells in the theme so bolts can originate from cloud bottoms
+  // rather than random sky positions. Falls back to old random placement
+  // if the theme has no stormClouds particle. Per round-7 anchored-lightning.
+  const stormSpec = (theme.particles || []).find((p) => p.kind === 'stormClouds');
+  const cloudCells = stormSpec ? computeStormCellPositions(stormSpec, w, gameH, nowMs, t) : [];
+
   const rng = mulberry32(909);
   const flashes = [];
   const cycleMs = 8000;
@@ -825,10 +565,28 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
   for (let i = 0; i < spec.count; i++) {
     const startT = rng();
     const duration = 0.02 + rng() * 0.04;       // 160-480ms of the loop
-    const cx = 60 + rng() * (w - 120);          // keep clear of edges
-    const cy = gameH * (0.50 + rng() * 0.30);   // strikes happen mid-to-lower bands
-    const boltLen = 80 + rng() * 110;
-    const baseRadius = 90 + rng() * 110;
+    // Cells now sit in the top half (yMaxPct 0.45) — bolts drop further so
+    // they reach into the dimmer mid/lower bands where they read against the
+    // dark night palette. Was 60-140; lifted to 90-200 per round 8.
+    const boltLen = 90 + rng() * 110;
+    const baseRadius = 80 + rng() * 80;
+
+    // Pick origin: anchor to a cloud cell when available, else random sky.
+    let cx, startY, endY;
+    if (cloudCells.length > 0) {
+      const cloudIdx = Math.floor(rng() * cloudCells.length);
+      const cloud = cloudCells[cloudIdx];
+      // Slight horizontal jitter from cloud centre so bolts emerge from
+      // varied points along the cloud's bottom edge, not always the centre.
+      cx = cloud.x + (rng() - 0.5) * cloud.baseR * 1.5;
+      // Bolt origin: just below the cloud's nominal bottom edge.
+      startY = cloud.y + cloud.cellHalfH * 0.6;
+      endY = startY + boltLen;
+    } else {
+      cx = 60 + rng() * (w - 120);
+      startY = gameH * (0.40 + rng() * 0.20);
+      endY = startY + boltLen;
+    }
 
     let dt = cyclePos - startT;
     if (dt < 0) dt += 1;
@@ -836,10 +594,8 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
       // Sharp attack (10%), exponential decay (90%) — feels like a real strike.
       const u = dt / duration;
       const intensity = u < 0.10 ? u / 0.10 : Math.pow(1 - (u - 0.10) / 0.90, 1.5);
-      // Each flash gets its own deterministic geometry seed so its bolt shape
-      // stays stable across frames during the brief flash duration.
       flashes.push({
-        cx, cy, baseRadius, boltLen,
+        cx, startY, endY, baseRadius,
         alpha: intensity * density,
         geomSeed: 909 + i * 137,
       });
@@ -869,8 +625,10 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
 
       {flashes.map((f, i) => {
         const r = mulberry32(f.geomSeed);
-        const startY = f.cy - f.boltLen * 0.5;
-        const endY = f.cy + f.boltLen * 0.5;
+        const startY = f.startY;
+        const endY = f.endY;
+        // Bloom centre = midpoint of the bolt; used for radial gradient placement.
+        const cy = (startY + endY) / 2;
 
         // Main bolt — jagged polyline anchored at start & end (cx), zigzag
         // through the middle. Tapered jitter (parabolic) so the bolt converges
@@ -921,10 +679,10 @@ function Lightning({ spec, theme, t, w, gameH, nowMs }) {
 
         return (
           <g key={i}>
-            {/* radial bloom */}
+            {/* radial bloom — centred on the bolt's midpoint */}
             <circle
               cx={f.cx}
-              cy={f.cy}
+              cy={cy}
               r={f.baseRadius * 1.8}
               fill={bloomFill}
               opacity={f.alpha}
@@ -975,10 +733,11 @@ function Aurora({ spec, theme, t, w, gameH }) {
 }
 
 // ─── Shear motes (small fast particles inside cloud bands) ──────────────────
-// Render as horizontally-stretched ellipses (rx ≈ 4×ry) so they read as
-// motion-blur dashes caught in the zonal flow, NOT as scattered white pinpoint
-// stars. Per Jupiter particle cohesion pass (round 7 review — circles were
-// reading as stars/dust).
+// Per-mote turbulent path: horizontal drift + per-particle sinusoidal vertical
+// wobble (random phase, frequency, amplitude) so motes don't move in lockstep
+// — they swirl chaotically like particles caught in a storm rather than dust
+// on a conveyor belt. Per Jupiter motes pass (round 7 — turbulent-paths +
+// less-dense + broader-coverage feedback).
 function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   const density = sampleScalarCurve(spec.densityCurve, t);
   if (density < 0.05) return null;
@@ -993,10 +752,26 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
     // Per-mote drift speed within ±50% of base
     const speedJ = 0.7 + rng() * 0.6;
     const drift = (nowMs * 0.05 * spec.speed * speedJ + rng() * 1000) % (w + 100);
-    const x = ((baseX + drift) % (w + 100)) - 50;
+    const xRaw = ((baseX + drift) % (w + 100)) - 50;
+    // Per-mote turbulent vertical wobble — sinusoidal with per-particle phase
+    // and frequency, layered with a slower secondary wave for chaos. Amplitude
+    // scaled so wobble stays within the band region (~12–24px peak-to-peak).
+    const wobblePhase = rng() * Math.PI * 2;
+    const wobbleFreq1 = 0.0008 + rng() * 0.0010;   // primary wave
+    const wobbleFreq2 = 0.0024 + rng() * 0.0030;   // secondary, faster
+    const wobbleAmp1 = 6 + rng() * 8;              // primary amplitude
+    const wobbleAmp2 = 2 + rng() * 4;              // secondary, smaller
+    const wobble =
+      Math.sin(nowMs * wobbleFreq1 + wobblePhase) * wobbleAmp1 +
+      Math.sin(nowMs * wobbleFreq2 + wobblePhase * 0.7) * wobbleAmp2;
+    const y = baseY + wobble;
+    // Slight horizontal speed variation comes from speedJ above; add tiny
+    // x-jitter so trails don't read as parallel lines.
+    const xJitter = Math.sin(nowMs * wobbleFreq1 * 0.6 + wobblePhase * 1.3) * 4;
+    const x = xRaw + xJitter;
     // Base size from spec; rendered as a horizontal dash 4× wider than tall.
     const r = spec.sizeRange[0] + rng() * (spec.sizeRange[1] - spec.sizeRange[0]);
-    motes.push({ x, y: baseY, r, o: (0.25 + rng() * 0.3) * density });
+    motes.push({ x, y, r, o: (0.25 + rng() * 0.3) * density });
   }
   return (
     <g>
@@ -1007,83 +782,128 @@ function ShearMotes({ spec, theme, t, w, gameH, nowMs }) {
   );
 }
 
-// ─── Storm clouds (Jupiter) — amorphous storm cells riding the band region ─
-// Visually distinct from Earth's cumulus CloudField:
-//   - No flat-bottom clip-path (Jupiter has no horizon for clouds to "sit" on)
-//   - No symmetric cumulus dome — bubbles scattered with no big-middle bias
-//   - Elongated horizontally (~3× wider than tall) — stretched by zonal jets
-//   - Many small ovals (10-14 per cell) for chaotic, smoky silhouette
-//   - Configurable yMinPct/yMaxPct so cells ride the band region, not upper sky
-//   - Subtle per-bubble alpha jitter so the cell doesn't read as a flat stamp
+// Shared position helper for storm cells. Pure function of (spec, w, gameH,
+// nowMs, t); returns the centre (x, y), scale, base radius, and approximate
+// half-height of each cell at this moment. Decoupled from the cell's bubble
+// geometry (which uses a per-cell seed) so other components — e.g. Lightning
+// — can call this and agree with StormClouds on where each cell currently
+// lives without duplicating the bubble math. Per anchored-lightning refactor.
 //
-// Per Jupiter Option B (round 7 review of Option A — Earth CloudField recolour
-// read as kitsch).
-function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
-  const density = sampleScalarCurve(spec.densityCurve, t);
-  if (density < 0.05) return null;
-  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#3a2818';
+// Round 8 — adds one ToD-driven scalar on top of the original layout:
+//   • sizeMulCurve scales every cell's baseR (and cellHalfH derived from it)
+//     so storm-peak cells dome larger than fair-weather wisps.
+// Note: count is HELD CONSTANT across ToD — cells should only enter/leave the
+// frame by drifting in/out at the edges, never by popping in or out of
+// existence on screen. A previous iteration tied visible count to densityCurve
+// which made cells appear/disappear at fixed positions; reverted per design
+// feedback. densityCurve still governs the early-bail in StormClouds for
+// edge cases.
+function computeStormCellPositions(spec, w, gameH, nowMs, t) {
   const rng = mulberry32(55);
-
   const yMin = (spec.yMinPct != null ? spec.yMinPct : 0.30) * gameH;
   const yMax = (spec.yMaxPct != null ? spec.yMaxPct : 0.70) * gameH;
-
-  const clouds = [];
+  // Sample size modulator if curve is present (older themes that pre-date
+  // round 8 don't have it — fall back to 1.0 so behaviour is unchanged).
+  const sizeMul = spec.sizeMulCurve && t != null
+    ? sampleScalarCurve(spec.sizeMulCurve, t)
+    : 1.0;
+  const positions = [];
   for (let i = 0; i < spec.count; i++) {
     const baseX = rng() * w * 1.4;
     const baseY = yMin + rng() * (yMax - yMin);
-    // Slow drift so cells crawl rather than march. Independent of band drift.
     const drift = (nowMs * 0.008 * (spec.speed || 1) + rng() * 1000) % (w + 240);
     const x = ((baseX + drift) % (w + 240)) - 120;
-
     const scale = 0.7 + rng() * 0.7;
-    const cellOpacity = (0.55 + rng() * 0.25) * density;
-
-    // Cell dimensions — wider than tall (zonal stretch).
-    const cellW = (70 + rng() * 90) * scale;
-    const cellH = (22 + rng() * 26) * scale;
-
-    // Many small ovals scattered through the cell envelope. Bubbles are now
-    // smaller and more numerous (was 10-14 of size 8-22, now 18-24 of size
-    // 4-12) so they pack densely enough to fuse into a continuous silhouette
-    // rather than reading as a countable cluster. Tighter alpha range
-    // (0.45-0.70 vs 0.15-0.85) further reduces internal structure.
-    const bubbleCount = 18 + Math.floor(rng() * 7);
-    const bubbles = [];
-    for (let b = 0; b < bubbleCount; b++) {
-      const bx = (rng() - 0.5) * cellW;
-      const by = (rng() - 0.5) * cellH;
-      const brx = (4 + rng() * 8) * scale;
-      const bry = brx * (0.45 + rng() * 0.35);
-      const alpha = 0.45 + rng() * 0.25;
-      bubbles.push({ bx, by, brx, bry, alpha });
-    }
-
-    // Underlying haze ellipse — single soft fill beneath the bubbles. Glues
-    // the cluster into one cohesive silhouette and prevents the eye from
-    // counting individual bubbles. Sits at low alpha so it doesn't dominate.
-    const hazeRx = cellW * 0.55;
-    const hazeRy = cellH * 0.60;
-
-    clouds.push({ x, y: baseY, bubbles, opacity: cellOpacity, hazeRx, hazeRy });
+    const baseR = (14 + rng() * 7) * scale * sizeMul;
+    // Approximate cell half-height: bubbles extend roughly baseR above the
+    // centre and 0.5×baseR below, giving an envelope of ~1.5×baseR vertical.
+    const cellHalfH = baseR * 1.0;
+    positions.push({ x, y: baseY, scale, baseR, cellHalfH });
   }
+  return positions;
+}
+
+// ─── Storm clouds (Jupiter) — illustrated cumulus with volume shading ───────
+// Each cell is a cumulus dome silhouette (5-7 overlapping circles) with a
+// vertical light→mid→dark linear gradient clipped inside. Result: defined
+// cloud outline with cream highlight on top, mid-tone middle, deep shadow
+// underneath — the look from the v3 review reference image. Drops the
+// radial-fade-to-transparent of v3 (rendered as "barely visible") and the
+// bubble-cluster of v1/v2 (rendered as "pebble piles").
+//
+// No flat-bottom clip — cumulus floats in atmosphere rather than sitting on
+// a horizon. Wider than tall (zonal stretch). yMin/yMaxPct configurable.
+// Per Jupiter particle cohesion v4 (round 7 — illustrated cumulus reference).
+function StormClouds({ spec, theme, t, w, gameH, nowMs }) {
+  const density = sampleScalarCurve(spec.densityCurve, t);
+  if (density < 0.05) return null;
+  const tint = spec.colorCurve ? sampleColorCurve(spec.colorCurve, t) : '#b48868';
+  const { lerpHex } = window.ThemeSchema;
+  const lightTint = lerpHex(tint, '#fff5e0', 0.50);
+  const darkTint  = lerpHex(tint, '#1a0a08', 0.45);
+
+  // Get canonical positions from shared helper. Each cell then uses a
+  // dedicated per-cell seed for bubble generation — keeps cell positions
+  // stable while bubbles can vary between cells. Pass `t` so the helper
+  // can apply sizeMulCurve / densityCurve modulation in lockstep with how
+  // the lightning component sees the cells.
+  const positions = computeStormCellPositions(spec, w, gameH, nowMs, t);
+
+  const clouds = positions.map((pos, i) => {
+    const cellRng = mulberry32(155 + i * 31);
+    // Opacity is density-independent now that densityCurve drives the visible
+    // COUNT inside computeStormCellPositions (round 8). Fewer cells at off-peak
+    // ToDs reads as "calmer" already; double-dimming the survivors made them
+    // washy at day. Each kept cell renders at its full per-cell opacity.
+    const cellOpacity = 0.85 + cellRng() * 0.12;
+    const bubbleCount = 5 + Math.floor(cellRng() * 3); // 5-7 bubbles
+    const stepX = pos.baseR * 0.55;
+    const totalSpan = stepX * (bubbleCount - 1);
+    const bubbles = [];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (let b = 0; b < bubbleCount; b++) {
+      const bx = b * stepX - totalSpan / 2 + (cellRng() - 0.5) * stepX * 0.2;
+      const distFromCenter = Math.abs(b - (bubbleCount - 1) / 2) / ((bubbleCount - 1) / 2);
+      const sizeFactor = 1 - distFromCenter * 0.32 + (cellRng() - 0.5) * 0.10;
+      const br = pos.baseR * sizeFactor;
+      const by = -br * 0.18 + (cellRng() - 0.5) * br * 0.18;
+      bubbles.push({ bx, by, br });
+      if (bx - br < minX) minX = bx - br;
+      if (bx + br > maxX) maxX = bx + br;
+      if (by - br < minY) minY = by - br;
+      if (by + br > maxY) maxY = by + br;
+    }
+    return { x: pos.x, y: pos.y, bubbles, opacity: cellOpacity, minX, maxX, minY, maxY };
+  });
 
   return (
     <g>
+      <defs>
+        {clouds.map((c, i) => (
+          <linearGradient key={`g${i}`} id={`stormcell-grad-${theme.id}-${i}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={lightTint} />
+            <stop offset="55%"  stopColor={tint} />
+            <stop offset="100%" stopColor={darkTint} />
+          </linearGradient>
+        ))}
+        {clouds.map((c, i) => (
+          <clipPath key={`cl${i}`} id={`stormcell-clip-${theme.id}-${i}`}>
+            {c.bubbles.map((b, j) => (
+              <circle key={j} cx={b.bx} cy={b.by} r={b.br} />
+            ))}
+          </clipPath>
+        ))}
+      </defs>
       {clouds.map((c, i) => (
         <g key={i} transform={`translate(${c.x},${c.y})`} opacity={c.opacity}>
-          {/* haze underlayer — fuses the bubble cluster into one shape */}
-          <ellipse cx={0} cy={0} rx={c.hazeRx} ry={c.hazeRy} fill={tint} opacity={0.30} />
-          {c.bubbles.map((b, j) => (
-            <ellipse
-              key={j}
-              cx={b.bx}
-              cy={b.by}
-              rx={b.brx}
-              ry={b.bry}
-              fill={tint}
-              opacity={b.alpha}
-            />
-          ))}
+          <rect
+            x={c.minX - 2}
+            y={c.minY - 2}
+            width={c.maxX - c.minX + 4}
+            height={c.maxY - c.minY + 4}
+            fill={`url(#stormcell-grad-${theme.id}-${i})`}
+            clipPath={`url(#stormcell-clip-${theme.id}-${i})`}
+          />
         </g>
       ))}
     </g>
@@ -1151,110 +971,70 @@ function Celestial({ spec, theme, t, positionT, w, gameH }) {
   // (round 6 review) — replaces the abstract blob continents with shapes
   // that read as Earth at a glance.
   if (spec.kind === 'earth') {
-    const continent = spec.continentCurve ? sampleColorCurve(spec.continentCurve, t) : '#3a7a3e';
+    // Continent path strings + ice cap / madagascar bounds + halo/terminator
+    // constants live in the shared geometry bundle. Rendering primitives
+    // (clip path, halo gradient, body fill, terminator circle) stay here.
+    const G = window.WorldGeometry;
+    const continent = spec.continentCurve ? sampleColorCurve(spec.continentCurve, t) : G.EARTH_CONTINENT_COLOR;
     const clipId = id + '-clip';
+    const haloR = r * G.EARTH_HALO_RADIUS_MUL;
+    const continentsD = G.continentsSvgPath(x, y, r);
+    const mB = G.madagascarBounds(x, y, r);
+    const nB = G.northIceCapBounds(x, y, r);
+    const sB = G.southIceCapBounds(x, y, r);
     return (
       <g>
         <defs>
           <radialGradient id={id} cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="#a8d0f0" stopOpacity="1" />
-            <stop offset="100%" stopColor="#a8d0f0" stopOpacity="0" />
+            <stop offset="0%" stopColor={G.EARTH_HALO_COLOR} stopOpacity="1" />
+            <stop offset="100%" stopColor={G.EARTH_HALO_COLOR} stopOpacity="0" />
           </radialGradient>
           <clipPath id={clipId}>
             <circle cx={x} cy={y} r={r} />
           </clipPath>
         </defs>
         {/* Atmospheric glow halo */}
-        <circle cx={x} cy={y} r={r * 1.8} fill={`url(#${id})`} opacity={glow} />
+        <circle cx={x} cy={y} r={haloR} fill={`url(#${id})`} opacity={glow} />
         {/* Ocean body */}
         <circle cx={x} cy={y} r={r} fill={color} />
         {/* Land + ice caps — all clipped to body so excess gets trimmed at edge */}
         <g clipPath={`url(#${clipId})`}>
-          {/* Africa — sharper proportions: taller than wide, distinct horn
-              on the east, narrowing to a clear southern point (Cape).
-              West coast roughly straight along the Atlantic. */}
-          <path
-            fill={continent}
-            d={`M ${x - r * 0.08},${y - r * 0.46}
-                L ${x + r * 0.14},${y - r * 0.44}
-                Q ${x + r * 0.22},${y - r * 0.36} ${x + r * 0.22},${y - r * 0.18}
-                Q ${x + r * 0.30},${y - r * 0.02} ${x + r * 0.26},${y + r * 0.10}
-                Q ${x + r * 0.14},${y + r * 0.20} ${x + r * 0.06},${y + r * 0.35}
-                Q ${x - r * 0.02},${y + r * 0.50} ${x - r * 0.06},${y + r * 0.58}
-                Q ${x - r * 0.18},${y + r * 0.48} ${x - r * 0.22},${y + r * 0.32}
-                Q ${x - r * 0.27},${y + r * 0.10} ${x - r * 0.25},${y - r * 0.12}
-                Q ${x - r * 0.22},${y - r * 0.32} ${x - r * 0.16},${y - r * 0.42}
-                Q ${x - r * 0.12},${y - r * 0.46} ${x - r * 0.08},${y - r * 0.46} Z`}
-          />
-          {/* Europe — bigger and more peninsula-defined. Iberian bump on
-              the west, Italian boot dipping middle, eastward Eurasia. */}
-          <path
-            fill={continent}
-            d={`M ${x - r * 0.22},${y - r * 0.5}
-                Q ${x - r * 0.30},${y - r * 0.62} ${x - r * 0.15},${y - r * 0.66}
-                Q ${x + r * 0.05},${y - r * 0.72} ${x + r * 0.25},${y - r * 0.66}
-                Q ${x + r * 0.40},${y - r * 0.60} ${x + r * 0.42},${y - r * 0.50}
-                Q ${x + r * 0.34},${y - r * 0.46} ${x + r * 0.20},${y - r * 0.48}
-                L ${x + r * 0.08},${y - r * 0.44}
-                Q ${x + r * 0.04},${y - r * 0.40} ${x + r * 0.00},${y - r * 0.45}
-                L ${x - r * 0.10},${y - r * 0.46}
-                Q ${x - r * 0.18},${y - r * 0.44} ${x - r * 0.22},${y - r * 0.5} Z`}
-          />
-          {/* South America fragment — dropped on the western limb. Tapers
-              from wider top (Brazil/Amazon) to narrow southern tip
-              (Patagonia). Body clip trims the leftmost portion. */}
-          <path
-            fill={continent}
-            d={`M ${x - r * 0.85},${y - r * 0.10}
-                Q ${x - r * 0.55},${y - r * 0.05} ${x - r * 0.48},${y + r * 0.08}
-                Q ${x - r * 0.50},${y + r * 0.25} ${x - r * 0.55},${y + r * 0.40}
-                Q ${x - r * 0.60},${y + r * 0.50} ${x - r * 0.65},${y + r * 0.42}
-                Q ${x - r * 0.62},${y + r * 0.25} ${x - r * 0.68},${y + r * 0.10}
-                Q ${x - r * 0.78},${y + r * 0.00} ${x - r * 0.85},${y - r * 0.10} Z`}
-          />
-          {/* North America fragment — upper-left, partial. Hints at the
-              continental mass without trying to draw the whole thing. */}
-          <path
-            fill={continent}
-            d={`M ${x - r * 0.85},${y - r * 0.50}
-                Q ${x - r * 0.55},${y - r * 0.45} ${x - r * 0.42},${y - r * 0.30}
-                Q ${x - r * 0.40},${y - r * 0.18} ${x - r * 0.50},${y - r * 0.12}
-                Q ${x - r * 0.65},${y - r * 0.18} ${x - r * 0.78},${y - r * 0.30}
-                Q ${x - r * 0.88},${y - r * 0.40} ${x - r * 0.85},${y - r * 0.50} Z`}
-          />
-          {/* Madagascar — small island east of southern Africa. Tiny but
-              distinctive; instantly cues "Earth" to map-readers. */}
+          {/* Africa + Europe + S.America + N.America (combined SVG path from geometry) */}
+          <path fill={continent} d={continentsD} />
+          {/* Madagascar */}
           <ellipse
-            cx={x + r * 0.34}
-            cy={y + r * 0.22}
-            rx={r * 0.04}
-            ry={r * 0.10}
+            cx={mB.x + mB.width / 2}
+            cy={mB.y + mB.height / 2}
+            rx={mB.width / 2}
+            ry={mB.height / 2}
             fill={continent}
           />
           {/* North polar ice cap */}
           <ellipse
-            cx={x}
-            cy={y - r * 0.95}
-            rx={r * 0.55}
-            ry={r * 0.18}
-            fill="rgba(255,255,255,0.85)"
+            cx={nB.x + nB.width / 2}
+            cy={nB.y + nB.height / 2}
+            rx={nB.width / 2}
+            ry={nB.height / 2}
+            fill={G.EARTH_ICE_COLOR}
+            fillOpacity={G.EARTH_ICE_OPACITY}
           />
           {/* South polar ice cap */}
           <ellipse
-            cx={x}
-            cy={y + r * 0.95}
-            rx={r * 0.5}
-            ry={r * 0.15}
-            fill="rgba(255,255,255,0.85)"
+            cx={sB.x + sB.width / 2}
+            cy={sB.y + sB.height / 2}
+            rx={sB.width / 2}
+            ry={sB.height / 2}
+            fill={G.EARTH_ICE_COLOR}
+            fillOpacity={G.EARTH_ICE_OPACITY}
           />
         </g>
-        {/* Soft terminator — dark crescent on far side of the sun */}
+        {/* Soft terminator — dark crescent on lower-right of the body */}
         <circle
-          cx={x + r * 0.35}
-          cy={y + r * 0.05}
+          cx={x + r * G.TERMINATOR_OFFSET_FRAC.x}
+          cy={y + r * G.TERMINATOR_OFFSET_FRAC.y}
           r={r}
-          fill="#000"
-          opacity="0.22"
+          fill={G.TERMINATOR_COLOR}
+          opacity={G.TERMINATOR_OPACITY}
           clipPath={`url(#${clipId})`}
         />
       </g>
@@ -1410,17 +1190,22 @@ function WorldRenderer({ theme, t, rawT, w, gameH, scrollX, nowMs, layerVisible,
         <ShearMotes key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
-      {/* stormClouds — Jupiter-specific dark amorphous cells riding on top of
-          the cloud bands. Distinct kind from Earth's 'clouds' so the two don't
-          collide; Earth's CloudField still dispatches earlier in the tree. */}
-      {visible('particles') && theme.particles.filter(p => p.kind === 'stormClouds').map((p) => (
-        <StormClouds key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
-      ))}
-
       {/* gasGiantSpot (Jupiter's Great Red Spot) — drawn after the cloud bands
-          so it sits on top of them as a cloud-layer feature. */}
+          so it sits on top of them as a cloud-layer feature. Round 8: GRS now
+          renders BEFORE stormClouds (was after) so storm cells drift IN
+          FRONT of the GRS — the GRS reads as a deeper feature in the
+          atmosphere with weather passing across it, rather than a sticker on
+          top of everything. */}
       {visible('celestials') && theme.celestials.filter((c) => c.kind === 'gasGiantSpot').map((c) => (
         <Celestial key={c.id} spec={c} theme={theme} t={t} positionT={positionT} w={w} gameH={gameH} />
+      ))}
+
+      {/* stormClouds — Jupiter-specific dark amorphous cells riding on top of
+          the cloud bands. Distinct kind from Earth's 'clouds' so the two don't
+          collide; Earth's CloudField still dispatches earlier in the tree.
+          Renders AFTER gasGiantSpot so cells layer in front of the GRS. */}
+      {visible('particles') && theme.particles.filter(p => p.kind === 'stormClouds').map((p) => (
+        <StormClouds key={p.id} spec={{ ...p, count: Math.floor(p.count * particleMul) }} theme={theme} t={t} w={w} gameH={gameH} nowMs={nowMs} />
       ))}
 
       {/* lightning flashes (Jupiter night) — sit on top of bands and GRS */}

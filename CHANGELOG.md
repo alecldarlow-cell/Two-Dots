@@ -9,6 +9,14 @@ Versioning follows [Semantic Versioning](https://semver.org/) with pre-release s
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard filters — devices and date range** (`docs/dashboard.html`, migrations 006/007/008):
+  - New `role` column on `public.devices` with check constraint `('tester', 'internal')` and default `'tester'`. New devices are testers automatically; mark internal/dev devices manually with `update public.devices set role = 'internal' where id = '<uuid>'`. Indexed for the JOIN cost.
+  - All three KPI functions (`kpi_overview`, `kpi_drop_off_by_tier`, `kpi_retention`) now take two optional parameters: `p_filter text default 'tester'` (`'all'` / `'tester'` / `'internal'`) and `p_since timestamptz default null` (cutoff for events; for retention, filters the cohort by first_day). The previous single-arg signatures from 007 are dropped in 008, and the zero-arg signatures from 005 are dropped in 009 — leaves a single canonical signature per function so PostgREST has one resolution path and the security advisor stops listing duplicates.
+  - Dashboard exposes both as toggle rows: **Devices: All / Testers / Internal** and **Since: All time / Last 7d / Last 24h**. Selections persist via `localStorage` (`twodots-dashboard-filters-v1`). Active filter state is reflected in the subtitle and per-card "window" labels. The tier-distribution chart instance is now tracked so it's destroyed and recreated on filter change instead of leaking.
+  - Alec's primary dev device (`8e833388-8c60-458d-9d8b-72b3fdbf57a4`) is tagged `'internal'` in migration 006, so the default tester view excludes it. Tester-only Phase 1 numbers are now visible: 66 runs / 3 devices / 81.8% retry rate / 38.1s mean run length / 0.97 close-calls per run / 72.7% of deaths in T1 (vs ~86% with the dev device mixed in — testers do reach further than the all-time view suggested).
+
 ### Fixed
 
 - **KPI dashboard now renders — three compounding bugs resolved** (`docs/dashboard.html`, `supabase/migrations/005_kpi_functions_and_invoker_views.sql`):
