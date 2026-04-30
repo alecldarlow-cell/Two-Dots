@@ -80,7 +80,11 @@ window.JupiterTheme = {
       parallax: 0.10,
       turbulence: 0.45,
       driftSpeed: -0.5,        // counter-drift sells shear
-      streaks: 4,
+      // Streak density follows a top→middle→bottom curve: SPARSE at the top
+      // and bottom of the band stack, DENSE in the middle. Top band gets
+      // just a couple of fine streaks so it reads as a clean horizon.
+      // Per round 8 line-density pass.
+      streaks: 2,
       colorCurve: [
         { t: 0.00, color: '#7a5230' }, // dawn
         { t: 0.25, color: '#d4a070' }, // day — warmer cream-ochre (lifted from #a06830 — was too dark for topmost)
@@ -103,7 +107,9 @@ window.JupiterTheme = {
       parallax: 0.32,
       turbulence: 0.55,
       driftSpeed: 0.7,
-      streaks: 5,
+      // Mid-band — DENSE streaks. Sits at the eye-level zone of the band
+      // stack where atmospheric flow detail reads strongest. Per round 8.
+      streaks: 9,
       colorCurve: [
         { t: 0.00, color: '#4a2818' }, // dawn
         { t: 0.25, color: '#e0b070' }, // day — pale cream zone
@@ -126,7 +132,9 @@ window.JupiterTheme = {
       parallax: 0.50,
       turbulence: 0.65,
       driftSpeed: -0.9,
-      streaks: 6,
+      // Lower-mid band — DENSE streaks. Together with midBand2 above this
+      // forms the dense middle section of the streak-density curve.
+      streaks: 9,
       colorCurve: [
         { t: 0.00, color: '#2e1810' }, // dawn — deep brown
         { t: 0.25, color: '#3a1810' }, // day — deep mahogany
@@ -154,7 +162,11 @@ window.JupiterTheme = {
       parallax: 0.85,
       turbulence: 0.75,
       driftSpeed: 0.4,         // slower — feels "near", not racing past
-      streaks: 10,             // denser internal cloud detail
+      // Foreground — SPARSE streaks. Bottom edge of the streak-density curve;
+      // just a couple of low-key streaks so the foreground reads as a calm
+      // anchor and doesn't compete with the dense mid bands above.
+      // (Was 10 in round 7 — dropped to 2 in round 8 line-density pass.)
+      streaks: 2,
       colorCurve: [
         { t: 0.00, color: '#2a1810' }, // dawn — deeper than nearBand1 above
         { t: 0.25, color: '#3a2010' }, // day — darkest mahogany (anchors foreground)
@@ -177,36 +189,85 @@ window.JupiterTheme = {
       // no cumulus dome, elongated horizontally to feel stretched by the
       // zonal flow, no flat-bottom clip. Sit in the band region (not upper
       // sky) so they read as discrete storms riding ON the atmosphere.
+      //
+      // Round 8 — storm-peak progression on TWO axes (per design feedback):
+      //   colour:  light at dawn/day, DARK at dusk (storm peak), warming at night
+      //   size:    small at dawn/day, LARGE at dusk, medium at night
+      // Cell COUNT is intentionally held constant across ToD — cells should
+      // only enter/leave the frame by drifting at the edges, never pop in or
+      // out of existence on screen. densityCurve below is retained for
+      // future use / extreme-low-density bail; it does NOT modulate count.
       id: 'stormCells',
       kind: 'stormClouds',
-      count: 6,
+      count: 8,
       speed: 0.55,
-      // Ride the mid-to-near-band region — drifting through where the eye
-      // already lives, not floating in the narrow strip above band 0.
-      yMinPct: 0.32,
-      yMaxPct: 0.72,
+      // Storm cells live in the TOP HALF — sit in the sky strip and topmost
+      // bands, with the rest of the frame left clear for the streak/lines mid
+      // section, motes below the dots, and a clear foreground anchor.
+      // Lightning bolts (anchored to these cells via computeStormCellPositions)
+      // extend downward from each cell, so cells riding high makes the bolts
+      // visible against the dimmer mid/lower bands at night. Per round 8.
+      yMinPct: 0.12,
+      yMaxPct: 0.45,
       densityCurve: [
-        { t: 0.00, value: 0.65 },  // dawn — visible
-        { t: 0.25, value: 0.95 },  // day — full
-        { t: 0.50, value: 0.75 },  // dusk
-        { t: 0.75, value: 0.30 },  // night — sparse, lightning dominates
+        // Held above the StormClouds early-bail threshold (0.05) at every
+        // ToD so cells render through the whole cycle. No longer tied to
+        // visible count (per the comment above).
+        { t: 0.00, value: 1.00 },
+        { t: 0.25, value: 1.00 },
+        { t: 0.50, value: 1.00 },
+        { t: 0.75, value: 1.00 },
+      ],
+      sizeMulCurve: [
+        // Per-cell radius multiplier. Storm peak = larger cumulus.
+        { t: 0.00, value: 0.85 },  // dawn
+        { t: 0.25, value: 0.70 },  // day — small fair-weather wisps
+        { t: 0.50, value: 1.40 },  // dusk — towering storm domes
+        { t: 0.75, value: 1.05 },  // night — still substantial
       ],
       // Mid-tone for cumulus body; renderer derives lightTint (highlight) and
-      // darkTint (shadow) from this via lerpHex. Tones lifted from the v3
-      // dark-thunderhead palette so the cells are actually visible against
-      // the warm Jovian bands.
+      // darkTint (shadow) from this via lerpHex. Hue/value progression keeps
+      // dawn/day warm and bright, drops to a bruised storm-grey at dusk, and
+      // warms back up through night.
       colorCurve: [
-        { t: 0.00, color: '#8a5a40' }, // dawn — warm rust-tan
-        { t: 0.25, color: '#b48868' }, // day — warm cream-tan
-        { t: 0.50, color: '#c88058' }, // dusk — warm burning orange
-        { t: 0.75, color: '#4a3a30' }, // night — dim warm grey (lightning still dominates via density)
+        { t: 0.00, color: '#a07858' }, // dawn — warm sandy tan (light, calm)
+        { t: 0.25, color: '#d4b088' }, // day — bright cream cumulus
+        { t: 0.50, color: '#3a2820' }, // dusk — STORM thunderhead, dark bruised brown
+        { t: 0.75, color: '#5a4838' }, // night — medium warm grey, lightning lights it up
       ],
     },
-    // Shear motes removed in round-7 100% pass. The within-band streaks
-    // (now wavy + grey-tinted) carry the atmospheric-flow feel on their own,
-    // and the storm cells handle larger weather events — motes were redundant.
-    // ShearMotes component remains in the renderer for any future world that
-    // wants them.
+    {
+      // Foreground motes — fast small particles drifting through the BOTTOM
+      // strip of the frame, below the dot row. Round 7 dropped them from
+      // Jupiter as redundant with the band streaks; round 8 reintroduces them
+      // for the foreground only, since with streaks now confined to the
+      // middle bands (sparse top + bottom) the foreground band reads as
+      // empty without some flow detail at the player's eye level.
+      //
+      // Constraint: motes never appear above halfway. yMinPct 0.70 sits
+      // below the dot row (≈ yPct 0.67 in the iteration tool) so they
+      // never collide with the dots. yMaxPct 0.95 keeps them off the very
+      // bottom edge.
+      id: 'foregroundMotes',
+      kind: 'shearMotes',
+      count: 30,
+      speed: 1.0,
+      yMinPct: 0.70,
+      yMaxPct: 0.95,
+      sizeRange: [0.5, 1.4],
+      densityCurve: [
+        { t: 0.00, value: 0.60 }, // dawn
+        { t: 0.25, value: 1.00 }, // day — full
+        { t: 0.50, value: 0.85 }, // dusk
+        { t: 0.75, value: 0.45 }, // night — quieter, lightning dominates
+      ],
+      colorCurve: [
+        { t: 0.00, color: '#e8c890' }, // dawn — warm cream
+        { t: 0.25, color: '#fff5d8' }, // day — pale cream
+        { t: 0.50, color: '#ffd098' }, // dusk — warm peach
+        { t: 0.75, color: '#a89890' }, // night — muted warm grey
+      ],
+    },
     {
       // Aurora — subtle green/violet wash at top, night-only.
       // Fades in through dusk, peaks at night, gone by dawn.
@@ -255,9 +316,12 @@ window.JupiterTheme = {
       kind: 'gasGiantSpot',
       radius: 70,                // ry; rx = radius × aspectRatio
       aspectRatio: 1.35,          // wider than tall but eased from 1.6 (round 7 review — too stretched at frame size)
-      // Sits roughly at midBand2 height
+      // Sits in the top third of the frame, centred on the topmost cloud
+      // band (farBand2 starts at yPct 0.22). GRS centre at yPct 0.22 puts
+      // its body roughly between y 88 and 228 — well inside the upper
+      // third while still crossing the top band region. Per round 8.
       xPct: 0.5,
-      yPct: 0.50,
+      yPct: 0.22,
       xCurve: [
         // Widened so GRS is visible across most of the cycle (parity with
         // Earth's sun and Moon's earth-from-Moon). Centred dusk peak still
@@ -268,10 +332,13 @@ window.JupiterTheme = {
         { t: 0.75, value: 0.85 },  // night — visible on the right side
       ],
       yCurve: [
-        { t: 0.00, value: 0.50 },
-        { t: 0.25, value: 0.50 },
-        { t: 0.50, value: 0.50 },
-        { t: 0.75, value: 0.50 },
+        // Constant in the top third across the cycle. Was 0.50 in round 7;
+        // raised to 0.22 in round 8 so the GRS reads as a feature in the
+        // upper sky/top-band region rather than centred on the frame.
+        { t: 0.00, value: 0.22 },
+        { t: 0.25, value: 0.22 },
+        { t: 0.50, value: 0.22 },
+        { t: 0.75, value: 0.22 },
       ],
       colorCurve: [
         { t: 0.00, color: '#8a3020' }, // dawn — muted (off-screen anyway)

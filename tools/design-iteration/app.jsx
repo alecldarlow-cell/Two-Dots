@@ -12,7 +12,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "dotTreatment": "glow",
   "dotPalette": "warmCool",
   "showDots": true,
-  "showPipes": true,
+  "showPipes": false,
   "showSky": true,
   "showCelestials": true,
   "showFarRidge": true,

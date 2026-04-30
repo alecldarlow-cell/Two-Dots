@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build:geometry": "esbuild src/features/game/world/geometry/index.ts --bundle --format=iife --global-name=WorldGeometry --outfile=tools/design-iteration/world/geometry-bundle.js --target=es2020 --footer:js=window.WorldGeometry=WorldGeometry;"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -53,6 +54,7 @@
     "@typescript-eslint/eslint-plugin": "^7.10.0",
     "@typescript-eslint/parser": "^7.10.0",
     "@vitest/coverage-v8": "^1.6.0",
+    "esbuild": "^0.21.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.34.0",
