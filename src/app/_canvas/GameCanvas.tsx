@@ -49,9 +49,6 @@ export interface GameCanvasProps {
   nowMs: number;
   dotLDisplayY: number;
   dotRDisplayY: number;
-  sPulseT: number;
-  sPulseW: number;
-  sPulseX: number;
   pauseShimmerOpacity: number;
   goldWashAlpha: number;
   freezeAlpha: number;
@@ -70,9 +67,6 @@ export function GameCanvas({
   nowMs,
   dotLDisplayY,
   dotRDisplayY,
-  sPulseT,
-  sPulseW,
-  sPulseX,
   pauseShimmerOpacity,
   goldWashAlpha,
   freezeAlpha,
@@ -106,27 +100,13 @@ export function GameCanvas({
         />
       )}
 
-      {/* v0.3-worlds redesign — split-screen tint + hard centre line removed.
-       *  The warm/cool dot pair (amber-L + ice-R) now carries the L/R identity
-       *  on its own. Survival pulse below still renders for the clear-event
-       *  feedback moment. Per task 5 of jupiter-ingest follow-ups. */}
-
-      {/* ── Survival pulse on divider (optional) ── */}
-      {display.survivalPulse > 0 && (
-        <Rect
-          x={sPulseX}
-          y={0}
-          width={sPulseW}
-          height={GAME_H}
-          color="#ffffff"
-          opacity={sPulseT * 0.85}
-        />
-      )}
+      {/* v0.3-worlds redesign — split-screen tint, hard centre line, and
+       *  survival pulse all removed. The warm/cool dot pair (amber-L +
+       *  ice-R) carries L/R identity on its own. */}
 
       {/* ── Pipes with all visual effects ── */}
       {display.pipes.map((pipe) => {
         const pipeLeft = sx(pipe.x - PIPE_W / 2);
-        const halfW = sx(PIPE_W / 2);
 
         // Gap bounds in screen pixels
         const gapTop = (pipe.gapCY - pipe.gap / 2) * SCALE;

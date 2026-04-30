@@ -139,47 +139,10 @@ export function IdleScreen({
         <Text style={[styles.thumbLabel, { color: TITLE_R }]}>TAP</Text>
       </View>
 
-      {/* Lane labels — positioned under each tap circle, centred on the
-       *  lane vertical axis. Replaced the prior "LEFT HALF" / "RIGHT HALF"
-       *  row that sat above the dots: shorter wording, lane-anchored
-       *  position. The 60px wide centred Text spans across the lane
-       *  centre so each label is readable without crowding the circle. */}
-      <Text
-        style={[
-          styles.idleHintL,
-          {
-            position: 'absolute',
-            top: thumbY + thumbR + sx(20),
-            left: sx(LANE_L) - sx(60),
-            width: sx(120),
-            textAlign: 'center',
-            paddingLeft: 0,
-            paddingRight: 0,
-            color: TITLE_L,
-            opacity: 0.75,
-          },
-        ]}
-      >
-        LEFT
-      </Text>
-      <Text
-        style={[
-          styles.idleHintR,
-          {
-            position: 'absolute',
-            top: thumbY + thumbR + sx(20),
-            left: sx(LANE_R) - sx(60),
-            width: sx(120),
-            textAlign: 'center',
-            paddingLeft: 0,
-            paddingRight: 0,
-            color: TITLE_R,
-            opacity: 0.75,
-          },
-        ]}
-      >
-        RIGHT
-      </Text>
+      {/* Lane labels removed (v0.3-worlds): the tap circles + the dot
+       *  positions in their respective lanes already teach the L/R
+       *  control mapping. Explicit "LEFT" / "RIGHT" text was redundant
+       *  and added visual noise to the idle screen. */}
     </View>
   );
 }

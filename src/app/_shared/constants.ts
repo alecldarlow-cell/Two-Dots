@@ -15,10 +15,19 @@ import { Dimensions } from 'react-native';
 import { W, VIS_H_MIN, VIS_H_MAX } from '@features/game/engine';
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
-export const COL_L = '#FF5E35';
-export const COL_R = '#2ECFFF';
+// v0.3-worlds: dot palette softened from the prototype's vivid orange-red /
+// cyan to the theme palette's amber / ice. Affects everywhere COL_L /
+// COL_R is consumed — dots themselves, pulse rings, particles on death,
+// close-call rings, etc. Single-source change so the warm/cool identity
+// stays consistent across all surfaces.
+export const COL_L = '#FFB13B';
+export const COL_R = '#7FE5E8';
 export const COL_BG = '#07070f';
-export const COL_BG_FLASH = '#1c0404'; // brief reddish bg on death
+// Legacy hardcoded death bg flash. v0.3-worlds: bg flash now driven by
+// the active world's theme.palette.bgFlash (Moon #1c0418, Earth #2a0814,
+// Jupiter #3a1408) — this constant is kept as a safety fallback for any
+// pre-worlds code path that might still reference it.
+export const COL_BG_FLASH = '#1c0404';
 // Pipe body colour — v0.3-worlds redesign: dark desaturated navy. Sits in
 // the same hue family as Moon's mid-sky and Earth's night sky, so the pipe
 // reads as a foreground silhouette without the brutalist hardness of pure

@@ -38,7 +38,6 @@ export interface DisplaySnapshot {
   flash: number;
   scorePop: number;
   milestonePop: number;
-  survivalPulse: number;
 }
 
 export function snap(s: GameState): DisplaySnapshot {
@@ -65,6 +64,5 @@ export function snap(s: GameState): DisplaySnapshot {
     flash: s.flash,
     scorePop: s.scorePop,
     milestonePop: s.milestonePop,
-    survivalPulse: s.survivalPulse,
   };
 }

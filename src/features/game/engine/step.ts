@@ -27,7 +27,6 @@ import {
   PIPE_W,
   PULSE_FRAMES,
   SCORE_POP_FRAMES,
-  SURVIVAL_PULSE_FRAMES,
   W,
 } from './constants';
 import { dotHitsPipe, isCloseCall, isOutOfBounds } from './collision';
@@ -137,12 +136,6 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
       effects.scored = true;
       s.scorePop = SCORE_POP_FRAMES;
 
-      // Survival speed-step pulse — fires at score 40, 45, 50… (every 5 gates after tier 8 starts at 35)
-      if (tierFor(s.score) === 8 && s.score % 5 === 0 && s.score !== s.lastSurvivalStep) {
-        s.survivalPulse = SURVIVAL_PULSE_FRAMES;
-        s.lastSurvivalStep = s.score;
-      }
-
       if (s.score % 5 === 0) {
         const isTierBoundary = ([5, 10, 15, 20, 25, 30, 35] as const).includes(
           s.score as 5 | 10 | 15 | 20 | 25 | 30 | 35,
@@ -218,7 +211,6 @@ function advanceVisualCounters(s: GameState): void {
   if (s.milestonePop > 0) s.milestonePop--;
   if (s.closeL > 0) s.closeL--;
   if (s.closeR > 0) s.closeR--;
-  if (s.survivalPulse > 0) s.survivalPulse--;
   if (s.flash > 0) s.flash--;
   if (s.deathFlashL > 0) s.deathFlashL--;
   if (s.deathFlashR > 0) s.deathFlashR--;
@@ -261,8 +253,12 @@ function buildDeathParticles(
   diedL: boolean,
   diedR: boolean,
 ): GameState['deathParticles'] {
-  const COL_L = '#FF5E35';
-  const COL_R = '#2ECFFF';
+  // v0.3-worlds: matches the app's softened palette (amber / ice) used for
+  // dot rendering. Was the prototype's vivid #FF5E35 / #2ECFFF until the
+  // dot palette was unified across worlds. Local constants here so the
+  // engine stays import-free of the app shared module.
+  const COL_L = '#FFB13B';
+  const COL_R = '#7FE5E8';
   const sources: Array<{ x: number; y: number; col: string }> = [];
   if (diedL) sources.push({ x: LANE_L, y: s.dotLY, col: COL_L });
   if (diedR) sources.push({ x: LANE_R, y: s.dotRY, col: COL_R });
@@ -367,8 +363,6 @@ function resetForNewRun(s: GameState): void {
   s.milestonePop = 0;
   s.closeL = 0;
   s.closeR = 0;
-  s.survivalPulse = 0;
-  s.lastSurvivalStep = -1;
   s.deathSide = '';
   s.deathFlashL = 0;
   s.deathFlashR = 0;

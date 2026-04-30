@@ -33,7 +33,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { W, DEATH_FREEZE_FRAMES } from '@features/game/engine';
+import { DEATH_FREEZE_FRAMES } from '@features/game/engine';
 import {
   COL_BG,
   COL_BG_FLASH,
@@ -44,7 +44,6 @@ import {
   GAME_H,
   IDLE_CENTRE_Y,
   IDLE_AMPLITUDE,
-  sx,
 } from './_shared/constants';
 import { styles } from './_shared/styles';
 import { GameCanvas } from './_canvas/GameCanvas';
@@ -95,8 +94,14 @@ export default function GameScreen(): React.ReactElement {
       ? IDLE_CENTRE_Y + Math.sin(nowMs / 900 + 1.8) * IDLE_AMPLITUDE
       : display.dotRY;
 
-  // Background colour — briefly reddish on death
-  const bgColor = display.flash > 6 ? COL_BG_FLASH : COL_BG;
+  // Background colour — briefly flashes the active world's bgFlash on death
+  // (Moon #1c0418, Earth #2a0814, Jupiter #3a1408). Each world's bgFlash sits
+  // in its own colour family so the death moment feels coherent with the world
+  // (cool plum on Moon, warm wine on Earth, deep ember on Jupiter). Falls back
+  // to the legacy COL_BG_FLASH constant if the theme palette is somehow
+  // unavailable — defensive guard, shouldn't fire in practice.
+  const bgColor =
+    display.flash > 6 ? (worldTheme.palette.bgFlash ?? COL_BG_FLASH) : COL_BG;
 
   // Live score pop animation. v0.3-worlds: dropped the orange/cyan offset
   // shadow values (shadowOff) since the redesigned HUD score has no
@@ -122,10 +127,10 @@ export default function GameScreen(): React.ReactElement {
       : 0;
   const mDriftY = (1 - mT) * 30;
 
-  // Survival pulse on divider
-  const sPulseT = display.survivalPulse / 20;
-  const sPulseW = sx(2 + sPulseT * 6);
-  const sPulseX = sx(W / 2) - sPulseW / 2;
+  // Survival pulse on the centre divider — removed in v0.3-worlds. The
+  // divider itself was removed when the warm/cool dot pair started carrying
+  // L/R identity; the pulse rendering became dead. Engine state field also
+  // cleaned up — see state.ts and step.ts.
 
   // Death overlay
   const showDeathOverlay =
@@ -161,10 +166,14 @@ export default function GameScreen(): React.ReactElement {
   // Pause shimmer — white overlay on each pipe segment, pulsing at ~8Hz
   const pauseShimmerOpacity = 0.08 + 0.08 * Math.sin(nowMs / 120);
 
-  // Gold screen wash — full-canvas tint during milestone pop window
+  // Gold screen wash — full-canvas tint during milestone pop window.
   // Tier-boundary pop is more subdued (0.15 peak) than regular milestone (0.22 peak).
+  // v0.3-worlds: also gated on display.flash <= 6 so the wash doesn't
+  // composite on top of the death-flash bg (which would read as red-orange
+  // from gold + red blend). Clean separation between celebration and death
+  // feedback frames.
   const goldWashAlpha =
-    display.milestonePop > 0 && display.phase === 'playing'
+    display.milestonePop > 0 && display.phase === 'playing' && display.flash <= 6
       ? (isTierBoundary ? 0.15 : 0.22) * mAlpha
       : 0;
 
@@ -213,9 +222,6 @@ export default function GameScreen(): React.ReactElement {
           nowMs={nowMs}
           dotLDisplayY={dotLDisplayY}
           dotRDisplayY={dotRDisplayY}
-          sPulseT={sPulseT}
-          sPulseW={sPulseW}
-          sPulseX={sPulseX}
           pauseShimmerOpacity={pauseShimmerOpacity}
           goldWashAlpha={goldWashAlpha}
           freezeAlpha={freezeAlpha}
@@ -240,7 +246,6 @@ export default function GameScreen(): React.ReactElement {
             scoreColor={scoreColor}
             mAlpha={mAlpha}
             mDriftY={mDriftY}
-            isTierBoundary={isTierBoundary}
             pauseSubOpacity={pauseSubOpacity}
           />
         )}

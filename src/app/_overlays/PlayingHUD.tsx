@@ -20,7 +20,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { tierName } from '@features/game/engine';
 import { GAME_H, SCALE } from '../_shared/constants';
 import type { DisplaySnapshot } from '../_shared/snapshot';
 import { styles } from '../_shared/styles';
@@ -32,7 +31,6 @@ export interface PlayingHUDProps {
   scoreColor: string;
   mAlpha: number;
   mDriftY: number;
-  isTierBoundary: boolean;
   pauseSubOpacity: number;
 }
 
@@ -43,7 +41,6 @@ export function PlayingHUD({
   scoreColor,
   mAlpha,
   mDriftY,
-  isTierBoundary,
   pauseSubOpacity,
 }: PlayingHUDProps): React.ReactElement {
   // Worlds reached — 1 (Moon) at score 0–9, 2 (Earth) at 10–19, 3 (Jupiter) at 20+.
@@ -82,7 +79,12 @@ export function PlayingHUD({
         ))}
       </View>
 
-      {/* ── Milestone pop overlay ── */}
+      {/* ── Milestone pop overlay ──
+       *  v0.3-worlds: tier-name reveal ("Drift" / "Swing" / "Push" …) at
+       *  every-5-gate boundaries replaced with a world-transition reveal at
+       *  the two world-swap gates (10 → EARTH, 20 → JUPITER). Other gate
+       *  milestones (5, 15, 25, 30, 35) still get the extended celebratory
+       *  pop and the ★ N ★ headline, just no name reveal. */}
       {display.milestonePop > 0 && (
         <View
           pointerEvents="none"
@@ -92,8 +94,10 @@ export function PlayingHUD({
           ]}
         >
           <Text style={styles.milestoneText}>★ {display.score} ★</Text>
-          {isTierBoundary && (
-            <Text style={styles.milestoneTierName}>{tierName(display.score)}</Text>
+          {(display.score === 10 || display.score === 20) && (
+            <Text style={styles.milestoneTierName}>
+              {display.score === 10 ? 'EARTH' : 'JUPITER'}
+            </Text>
           )}
         </View>
       )}

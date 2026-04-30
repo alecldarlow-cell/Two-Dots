@@ -56,7 +56,6 @@ export const MILESTONE_POP_FRAMES_TIER_BOUNDARY = 90;
 export const CLOSE_RING_FRAMES = 12;
 export const DEATH_FLASH_FRAMES = 20;
 export const DEATH_FREEZE_FRAMES = 20;
-export const SURVIVAL_PULSE_FRAMES = 20;
 export const CLEAR_FLASH_FRAMES = 20;
 
 // ─── Idle bob ────────────────────────────────────────────────────────────────

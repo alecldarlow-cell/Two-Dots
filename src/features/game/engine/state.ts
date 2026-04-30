@@ -52,8 +52,6 @@ export interface GameState {
   milestonePop: number;
   closeL: number;
   closeR: number;
-  survivalPulse: number;
-  lastSurvivalStep: number;
 
   // Death sequence
   deathSide: DeathSide;
@@ -98,8 +96,6 @@ export function initState(): GameState {
     milestonePop: 0,
     closeL: 0,
     closeR: 0,
-    survivalPulse: 0,
-    lastSurvivalStep: -1,
 
     deathSide: '',
     deathFlashL: 0,
