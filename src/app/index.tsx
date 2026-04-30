@@ -33,10 +33,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { W, LANE_ALPHA_BY_TIER, DEATH_FREEZE_FRAMES, tierFor } from '@features/game/engine';
+import { W, DEATH_FREEZE_FRAMES, tierFor } from '@features/game/engine';
 import {
-  COL_L,
-  COL_R,
   COL_BG,
   COL_BG_FLASH,
   GOLD,
@@ -47,7 +45,6 @@ import {
   IDLE_CENTRE_Y,
   IDLE_AMPLITUDE,
   sx,
-  alphaHex,
 } from './_shared/constants';
 import { styles } from './_shared/styles';
 import { GameCanvas } from './_canvas/GameCanvas';
@@ -100,15 +97,6 @@ export default function GameScreen(): React.ReactElement {
     display.phase === 'idle'
       ? IDLE_CENTRE_Y + Math.sin(nowMs / 900 + 1.8) * IDLE_AMPLITUDE
       : display.dotRY;
-
-  // Lane background alpha — tier-responsive. The Math.min keeps the index
-  // in [0, 7] so the array access never goes out of range, but ?? 0x08 is a
-  // belt-and-braces guard that also satisfies noUncheckedIndexedAccess.
-  const laneAlpha =
-    display.phase === 'playing'
-      ? (LANE_ALPHA_BY_TIER[Math.min(7, tierFor(display.score) - 1)] ?? 0x08)
-      : 0x08;
-  const laneHex = alphaHex(laneAlpha);
 
   // Background colour — briefly reddish on death
   const bgColor = display.flash > 6 ? COL_BG_FLASH : COL_BG;
@@ -211,29 +199,13 @@ export default function GameScreen(): React.ReactElement {
       style={[styles.root, { backgroundColor: bgColor }]}
     >
       <View style={{ width: SCREEN_W, height: GAME_H, overflow: 'hidden' }}>
-        {/* ── Lane backgrounds ── */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: SCREEN_W / 2,
-            height: GAME_H,
-            backgroundColor: COL_L + laneHex,
-          }}
-        />
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: SCREEN_W / 2,
-            top: 0,
-            width: SCREEN_W / 2,
-            height: GAME_H,
-            backgroundColor: COL_R + laneHex,
-          }}
-        />
+        {/* v0.3-worlds — Lane backgrounds removed. Under the legacy
+         *  pre-worlds theme these warm-L / cool-R tint Views ramped alpha
+         *  by tier (LANE_ALPHA_BY_TIER) to amplify progression tension on
+         *  a dark canvas. With WorldRenderer owning the full background
+         *  and the warm/cool dot pair carrying L/R identity on its own,
+         *  the lane tints fought the world palette and produced an
+         *  unintended "darkens as you progress" effect. */}
 
         {/* ── Skia canvas — all in-game visual effects ── */}
         <GameCanvas
