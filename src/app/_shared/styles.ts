@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
   },
   scoreLive: {
     textAlign: 'center',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: 42,
     fontWeight: 'bold',
     letterSpacing: 4,
@@ -80,14 +80,14 @@ export const styles = StyleSheet.create({
   },
   milestoneText: {
     color: GOLD,
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 2,
   },
   milestoneTierName: {
     color: GOLD,
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: 28,
     fontWeight: 'bold',
     letterSpacing: 4,
@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
     bottom: 0,
   },
   idleWord: {
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     // P1-14: was sx(68); reduced to sx(60) so "DOTS" fits the right lane
     // (Space Mono Bold ~0.65 char-width × 4 chars × 60 + spacing fits inside
     // SCREEN_W/2 with margin on both Pixel 7 and narrower iOS screens).
@@ -117,7 +117,7 @@ export const styles = StyleSheet.create({
   },
   idleInstruction: {
     color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(18),
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -129,7 +129,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   idleHintL: {
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(14),
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -137,7 +137,7 @@ export const styles = StyleSheet.create({
     paddingRight: 10,
   },
   idleHintR: {
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(14),
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -145,7 +145,7 @@ export const styles = StyleSheet.create({
     paddingLeft: 10,
   },
   thumbLabel: {
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(14),
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -154,14 +154,14 @@ export const styles = StyleSheet.create({
   // ── Pause ───────────────────────────────────────────────────────────────────
   pauseTitle: {
     color: '#ffffff',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: 28,
     fontWeight: 'bold',
     letterSpacing: 8,
   },
   sub: {
     color: '#ffffff',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(14),
     fontWeight: 'bold',
     letterSpacing: 3,
@@ -176,7 +176,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   deathScoreBig: {
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(150),
     fontWeight: 'bold',
     textAlign: 'center',
@@ -184,7 +184,7 @@ export const styles = StyleSheet.create({
   },
   deathNewBest: {
     color: GOLD,
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(20),
     fontWeight: 'bold',
     letterSpacing: 3,
@@ -194,7 +194,7 @@ export const styles = StyleSheet.create({
   // intentionally de-emphasised so the score stays dominant.
   deathBestLine: {
     color: 'rgba(42,42,58,0.75)',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(20),
     fontWeight: 'bold',
     letterSpacing: 3,
@@ -202,7 +202,7 @@ export const styles = StyleSheet.create({
   },
   deathTierInfo: {
     color: 'rgba(255,255,255,0.55)',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(13),
     fontWeight: 'bold',
     letterSpacing: 2,
@@ -218,7 +218,7 @@ export const styles = StyleSheet.create({
   },
   retryText: {
     color: '#ffffff',
-    fontFamily: 'SpaceMono-Bold',
+    fontFamily: 'Fraunces-Bold',
     fontSize: sx(18),
     fontWeight: 'bold',
     letterSpacing: 2,

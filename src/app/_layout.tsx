@@ -86,7 +86,14 @@ export default function RootLayout(): React.ReactElement {
      useFonts expects bundled asset references; require() is the canonical
      React Native pattern for non-JS bundled assets (.ttf). The
      @typescript-eslint v8 rule flags these by default — locally disabling. */
+  // v0.3-worlds: Fraunces replaces SpaceMono. Mono terminal aesthetic
+  // fought the painterly worlds; Fraunces' soft optical curves at display
+  // sizes (and tabular numerals via OpenType features) suit the new
+  // atmospheric direction. SpaceMono kept loaded for now as fallback in
+  // case any pre-v0.3 reference slips through; safe to remove later.
   const [fontsLoaded, fontError] = useFonts({
+    Fraunces: require('../../assets/fonts/Fraunces-Regular.ttf'),
+    'Fraunces-Bold': require('../../assets/fonts/Fraunces-Bold.ttf'),
     SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
     'SpaceMono-Bold': require('../../assets/fonts/SpaceMono-Bold.ttf'),
   });
