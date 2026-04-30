@@ -26,7 +26,6 @@ export interface DisplaySnapshot {
   deathParticles: GameState['deathParticles'];
   deathCountFrames: number;
   scoreCountFrames: number;
-  deathTierName: string;
   deathGateInTier: number;
   paused: boolean;
   pulseL: number;
@@ -52,7 +51,6 @@ export function snap(s: GameState): DisplaySnapshot {
     deathParticles: s.deathParticles.map((p) => ({ ...p })),
     deathCountFrames: s.deathCountFrames,
     scoreCountFrames: s.scoreCountFrames,
-    deathTierName: s.deathTierName,
     deathGateInTier: s.deathGateInTier,
     paused: s.paused,
     pulseL: s.pulseL,

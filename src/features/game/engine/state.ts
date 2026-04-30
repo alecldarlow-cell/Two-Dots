@@ -58,7 +58,6 @@ export interface GameState {
   deathFlashL: number;
   deathFlashR: number;
   deathParticles: Particle[];
-  deathTierName: string;
   deathGateInTier: number;
   deathCountFrames: number;
   scoreCountFrames: number;
@@ -101,7 +100,6 @@ export function initState(): GameState {
     deathFlashL: 0,
     deathFlashR: 0,
     deathParticles: [],
-    deathTierName: '',
     deathGateInTier: 0,
     deathCountFrames: 0,
     scoreCountFrames: 0,

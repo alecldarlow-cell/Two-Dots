@@ -32,7 +32,7 @@ import {
 import { dotHitsPipe, isCloseCall, isOutOfBounds } from './collision';
 import type { GameState } from './state';
 import { spawnPipe } from './spawn';
-import { gateInTier, tierFor, tierName, TIER_STARTS } from './tiers';
+import { gateInTier, tierFor, TIER_STARTS } from './tiers';
 import type { Rng } from '@shared/utils/rng';
 
 /**
@@ -234,7 +234,6 @@ function transitionToDead(s: GameState): void {
   // multiple sources stack onto the same dot in one frame). P1-11.
   if (s.deathFlashL > 0) s.deathFlashL = Math.max(s.deathFlashL, DEATH_FLASH_FRAMES);
   if (s.deathFlashR > 0) s.deathFlashR = Math.max(s.deathFlashR, DEATH_FLASH_FRAMES);
-  s.deathTierName = tierName(s.score);
   s.deathGateInTier = gateInTier(s.score);
 
   // Single countdown: first DEATH_FREEZE_FRAMES are the particle window,
@@ -253,10 +252,9 @@ function buildDeathParticles(
   diedL: boolean,
   diedR: boolean,
 ): GameState['deathParticles'] {
-  // v0.3-worlds: matches the app's softened palette (amber / ice) used for
-  // dot rendering. Was the prototype's vivid #FF5E35 / #2ECFFF until the
-  // dot palette was unified across worlds. Local constants here so the
-  // engine stays import-free of the app shared module.
+  // Matches the app's softened palette (amber / ice) used for dot
+  // rendering. Local constants here so the engine stays import-free of the
+  // app shared module — accept the duplication with _shared/constants.ts.
   const COL_L = '#FFB13B';
   const COL_R = '#7FE5E8';
   const sources: Array<{ x: number; y: number; col: string }> = [];
@@ -367,7 +365,6 @@ function resetForNewRun(s: GameState): void {
   s.deathFlashL = 0;
   s.deathFlashR = 0;
   s.deathParticles = [];
-  s.deathTierName = '';
   s.deathGateInTier = 0;
   s.deathCountFrames = 0;
   s.scoreCountFrames = 0;
