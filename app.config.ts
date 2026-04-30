@@ -13,7 +13,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/splash.png',
     resizeMode: 'contain',
-    backgroundColor: '#07070f',
+    // v0.3-worlds: matches the new icon's deep navy backdrop (#0a2c44).
+    // Smoother visual transition from launch to running app.
+    backgroundColor: '#0a2c44',
   },
   assetBundlePatterns: ['**/*'],
   ios: {
@@ -29,7 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#07070f',
+      // v0.3-worlds: deep navy matches the new icon design.
+      backgroundColor: '#0a2c44',
     },
   },
   plugins: [
@@ -38,7 +41,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#07070f',
+        // v0.3-worlds: matches the new icon design's deep navy.
+        backgroundColor: '#0a2c44',
         image: './assets/splash.png',
         imageWidth: 200,
       },
