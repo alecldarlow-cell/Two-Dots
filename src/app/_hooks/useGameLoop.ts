@@ -5,7 +5,8 @@
  *   - Per-component refs (sessionId, runIndex, deathTime, prevPhase,
  *     lastFrame accumulator, bestScore, wasNewBest, gameState).
  *   - Display snapshot state (the React-rendered projection of gsRef.current).
- *   - Audio loading and replay (expo-audio, 16 preloaded WAVs).
+ *   - Audio loading and replay (expo-audio, 16 WAVs preloaded in parallel,
+ *     rapid-fire SFX pooled per POOLED_SOUNDS).
  *   - The fixed-timestep physics+render loop (rAF + accumulator + every-other-
  *     frame setDisplay).
  *   - The death side-effect (haptics, analytics run_end, score submission,
@@ -62,6 +63,15 @@ import { PHYSICS_STEP_MS, VIS_H } from '../_shared/constants';
 import { snap, type DisplaySnapshot } from '../_shared/snapshot';
 import { planetForScore } from './useCurrentPlanet';
 
+// ─── Audio pool config ──────────────────────────────────────────────────────
+// Sounds that benefit from a multi-instance pool — rapid-fire SFX where
+// successive taps may overlap. Each pooled sound gets POOL_SIZE players;
+// replay() round-robins through them so every tap lands on a fresh-start
+// instance, eliminating the seek+play race and supporting overlapping
+// plays. Other sounds get pool size 1.
+const POOLED_SOUNDS = new Set(['jumpL', 'jumpR', 'tap', 'closeCall']);
+const POOL_SIZE = 2;
+
 export interface GameLoopAPI {
   /** The latest snapshot of the game state, re-rendered every other frame. */
   display: DisplaySnapshot;
@@ -103,45 +113,34 @@ export function useGameLoop(): GameLoopAPI {
   const [display, setDisplay] = useState<DisplaySnapshot>(() => snap(gsRef.current));
 
   // ─── Audio (expo-audio) ──────────────────────────────────────────────────────
-  // All sounds stored in a single ref-keyed map so the replay function is
-  // stable and safe to call from both the physics loop and touch handlers.
-  const sounds = useRef<Record<string, AudioPlayer>>({});
+  // Each sound key maps to a small pool of AudioPlayer instances. Replay
+  // round-robins through the pool so rapid-fire keys (jumpL/jumpR/tap/
+  // closeCall) can fire overlapping plays without contending on a single
+  // player's seek+play race.
+  const sounds = useRef<Record<string, AudioPlayer[]>>({});
+  const poolIndex = useRef<Record<string, number>>({});
 
   // Stable replay — accesses sounds.current at call time; never stale.
   //
   // expo-audio's AudioPlayer.currentTime is a GETTER ONLY at runtime
-  // (despite the .d.ts not marking it readonly — confirmed by on-device
-  // throw "Cannot assign to property 'currentTime' which has only a
-  // getter" in the v0.3 preview APK). Restarting playback requires
-  // seekTo(seconds) which returns a Promise. Fire-and-forget the seek
-  // and call play() immediately — the native seek completes before the
-  // audio thread services the play command, so the replay starts from
-  // zero in practice. void on the Promise stops it from floating.
-  const firstReplayLoggedRef = useRef(false);
+  // (despite the .d.ts not marking it readonly), so seekTo(0) is the
+  // documented way to restart playback. seekTo returns a Promise; we
+  // fire-and-forget and call play() immediately — the native seek
+  // completes before the audio thread services play, so the replay
+  // starts from zero in practice. .catch() on the Promise stops async
+  // rejections from floating as unhandled.
   const replay = useRef((key: string): void => {
-    const player = sounds.current[key];
-    if (!player) {
+    const pool = sounds.current[key];
+    if (!pool || pool.length === 0) {
       console.warn(`[audio] replay called for missing key: ${key}`);
       return;
     }
-    // One-shot diagnostic on the first replay — surface the player state
-    // (isLoaded, duration, volume, currentTime) so a "loads but doesn't
-    // play" regression is visible in device logs without instrumenting
-    // every replay.
-    if (!firstReplayLoggedRef.current) {
-      firstReplayLoggedRef.current = true;
-      try {
-        console.warn(
-          `[audio] first replay: key=${key} isLoaded=${player.isLoaded} duration=${player.duration} volume=${player.volume} currentTime=${player.currentTime}`,
-        );
-      } catch (e) {
-        console.warn('[audio] failed to read player state:', e);
-      }
-    }
+    const cur = poolIndex.current[key] ?? -1;
+    const next = (cur + 1) % pool.length;
+    poolIndex.current[key] = next;
+    const player = pool[next];
+    if (!player) return; // unreachable — pool.length verified non-zero above
     try {
-      // Swallow async seek rejections — they shouldn't happen on a
-      // loaded player, and we don't want them surfacing as unhandled
-      // promise rejections. Sync throws still hit the outer catch.
       player.seekTo(0).catch(() => {});
       player.play();
     } catch (e) {
@@ -189,34 +188,29 @@ export function useGameLoop(): GameLoopAPI {
   }, []);
 
   // Load all sounds once on mount; clean up on unmount.
-  // Capture sounds.current into a local so the cleanup closure references the
-  // same map ESLint can prove won't change. (sounds is initialized once via
-  // useRef so .current is stable, but lint can't see that.)
   //
-  // expo-audio gotcha: unlike expo-av's Audio.Sound.createAsync (which
-  // resolved bundled require()'d assets internally), expo-audio's
-  // createAudioPlayer reads source.uri synchronously and silently creates
-  // a no-op player if the URI isn't resolvable. For bundled assets in a
-  // preview/production build the localUri is only populated AFTER
-  // Asset.downloadAsync() completes — without it, every player loads
-  // nothing and playback is silent.
+  // Source form: pass the resolved Asset object directly to
+  // createAudioPlayer. expo-audio's resolveSource detects `source
+  // instanceof Asset` and produces { uri: localUri ?? uri } with NO
+  // assetId — sidestepping the ambiguity that makes
+  // createAudioPlayer(src) (raw require id) silent in preview/production
+  // builds. Pre-download the asset first so localUri is populated.
   //
-  // Belt-and-braces fix: pre-download the asset via Asset.downloadAsync(),
-  // then pass an EXPLICIT { uri } source to createAudioPlayer using
-  // asset.localUri (preferred — file:// path) and falling back to
-  // asset.uri only if the local resolution didn't populate. Passing the
-  // whole Asset object (which used to work) depends on expo-audio's
-  // internal source-resolution behaviour, which has shifted between
-  // releases and silently bypassed the workaround in at least one drift
-  // event. The explicit { uri } form removes that dependency.
+  // Loading runs in parallel via Promise.all so all 16 downloads progress
+  // concurrently rather than serialising — cuts cold-start audio-ready
+  // time from sum-of-downloads to max-of-downloads.
   //
-  // Errors are surfaced via console.warn rather than silently swallowed
-  // so future regressions show up in Metro / device logs immediately.
+  // Pool sizing: POOLED_SOUNDS get POOL_SIZE players; everything else
+  // gets a single player.
+  //
+  // Errors surface via console.warn rather than silently swallowed so
+  // future regressions show up in device logs immediately.
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch((e) => {
       console.warn('[audio] setAudioModeAsync failed:', e);
     });
     const soundsMap = sounds.current;
+    const poolIndexMap = poolIndex.current;
     /* eslint-disable @typescript-eslint/no-require-imports --
        Asset requires are the canonical React Native + Metro pattern for
        bundled non-JS assets (.wav). ES imports of audio files aren't
@@ -241,61 +235,41 @@ export function useGameLoop(): GameLoopAPI {
       death: require('../../../assets/sounds/death.wav'),
     };
     /* eslint-enable @typescript-eslint/no-require-imports */
-    const total = Object.keys(sources).length;
     let cancelled = false;
-    void (async () => {
-      let loaded = 0;
-      for (const [key, src] of Object.entries(sources)) {
+    void Promise.all(
+      Object.entries(sources).map(async ([key, src]) => {
         if (cancelled) return;
         try {
           const asset = Asset.fromModule(src);
           await asset.downloadAsync();
           if (cancelled) return;
-          // Diagnostic: log what asset.downloadAsync produced for the
-          // first sound only, so we can see exactly what URI form we're
-          // passing to createAudioPlayer.
-          if (key === 'tap') {
-            console.warn(
-              `[audio] tap asset: localUri=${asset.localUri} uri=${asset.uri} downloaded=${asset.downloaded}`,
+          const poolSize = POOLED_SOUNDS.has(key) ? POOL_SIZE : 1;
+          const pool: AudioPlayer[] = [];
+          for (let i = 0; i < poolSize; i++) {
+            pool.push(
+              createAudioPlayer(
+                asset as unknown as Parameters<typeof createAudioPlayer>[0],
+              ),
             );
           }
-          // Pass the resolved Asset object directly. This matches the
-          // exact source form that landed as the original audio fix
-          // ("fix(audio): pre-download bundled assets so expo-audio can
-          // resolve URIs", commit 5759286b). expo-audio's resolveSource
-          // detects `source instanceof Asset` and produces { uri:
-          // localUri ?? uri } with NO assetId field — sidestepping the
-          // ambiguity that makes `createAudioPlayer(src)` (raw require
-          // id) silent in preview/production builds.
-          //
-          // Note: expo-audio's AudioSource type doesn't list Asset, but
-          // the runtime resolver handles it (see resolveSource.ts:59-61
-          // in expo-audio). Cast through unknown to satisfy TS without
-          // changing runtime behaviour.
-          const player = createAudioPlayer(asset as unknown as Parameters<typeof createAudioPlayer>[0]);
-          soundsMap[key] = player;
-          loaded++;
-          if (key === 'tap') {
-            const p = player as unknown as { isLoaded?: boolean; duration?: number };
-            console.warn(
-              `[audio] tap created (Asset form): localUri=${asset.localUri} isLoaded=${p.isLoaded} duration=${p.duration}`,
-            );
-          }
+          soundsMap[key] = pool;
+          poolIndexMap[key] = -1; // first replay() advances to index 0
         } catch (e) {
           console.warn(`[audio] failed to load ${key}:`, e);
         }
-      }
-      console.warn(`[audio] loaded ${loaded}/${total} sounds`);
-    })();
+      }),
+    );
     return () => {
       cancelled = true;
-      Object.values(soundsMap).forEach((p) => {
-        try {
-          p.remove();
-        } catch {
-          // Already removed; ignore.
-        }
-      });
+      Object.values(soundsMap)
+        .flat()
+        .forEach((p) => {
+          try {
+            p.remove();
+          } catch {
+            // Already removed; ignore.
+          }
+        });
     };
   }, []);
 
@@ -429,15 +403,44 @@ export function useGameLoop(): GameLoopAPI {
   ]);
 
   // ─── Touch handler (supports multi-touch via onTouchStart) ───────────────────
+  // Audio + haptics fire IMMEDIATELY after handleTap determines what
+  // events were emitted. setDisplay (snap deep-clone + React state set)
+  // and analytics are deferred to after audio is dispatched. Audio-first
+  // ordering minimises perceived input latency — saves the snap+setState
+  // JS work (~1-2ms with several pipes alive) on the path to the play()
+  // call.
   function handleTouch(tapX: number): void {
     const s = gsRef.current;
     const prevPhase = s.phase;
     const now = Date.now();
 
     const events = handleTap(s, tapX, now, VIS_H);
+
+    // Audio + haptics first — minimum JS work between tap and play.
+    for (const ev of events) {
+      switch (ev.kind) {
+        case 'tap-start':
+          replay('tap');
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          break;
+        case 'tap':
+          replay(ev.side === 'L' ? 'jumpL' : 'jumpR');
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          break;
+        case 'tap-pause':
+          replay(ev.paused ? 'pauseOn' : 'tap');
+          break;
+      }
+    }
+    // Dead → idle tap: no engine event emitted, handle directly.
+    if (prevPhase === 'dead' && s.phase === 'idle') {
+      replay('tap');
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    // Visual update + analytics — happen after audio is in flight.
     setDisplay(snap(s));
 
-    // Analytics
     if (prevPhase === 'idle' && s.phase === 'playing') {
       runIndexRef.current++;
       runStartTimeRef.current = now;
@@ -454,28 +457,6 @@ export function useGameLoop(): GameLoopAPI {
         previousRunIndex: runIndexRef.current,
         timeSinceDeathMs: now - deathTimeRef.current,
       });
-    }
-
-    // Event-driven audio + haptics
-    for (const ev of events) {
-      switch (ev.kind) {
-        case 'tap-start':
-          replay('tap');
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          break;
-        case 'tap':
-          replay(ev.side === 'L' ? 'jumpL' : 'jumpR');
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          break;
-        case 'tap-pause':
-          replay(ev.paused ? 'pauseOn' : 'tap');
-          break;
-      }
-    }
-    // Dead → idle tap: no engine event emitted, handle directly
-    if (prevPhase === 'dead' && s.phase === 'idle') {
-      replay('tap');
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   }
 
