@@ -84,7 +84,7 @@ function oklchToOklab(L: number, C: number, H: number): [number, number, number]
 
 // ─── public API: hex ↔ oklch ───────────────────────────────────────────────
 
-export function hexToOklch(hex: string): Oklch {
+function hexToOklch(hex: string): Oklch {
   // Strip leading #, support #rgb and #rrggbb.
   let h = hex.startsWith('#') ? hex.slice(1) : hex;
   if (h.length === 3) {
@@ -183,15 +183,6 @@ export function sampleScalarCurve(
   const first = stops[0]!;
   const local = (tt - last.t) / (first.t + 1 - last.t);
   return last.value + (first.value - last.value) * local;
-}
-
-/** Convenience: hex-stop curve → hex at ToD t (preprocesses every call — for prep paths only). */
-export function sampleHexCurveDirect(
-  stops: ReadonlyArray<{ t: number; color: string }>,
-  t: number,
-): string {
-  const oklch = stops.map((s) => [s.t, hexToOklch(s.color)] as const);
-  return oklchToHex(sampleOklchCurve(oklch, t));
 }
 
 /** Preprocess hex stops to oklch tuples. Frozen (`as const`) safe. */

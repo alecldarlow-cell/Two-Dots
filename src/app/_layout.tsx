@@ -88,14 +88,11 @@ export default function RootLayout(): React.ReactElement {
      @typescript-eslint v8 rule flags these by default — locally disabling. */
   // Fraunces is the project type system. Soft optical curves at display
   // sizes (and tabular numerals via OpenType features) suit the painterly
-  // worlds where the prototype's mono terminal aesthetic fought the look.
-  // SpaceMono kept loaded as a fallback in case any pre-worlds reference
-  // slips through; safe to remove once a sweep confirms no callers.
+  // worlds. SpaceMono was the prototype-era mono terminal aesthetic; a
+  // grep of src/ confirmed no remaining callers, so it's no longer loaded.
   const [fontsLoaded, fontError] = useFonts({
     Fraunces: require('../../assets/fonts/Fraunces-Regular.ttf'),
     'Fraunces-Bold': require('../../assets/fonts/Fraunces-Bold.ttf'),
-    SpaceMono: require('../../assets/fonts/SpaceMono-Regular.ttf'),
-    'SpaceMono-Bold': require('../../assets/fonts/SpaceMono-Bold.ttf'),
   });
   /* eslint-enable @typescript-eslint/no-require-imports */
 

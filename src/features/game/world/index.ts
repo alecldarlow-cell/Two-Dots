@@ -21,5 +21,4 @@ export type {
 } from './types';
 
 export { themes, getTheme, moonTheme, earthTheme, type ThemeId } from './themes';
-export { applyCycleProfile, cyclePhaseLabel, cycleProfileWeights } from './cycle';
-export type { CyclePhaseLabel } from './cycle';
+export { applyCycleProfile, cycleProfileWeights } from './cycle';

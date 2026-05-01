@@ -63,15 +63,3 @@ export function applyCycleProfile(g: number, profile: CycleProfile): number {
   return 0;
 }
 
-export type CyclePhaseLabel = 'Dawn' | 'Day' | 'Dusk' | 'Night';
-
-export function cyclePhaseLabel(g: number, profile: CycleProfile): CyclePhaseLabel {
-  const w = cycleProfileWeights(profile);
-  const eDawn = w.dawn;
-  const eDay = eDawn + w.day;
-  const eDusk = eDay + w.dusk;
-  if (g < eDawn) return 'Dawn';
-  if (g < eDay) return 'Day';
-  if (g < eDusk) return 'Dusk';
-  return 'Night';
-}

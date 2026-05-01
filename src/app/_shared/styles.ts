@@ -169,58 +169,11 @@ export const styles = StyleSheet.create({
   },
 
   // ── Death screen — Phase 2 ──────────────────────────────────────────────────
-  deathScoreBlock: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Padding to ensure shadows (offset ±6 logical) aren't clipped
-    paddingHorizontal: 20,
-  },
   deathScoreBig: {
     fontFamily: 'Fraunces-Bold',
     fontSize: sx(150),
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 2,
-  },
-  deathNewBest: {
-    color: GOLD,
-    fontFamily: 'Fraunces-Bold',
-    fontSize: sx(20),
-    fontWeight: 'bold',
-    letterSpacing: 3,
-    marginTop: sx(8),
-  },
-  // Prototype: DIMMED (#2a2a3a) at globalAlpha 0.75 — very dark and muted,
-  // intentionally de-emphasised so the score stays dominant.
-  deathBestLine: {
-    color: 'rgba(42,42,58,0.75)',
-    fontFamily: 'Fraunces-Bold',
-    fontSize: sx(20),
-    fontWeight: 'bold',
-    letterSpacing: 3,
-    marginTop: sx(8),
-  },
-  deathTierInfo: {
-    color: 'rgba(255,255,255,0.55)',
-    fontFamily: 'Fraunces-Bold',
-    fontSize: sx(13),
-    fontWeight: 'bold',
-    letterSpacing: 2,
-    marginTop: sx(4),
-  },
-  retryPill: {
-    marginTop: sx(20),
-    paddingHorizontal: sx(28),
-    paddingVertical: sx(10),
-    borderRadius: sx(20),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retryText: {
-    color: '#ffffff',
-    fontFamily: 'Fraunces-Bold',
-    fontSize: sx(18),
-    fontWeight: 'bold',
     letterSpacing: 2,
   },
 });

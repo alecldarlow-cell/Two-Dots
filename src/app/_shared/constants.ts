@@ -35,9 +35,6 @@ export const WALL_R = '#0a2c44';
 // right edges. Warm-neutral so it ties subtly to the gold gap-cap (warm
 // family) and reads as "edge lit by the threshold" against any world.
 export const PIPE_INNER_EDGE = '#2a2620';
-// Legacy sky-blue tone — kept for back-compat in case anything references it.
-// Current pipe rendering uses GOLD for gap caps and no scanline overlay.
-export const PIPE_EDGE = '#7ac0e8';
 export const GOLD = '#FFD046';
 
 // ─── Physics ──────────────────────────────────────────────────────────────────

@@ -35,9 +35,7 @@ export const DOT_R = 14;
 
 // ─── Pipes ────────────────────────────────────────────────────────────────────
 export const PIPE_W = 36;
-// Base speed is no longer used directly — per-tier speed is in `tiers.ts`.
-// Kept as reference for the derivation in `maxUpReach`.
-export const PIPE_SPEED_BASE = 2.2;
+// Per-tier speed lives in `tiers.ts`.
 // Retained as a safety ceiling only — distance-based spawn is primary.
 export const PIPE_SPAWN_MS = 2800;
 // Horizontal px between pipe centres — spawn when rightmost is this far from right edge.
@@ -68,41 +66,7 @@ export const IDLE_AMPLITUDE_MAX = 55;
 export const IDLE_PERIOD_MS = 900;
 export const IDLE_RIGHT_PHASE_OFFSET = 1.8;
 
-// ─── Visual: lane intensity per tier ─────────────────────────────────────────
-// Lane background alpha steps through these values as the player progresses.
-// Pushed higher than the prototype's original sequence so tier advancement is
-// visible against the dark background.
-export const LANE_ALPHA_BY_TIER = [0x08, 0x10, 0x16, 0x1e, 0x26, 0x2e, 0x36, 0x3e] as const;
-
-// ─── Audio: pitch ladder ─────────────────────────────────────────────────────
-// Score blip frequency: 500Hz at Tier 1 → 780Hz at Tier 8. Duration tightens at Tier 7+.
-export const BLIP_FREQ_BASE = 500;
-export const BLIP_FREQ_STEP_PER_TIER = 40;
-export const BLIP_DURATION_S = 0.08;
-export const BLIP_DURATION_S_TIGHT = 0.06;
-
-// Every-5 chime (two notes) and tier-boundary chord (three notes).
-export const CHIME_FREQS_EVERY_FIVE = [880, 1320] as const;
-export const CHIME_FREQS_TIER_BOUNDARY = [660, 880, 1320] as const;
-
-// Tap blip pitches.
-export const TAP_FREQ_L = 380;
-export const TAP_FREQ_R = 520;
-export const TAP_FREQ_START = 440;
-export const TAP_FREQ_PAUSE = 330;
-export const TAP_DURATION_S = 0.04;
-export const TAP_DURATION_S_START = 0.05;
-
-// Close-call chime and death sound.
-export const CLOSE_CALL_FREQ = 1100;
-export const CLOSE_CALL_DURATION_S = 0.05;
-export const DEATH_FREQ_HIGH = 240;
-export const DEATH_FREQ_LOW = 160;
-export const DEATH_DURATION_HIGH_S = 0.15;
-export const DEATH_DURATION_LOW_S = 0.25;
-
-// ─── Haptics durations (milliseconds) ────────────────────────────────────────
-export const HAPTIC_TAP_MS = 8;
-export const HAPTIC_START_MS = 10;
-export const HAPTIC_MILESTONE_PATTERN = [15, 40, 15] as const;
-export const HAPTIC_DEATH_PATTERN = [30, 40, 60] as const;
+// (Pre-expo-audio synthesis-era constants — pitch ladder, chime frequencies,
+//  tap/death durations, lane-alpha-by-tier, haptic patterns — all removed.
+//  Audio is now driven by .wav files via expo-audio; haptics use
+//  Haptics.impactAsync(...Light) directly with no per-event duration table.)
