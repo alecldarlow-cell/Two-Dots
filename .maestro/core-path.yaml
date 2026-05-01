@@ -1,0 +1,57 @@
+# Two Dots — core-path E2E flow
+#
+# Exercises the minimum game loop: launch → idle → tap to start →
+# let dots fall and die → death screen → tap to retry → back to idle.
+#
+# Why this flow: it's the smallest path that touches every phase
+# transition the engine handles (idle → playing → dead → idle) and every
+# overlay the renderer mounts (IdleScreen → PlayingHUD → DeathScreen →
+# IdleScreen). A regression on any of those surfaces breaks this flow.
+#
+# Run with:
+#   maestro test .maestro/core-path.yaml
+#
+# Requires a connected Android device or running emulator with the
+# preview APK installed (com.newco.twodots). See .maestro/README.md
+# for installation steps.
+
+appId: com.newco.twodots
+---
+# 1. Cold launch on a clean state — wipes AsyncStorage so persistent best
+#    score doesn't render a footer that could change later assertions.
+- launchApp:
+    clearState: true
+
+# 2. Idle screen confirmed — the title text is the most stable matcher
+#    (rendered as RN Text, no Skia mediation).
+- assertVisible: 'TWO'
+
+# 3. Tap left half to start the run. Engine handleTap on idle phase fires
+#    `tap-start` and primes BOTH dots upward (startPlaying() in step.ts).
+#    Coordinates kept clear of the centre divider (±22 logical px = pause
+#    region) and the system status bar.
+- tapOn:
+    point: '20%, 60%'
+
+# 4. Don't tap again. Both dots fall under gravity; the first to leave
+#    the playable area triggers isOutOfBounds → death. With no further
+#    input this lands within ~2-3 seconds. Score stays 0 → world is Moon
+#    → death-screen eyebrow shows "MOON".
+- extendedWaitUntil:
+    visible: 'MOON'
+    timeout: 15000
+
+# 5. Death screen up. The engine's freeze window is DEATH_FREEZE_FRAMES
+#    (20 at 60fps ≈ 333ms) during which taps are ignored. Maestro's tap
+#    latency typically covers this; waitForAnimationToEnd is a small
+#    safety buffer.
+- waitForAnimationToEnd
+
+# 6. Tap to dismiss back to idle. Engine handleTap on dead phase calls
+#    resetForNewRun() and flips phase to idle. Tap position doesn't
+#    matter in dead phase (no centre-pause check there).
+- tapOn:
+    point: '50%, 50%'
+
+# 7. Idle screen reachable again — title back, run reset.
+- assertVisible: 'TWO'

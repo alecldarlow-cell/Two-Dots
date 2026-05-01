@@ -98,6 +98,8 @@ docs/
   dashboard.html              — read-only KPI dashboard (calls Supabase RPCs)
   privacy.html                — privacy policy (served via GitHub Pages)
 
+.maestro/                     — Maestro E2E YAML flows + README on install + run
+.github/workflows/            — CI: lint, typecheck, format:check, test+coverage
 WORLD_SYSTEM.md               — world-renderer schema doc (v0.3 → v0.7 evolution)
 HANDOFF.md                    — historical handover snapshot (note: pre-v0.3-worlds, due for refresh)
 CHANGELOG.md, CONTRIBUTING.md, .github/PULL_REQUEST_TEMPLATE.md
@@ -172,7 +174,7 @@ src/app/_hooks/__tests__/
 
 - The four custom React hooks themselves — see "Hook-test policy" below.
 - Skia render components — visual correctness verified on-device only.
-- E2E flows (Maestro YAML) — core-path flow (idle → first run → death → retry) in progress, not yet landed.
+- E2E flows (Maestro YAML) — `core-path.yaml` committed at `.maestro/core-path.yaml`. First successful local run pending; see `.maestro/README.md` for install + run steps. Adding to CI (Android emulator runner job) deferred until the flow set grows past one.
 
 ### Hook-test policy
 
