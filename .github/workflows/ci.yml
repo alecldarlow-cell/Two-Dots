@@ -1,0 +1,62 @@
+# CI for Two Dots — runs on every push to main and on every PR.
+#
+# Gates merges on the four checks the README + Decisions Log call out as
+# the must-pass set: lint (--max-warnings 0), typecheck (tsc --noEmit),
+# format:check (prettier), and the test suite WITH coverage. The coverage
+# step enforces the 80% threshold defined in vitest.config.ts (per
+# technical-requirements.md §4.3); a coverage drop below that fails the
+# build the same way a test failure does.
+#
+# E2E (Maestro) is intentionally not gated here yet — task #29 lands the
+# core-path flow first. When it does, add a separate job that runs Maestro
+# against an Android emulator via reactivecircus/android-emulator-runner.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel any in-flight CI on the same ref when a new commit lands —
+# avoids burning runner minutes on superseded PR pushes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # --legacy-peer-deps required: @testing-library/react-native@^12.5.0
+      # has a circular peer dep claim against react@^19. Same flag is set
+      # in .npmrc so this is belt-and-braces.
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Format check
+        run: npm run format:check
+
+      # Runs `vitest run --coverage`. Fails if any test fails OR if
+      # coverage drops below the 80% threshold defined in vitest.config.ts
+      # (lines / functions / branches / statements all gated).
+      - name: Tests with coverage
+        run: npm run test:coverage
