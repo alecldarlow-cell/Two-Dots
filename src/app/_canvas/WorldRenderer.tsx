@@ -65,6 +65,7 @@ import {
   sampleScalarCurve,
   type Oklch,
 } from '@features/game/world/color';
+import { mulberry32 } from '@shared/utils/rng';
 
 // ─── Props ────────────────────────────────────────────────────────────────
 
@@ -153,17 +154,8 @@ function preprocessTheme(theme: WorldTheme): PreprocessedTheme {
 }
 
 // ─── Seeded RNG (mulberry32) — deterministic per-theme positions ──────────
-
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let z = s;
-    z = Math.imul(z ^ (z >>> 15), z | 1);
-    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-  };
-}
+// Imported from @shared/utils/rng (single canonical implementation; the
+// engine's spawn determinism uses the same function from the same source).
 
 function themeSeed(themeId: string): number {
   let h = 2166136261 >>> 0;
