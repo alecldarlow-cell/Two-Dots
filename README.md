@@ -2,7 +2,7 @@
 
 A dual-control minimalist reflex game. Each lane has a dot falling under gravity; taps on the left or right send the corresponding dot upward. Thread both dots through the shared gap in every pipe. A death ends the run; the retry pill appears immediately.
 
-**Status:** S2 scaffold + engine port + persistence layer (no renderer yet). First playable build (S3) needs Skia wired on a development build.
+**Status:** v0.3-worlds shipped, audio fixed, full audit pass complete. Fully playable Skia-rendered game with three worlds (Moon → Earth → Jupiter at gates 0 / 10 / 20), audio + haptics wired via expo-audio, persistent best score, analytics queue. Verified on Pixel 7 via EAS preview build.
 
 **Gate this project exists to validate:** 70%+ unprompted retry behaviour across 20–30 testers on TestFlight + Play Internal Testing. See `docs/analytics.md`.
 
@@ -54,18 +54,21 @@ Single mobile-only repo (not a monorepo). The "backend" is Supabase — no FastA
 ### Feature-first layout
 
 ```
-app/                          — expo-router entry
-  _layout.tsx                 — providers + analytics bootstrap
-  index.tsx                   — GameScreen (S2 placeholder)
-
 src/
+  app/                        — expo-router app dir
+    _layout.tsx               — root layout: fonts + analytics bootstrap + global Text-scale cap
+    index.tsx                 — GameScreen orchestrator (~280 lines after Stage 5 split)
+    providers.tsx             — QueryClient + GestureHandler + SafeArea
+    _shared/                  — constants, DisplaySnapshot, StyleSheet
+    _canvas/                  — Skia: Dot, GameCanvas, WorldRenderer, TitleBloom, PipeScanlines
+    _overlays/                — RN Views: IdleScreen, PlayingHUD, DeathScreen
+    _hooks/                   — useGameLoop, useCurrentPlanet, useWorldTod
   features/
     game/
-      engine/                 — pure TS, no React. Tier math, spawn, collision, step.
-      components/             — Skia render layer (S3, not yet built)
-      hooks/                  — useGameLoop, useTapInput, useAudio, useHaptics (S3)
+      engine/                 — pure TS, no React. step, tiers, spawn, collision, state, constants
+      world/                  — themes (moon, earth, jupiter), cycle profile easing, OKLCh colour utils, schema types
     leaderboard/
-      api/                    — React Query hooks against Supabase
+      api/                    — React Query hooks against Supabase (useSubmitScore is wired; usePersonalBest + useTopScores are scaffold awaiting UI consumer)
       schemas/                — Yup validation
       hooks/                  — useDeviceId
     analytics/                — event catalogue, serialiser, offline queue, retry-rate compute
@@ -75,18 +78,29 @@ src/
   shared/
     supabase/                 — client singleton + DB types
     storage/                  — AsyncStorage wrapper with typed keys
-    utils/                    — rng (seedable mulberry32)
-  app/
-    providers.tsx             — QueryClient + GestureHandler + SafeArea
+    utils/                    — rng (seedable mulberry32; canonical implementation, used by both engine spawn and world renderer)
+
+assets/
+  fonts/                      — Fraunces-Regular, Fraunces-Bold (.ttf, bundled locally)
+  sounds/                     — 16 .wav files (jumps, blips, chords, close-call, death)
+  icon.png, adaptive-icon.png, splash.png
 
 supabase/
-  migrations/                 — SQL files applied in Supabase dashboard
+  migrations/                 — raw SQL files applied via Supabase dashboard
     001_devices.sql
-    002_scores.sql            — includes personal_bests and top_scores views
+    002_scores.sql            — includes personal_bests + top_scores views
     003_analytics_events.sql  — Phase 1 gate instrumentation
+    004_analytics_kpi_views.sql                — superseded by 005
+    005_kpi_functions_and_invoker_views.sql    — current public-aggregate surface
 
 docs/
   analytics.md                — SQL queries for the Phase 1 retry-rate gate
+  dashboard.html              — read-only KPI dashboard (calls Supabase RPCs)
+  privacy.html                — privacy policy (served via GitHub Pages)
+
+WORLD_SYSTEM.md               — world-renderer schema doc (v0.3 → v0.7 evolution)
+HANDOFF.md                    — historical handover snapshot (note: pre-v0.3-worlds, due for refresh)
+CHANGELOG.md, CONTRIBUTING.md, .github/PULL_REQUEST_TEMPLATE.md
 ```
 
 ### Engine
@@ -132,29 +146,35 @@ The anon key is safe to ship in the mobile bundle — RLS in the DB is the secur
 
 ## Testing
 
-Pure-TS logic is tested with Vitest. Engine, analytics math, and schemas have 100% of the critical paths covered.
+Pure-TS logic is tested with Vitest. Run `npm test` for the live count and pass/fail summary; `npm run test:coverage` produces the coverage report. As of the post-audit refactor pass, suites cover:
 
 ```
-src/features/game/engine/__tests__/tiers.test.ts         (35 tests)
-src/features/game/engine/__tests__/collision.test.ts    (16 tests)
-src/features/game/engine/__tests__/spawn.test.ts        (16 tests)
-src/features/game/engine/__tests__/step.test.ts         (19 tests)
-src/features/analytics/__tests__/retryRate.test.ts       (9 tests)
-src/features/analytics/__tests__/serialise.test.ts       (7 tests)
-src/features/leaderboard/__tests__/scoreSubmission.test (16 tests)
-src/shared/utils/__tests__/rng.test.ts                   (4 tests)
-———
-Total: 122 tests, 98% statement coverage on engine
+src/features/game/engine/__tests__/
+  tiers.test.ts         — tier boundaries, gap/speed/pause curves, gateInTier
+  collision.test.ts     — circleRect, dotHitsPipe, isCloseCall, isOutOfBounds
+  spawn.test.ts         — pipeGapCY patterns, reachability clamp, deterministic sequences
+  step.test.ts          — phase transitions, scoring, milestone events, death sequence
+src/features/game/world/__tests__/
+  cycle.test.ts         — applyCycleProfile (atmospheric / airless), plateau anchors, monotonicity
+  color.test.ts         — OKLCh round-trip, sampleOklchCurve, sampleScalarCurve, modular wrap
+src/features/analytics/__tests__/
+  retryRate.test.ts     — Phase 1 gate computation against curated event sequences
+  serialise.test.ts     — event-shape → DB-column mapping
+src/features/leaderboard/__tests__/
+  scoreSubmission.test.ts — Yup schema acceptance / rejection paths
+src/shared/utils/__tests__/
+  rng.test.ts           — mulberry32 determinism + distribution
+src/app/_hooks/__tests__/
+  useCurrentPlanet.test.ts — planetForScore boundary mapping (gates 0/9/10/19/20/21+)
 ```
 
 **Not yet tested:**
 
-- React components and hooks — will use `@testing-library/react-native` in S3 (Skia render phase)
-- Device smoke tests — Maestro flows, also in S3
+- React hooks themselves (`useGameLoop`, `useDeviceId`, `useWorldTod`, `useCurrentPlanet`) — pure functions inside them are tested but the React-bound hook integration isn't. Pending decision on whether to add `@testing-library/react-native` hook tests now or defer until a feature drives the need (see drift-report gap #4).
+- Skia render components — visual correctness verified on-device only.
+- E2E flows (Maestro YAML) — gap #1 in the tech-requirements drift report. Core-path flow (idle → first run → death → retry) is the next thing to build.
 
-The per-frame physics of the engine is validated; it's the render-layer and device integration that still need exercise.
-
-Test pattern follows `../technical-requirements.md` §4.3:
+Test pattern follows the org spec §4.3:
 
 ```
 describe('GIVEN <condition>', () => {
@@ -207,6 +227,9 @@ Documented deliberately so the Decisions Log in Confluence can reference them:
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | No FastAPI backend                   | Two Dots is a mobile game. §9 of tech-requirements names Supabase as the production target. The dev-time Postgres/Docker/Alembic pattern is shaped for SaaS, which this isn't.                                     |
 | Mobile-only repo, no monorepo        | §3.1 describes the monorepo for backend-paired products. §1.3 allows mobile in a separate repo. No backend means no monorepo.                                                                                      |
+| No SQLAlchemy ORM                    | §1.4 mandates SQLAlchemy ORM models. No Python service means no ORM layer to write — the Supabase JS client is the data-access layer. Same root cause as "no FastAPI backend."                                     |
+| No Alembic migrations                | §1.4 mandates Alembic for every schema change. Two Dots ships raw `.sql` files in `supabase/migrations/` applied via the Supabase dashboard. Alembic is a Python migration tool; with no Python it'd be dead infra. |
+| No Docker / Docker Compose           | §1.5 requires Docker for all services + Compose for local dev. Two Dots builds via Expo + EAS (cloud). The dev-time Docker pattern is shaped for the FastAPI+Postgres+Frontend trifecta; mobile-only has nothing to compose. |
 | Maestro (not Playwright) for E2E     | §4.4 specifies Playwright; Playwright doesn't support React Native. Maestro is the mobile equivalent. Still device-runnable in CI.                                                                                 |
 | Skia (not RN Game Engine) for render | Business case mentioned RN Game Engine. The HTML prototype is Canvas2D imperative — Skia is a direct port. RNGE is a React component tree per entity, which would require rewriting the game loop from scratch.    |
 | Engine mutates state in place        | Functional-style per-frame copy would allocate ~8 objects/frame at 60fps. Not worth the GC pressure for a pure-logic module with one call site. Mutation is contained; the boundary is tested via effects-as-data. |
