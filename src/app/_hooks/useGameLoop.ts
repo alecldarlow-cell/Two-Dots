@@ -108,10 +108,15 @@ export function useGameLoop(): GameLoopAPI {
   const sounds = useRef<Record<string, AudioPlayer>>({});
 
   // Stable replay — accesses sounds.current at call time; never stale.
-  // expo-audio has no `replayAsync()`; equivalent is seek-to-zero + play.
-  // seekTo returns a Promise but we fire-and-forget — calling .play()
-  // immediately after still produces a from-start replay because the native
-  // seek completes before the audio thread services the play command.
+  //
+  // expo-audio's AudioPlayer.currentTime is a GETTER ONLY at runtime
+  // (despite the .d.ts not marking it readonly — confirmed by on-device
+  // throw "Cannot assign to property 'currentTime' which has only a
+  // getter" in the v0.3 preview APK). Restarting playback requires
+  // seekTo(seconds) which returns a Promise. Fire-and-forget the seek
+  // and call play() immediately — the native seek completes before the
+  // audio thread services the play command, so the replay starts from
+  // zero in practice. void on the Promise stops it from floating.
   const firstReplayLoggedRef = useRef(false);
   const replay = useRef((key: string): void => {
     const player = sounds.current[key];
@@ -120,32 +125,25 @@ export function useGameLoop(): GameLoopAPI {
       return;
     }
     // One-shot diagnostic on the first replay — surface the player state
-    // (isLoaded, duration, volume) so a "loads but doesn't play" regression
-    // is visible in Metro logs without instrumenting every replay.
+    // (isLoaded, duration, volume, currentTime) so a "loads but doesn't
+    // play" regression is visible in device logs without instrumenting
+    // every replay.
     if (!firstReplayLoggedRef.current) {
       firstReplayLoggedRef.current = true;
       try {
-        const p = player as unknown as {
-          isLoaded?: boolean;
-          duration?: number;
-          volume?: number;
-          currentTime?: number;
-        };
         console.warn(
-          `[audio] first replay: key=${key} isLoaded=${p.isLoaded} duration=${p.duration} volume=${p.volume} currentTime=${p.currentTime}`,
+          `[audio] first replay: key=${key} isLoaded=${player.isLoaded} duration=${player.duration} volume=${player.volume} currentTime=${player.currentTime}`,
         );
       } catch (e) {
         console.warn('[audio] failed to read player state:', e);
       }
     }
     try {
-      // Replay = restart from beginning. We assign currentTime
-      // synchronously rather than calling the async seekTo(0) — avoids the
-      // seek+play race that the original comment was worried about, and
-      // produces a from-start replay reliably on every tap.
-      const p = player as unknown as { currentTime: number; play: () => void };
-      p.currentTime = 0;
-      p.play();
+      // Swallow async seek rejections — they shouldn't happen on a
+      // loaded player, and we don't want them surfacing as unhandled
+      // promise rejections. Sync throws still hit the outer catch.
+      player.seekTo(0).catch(() => {});
+      player.play();
     } catch (e) {
       console.warn(`[audio] replay ${key} threw:`, e);
     }
