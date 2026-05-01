@@ -23,7 +23,8 @@ export interface Pipe {
   speed: number;
   scored: boolean;
   clearFlash: number;
-  /** Dot IDs that have already triggered a close-call on this pipe — prevents repeat firings. */
+  /** Set true once the L/R dot has triggered a close-call on this pipe.
+   *  Prevents repeat firings of the close-call audio + ring per dot per pipe. */
   closeCalledByL: boolean;
   closeCalledByR: boolean;
 }
@@ -40,7 +41,9 @@ export interface SpawnerState {
 export function initSpawnerState(): SpawnerState {
   return {
     lastGapCY: null,
-    // Start neutral — first gate goes up (side = -1 after the first `-lastSide` flip).
+    // Seeded so the first `-lastSide` flip (in tier 2+ patterns) yields
+    // -1 → "up". Value 1 itself never gets used as a side; only the flip
+    // is read.
     lastSide: 1,
     pipeCount: 0,
   };

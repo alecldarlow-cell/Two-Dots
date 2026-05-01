@@ -1,5 +1,5 @@
 /**
- * 7-tier progression — each tier is exactly 5 gates, then Survival holds.
+ * 8-tier progression — each tier is exactly 5 gates, then Survival holds.
  *
  *   Tier 1  (0–4):   Warmup   — big gaps, centred, slow
  *   Tier 2  (5–9):   Drift    — generous gap, gentle alternating rhythm
@@ -8,9 +8,13 @@
  *   Tier 5  (20–24): Shift    — pattern breaks down, biased random
  *   Tier 6  (25–29): Rush     — fully random, gap tightens
  *   Tier 7  (30–34): Chaos    — hard
- *   Tier 8  (35+):   Survival — endless, gradual speed creep
+ *   Tier 8  (35+):   Survival — endless, near-flat plateau
  *
- * Ported 1:1 from prototype TwoDots.html lines 97-268. Values MUST NOT be
+ * Tier names above are design references only — `tierName(score)` returns
+ * "LVL 1" through "LVL 8" for in-UI use. Inline comments in spawn.ts
+ * still use the design names for readability.
+ *
+ * Ported from prototype TwoDots.html lines 97-268. Values MUST NOT be
  * changed without updating the corresponding tests — the Phase 1 retry-rate
  * gate is measured against this exact difficulty curve.
  */
@@ -69,13 +73,11 @@ export function gapSize(score: number): number {
  * Pipe scroll speed in pixels per frame. Within each tier the speed is flat.
  *
  * v0.3 tester-data tweak: dampen post-T4 progression so the game has a
- * clear "near-maximal" plateau rather than escalating endlessly. Softening
- * starts at gate 15 (T4 entry — pause is the lever there since speed is
- * already shared with T3). Speed steps tiny: 2.0 → 2.05 (T5) → 2.1 (T7),
- * then flat from T7 onward. Survival creep removed — game holds at the
- * plateau forever, so deep runs become a battle of attention rather than
- * an unwinnable speed race.
- *   T5: 2.2 → 2.05, T6: 2.2 → 2.05, T7: 2.5 → 2.1, T8: 2.5+creep → 2.1 flat.
+ * clear "near-maximal" plateau rather than escalating endlessly. T1-T2
+ * stay at 1.8; T3-T4 step up to 2.0; T5-T8 hold flat at 2.05. Survival
+ * creep removed — deep runs become a battle of attention rather than an
+ * unwinnable speed race. Pause is the dominant difficulty lever past T4
+ * (see `pipePauseMs`).
  */
 export function pipeSpeed(score: number): number {
   const tier = tierFor(score);

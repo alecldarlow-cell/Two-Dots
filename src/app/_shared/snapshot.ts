@@ -8,7 +8,14 @@
  *
  * - Re-render at half rate without losing data (every other frame).
  * - Pass plain immutable values to memoizable child components.
- * - Keep the engine's GameState fully internal to the engine module.
+ * - Stop the React tree mutating the engine's live GameState directly.
+ *
+ * Note: the snapshot still references engine sub-types (`Pipe[]`,
+ * `Particle[]`) via `GameState['pipes']` / `GameState['deathParticles']`,
+ * so it isn't a fully-decoupled DTO — engine schema changes to those
+ * collections still ripple through the renderer. That coupling is
+ * accepted; defining parallel snapshot-only shapes would force every
+ * engine collection-shape change to be mirrored in two places.
  *
  * Extracted from src/app/index.tsx as Stage 5 first-pass refactor step 2.
  */
