@@ -206,7 +206,16 @@ export function useGameLoop(): GameLoopAPI {
   // Errors surface via console.warn rather than silently swallowed so
   // future regressions show up in device logs immediately.
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch((e) => {
+    // playsInSilentMode is iOS-only; on Android it's a no-op.
+    // interruptionMode: 'mixWithOthers' on Android tells the system "no
+    // audio focus needed — these are short SFX." Hints the audio stack
+    // toward a lower-latency routing path; the docs explicitly recommend
+    // this mode for "sound effects, UI feedback, or short audio clips."
+    // No effect on the silent-mode side; iOS still respects playsInSilentMode.
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'mixWithOthers',
+    }).catch((e) => {
       console.warn('[audio] setAudioModeAsync failed:', e);
     });
     const soundsMap = sounds.current;
