@@ -16,6 +16,7 @@ import {
   CLOSE_RING_FRAMES,
   DEATH_FLASH_FRAMES,
   DEATH_FREEZE_FRAMES,
+  DOT_R,
   GRAVITY,
   JUMP_VY,
   LANE_L,
@@ -32,7 +33,7 @@ import {
 import { dotHitsPipe, isCloseCall, isOutOfBounds } from './collision';
 import type { GameState } from './state';
 import { spawnPipe } from './spawn';
-import { gateInTier, tierFor, TIER_STARTS } from './tiers';
+import { gateInTier, tierFor, TIER_BOUNDARY_SCORES } from './tiers';
 import type { Rng } from '@shared/utils/rng';
 
 /**
@@ -129,7 +130,7 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
     if (p.clearFlash > 0) p.clearFlash--;
 
     // Score check — fires once as the pipe passes the left lane.
-    if (!p.scored && p.x + PIPE_W / 2 < LANE_L - dotRadiusEpsilon()) {
+    if (!p.scored && p.x + PIPE_W / 2 < LANE_L - DOT_R) {
       p.scored = true;
       p.clearFlash = CLEAR_FLASH_FRAMES;
       s.score++;
@@ -137,9 +138,7 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
       s.scorePop = SCORE_POP_FRAMES;
 
       if (s.score % 5 === 0) {
-        const isTierBoundary = ([5, 10, 15, 20, 25, 30, 35] as const).includes(
-          s.score as 5 | 10 | 15 | 20 | 25 | 30 | 35,
-        );
+        const isTierBoundary = TIER_BOUNDARY_SCORES.includes(s.score);
         s.milestonePop = isTierBoundary ? MILESTONE_POP_FRAMES_TIER_BOUNDARY : MILESTONE_POP_FRAMES;
         effects.audio.push(
           isTierBoundary ? { kind: 'tier-boundary-chord' } : { kind: 'every-five-chime' },
@@ -214,12 +213,6 @@ function advanceVisualCounters(s: GameState): void {
   if (s.flash > 0) s.flash--;
   if (s.deathFlashL > 0) s.deathFlashL--;
   if (s.deathFlashR > 0) s.deathFlashR--;
-}
-
-function dotRadiusEpsilon(): number {
-  // The prototype inlines DOT_R here; extracted so the tight coupling is explicit.
-  // If DOT_R ever changes, the LANE_L offset for "scored" threshold updates automatically.
-  return 14;
 }
 
 function transitionToDead(s: GameState): void {
@@ -349,6 +342,7 @@ function startPlaying(s: GameState, now: number, visH: number): void {
   // Reset spawner for the new run.
   s.spawner.lastGapCY = null;
   s.spawner.lastSide = 1;
+  s.spawner.pipeCount = 0;
 }
 
 function resetForNewRun(s: GameState): void {
@@ -404,5 +398,3 @@ export function stepDead(s: GameState): void {
   advanceVisualCounters(s);
 }
 
-/** Convenience helper re-exported for tests. */
-export const TIER_BOUNDARY_SCORES = TIER_STARTS.filter((v) => v > 0);

@@ -33,7 +33,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DEATH_FREEZE_FRAMES } from '@features/game/engine';
+import { DEATH_FREEZE_FRAMES, TIER_BOUNDARY_SCORES } from '@features/game/engine';
 import {
   COL_BG,
   COL_BG_FLASH,
@@ -110,7 +110,6 @@ export default function GameScreen(): React.ReactElement {
   const scoreColor = display.scorePop > 12 ? '#ffffff' : GOLD;
 
   // Milestone pop
-  const TIER_BOUNDARY_SCORES = [5, 10, 15, 20, 25, 30, 35];
   const isTierBoundary = TIER_BOUNDARY_SCORES.includes(display.score);
   const milestoneFrames = isTierBoundary ? 90 : 40;
   const mT = display.milestonePop / milestoneFrames;

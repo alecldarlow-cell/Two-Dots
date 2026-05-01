@@ -24,6 +24,11 @@ export type Tier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 /** Start-of-tier score boundaries, 1-indexed by tier. Tier 8 (Survival) starts at 35. */
 export const TIER_STARTS: readonly number[] = [0, 5, 10, 15, 20, 25, 30, 35] as const;
 
+/** Score values that mark a tier boundary (5, 10, 15, ..., 35). Derived
+ *  from TIER_STARTS so changes propagate. Used by the engine to emit the
+ *  tier-boundary chord and by the HUD to extend the milestone pop. */
+export const TIER_BOUNDARY_SCORES: readonly number[] = TIER_STARTS.filter((v) => v > 0);
+
 export function tierFor(score: number): Tier {
   if (score < 5) return 1;
   if (score < 10) return 2;
