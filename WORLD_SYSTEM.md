@@ -11,63 +11,91 @@ _Authoring conventions: schema agreement happens here first; design iterates aga
 Place at `src/features/game/world/types.ts`. Frozen `as const` per planet — never mutated per-frame.
 
 ```ts
-export type ColorStop = { t: number; color: string };  // t∈[0,1]
+export type ColorStop = { t: number; color: string }; // t∈[0,1]
 export type ScalarStop = { t: number; value: number };
 
 /** Time-of-day cycle position. 0=dawn, 0.25=day, 0.5=dusk, 0.75=night, 1=back to dawn. */
 export type ToD = number;
 
 export type SkyGradient = {
-  topCurve: ColorStop[];     // 3 stops, top-of-sky colour over ToD
-  midCurve: ColorStop[];     // 3 stops, mid-sky
-  bottomCurve: ColorStop[];  // 3 stops, where sky meets horizon
+  topCurve: ColorStop[]; // 3 stops, top-of-sky colour over ToD
+  midCurve: ColorStop[]; // 3 stops, mid-sky
+  bottomCurve: ColorStop[]; // 3 stops, where sky meets horizon
 };
 
 export type Band =
-  | { id: string; kind: 'silhouette';
-      yPct: number; heightPct: number; parallax: number;
+  | {
+      id: string;
+      kind: 'silhouette';
+      yPct: number;
+      heightPct: number;
+      parallax: number;
       profile: 'soft-craters' | 'cratered-horizon' | 'mountains' | 'storm-bands';
-      colorCurve: ColorStop[]; }
-  | { id: string; kind: 'plain';
-      yPct: number; heightPct: number; parallax: number;
-      colorCurve: ColorStop[]; hazeCurve?: ColorStop[]; }
-  | { id: string; kind: 'craters';
-      yPct: number; heightPct: number; parallax: number;
-      colorCurve: ColorStop[]; };
+      colorCurve: ColorStop[];
+    }
+  | {
+      id: string;
+      kind: 'plain';
+      yPct: number;
+      heightPct: number;
+      parallax: number;
+      colorCurve: ColorStop[];
+      hazeCurve?: ColorStop[];
+    }
+  | {
+      id: string;
+      kind: 'craters';
+      yPct: number;
+      heightPct: number;
+      parallax: number;
+      colorCurve: ColorStop[];
+    };
 
 export type ParticleSpec =
-  | { id: string; kind: 'starfield';   count: number; densityCurve: ScalarStop[]; twinkle: boolean; }
-  | { id: string; kind: 'horizontalDrift'; count: number; densityCurve: ScalarStop[]; speed: number; sizeRange: [number, number]; };
+  | { id: string; kind: 'starfield'; count: number; densityCurve: ScalarStop[]; twinkle: boolean }
+  | {
+      id: string;
+      kind: 'horizontalDrift';
+      count: number;
+      densityCurve: ScalarStop[];
+      speed: number;
+      sizeRange: [number, number];
+    };
 
 export type Celestial = {
-  id: string; kind: 'planet' | 'sun' | 'storm-eye';
-  xPct: number; yPct: number; radius: number;
-  colorCurve: ColorStop[]; glowCurve: ScalarStop[];
+  id: string;
+  kind: 'planet' | 'sun' | 'storm-eye';
+  xPct: number;
+  yPct: number;
+  radius: number;
+  colorCurve: ColorStop[];
+  glowCurve: ScalarStop[];
 };
 
 export type WorldTheme = {
   id: 'moon' | 'earth' | 'jupiter';
   label: string;
   tagline: string;
-  gravityMul: number;     // engine knob — feeds initState()
-  scoreMul: number;       // scoring multiplier
+  gravityMul: number; // engine knob — feeds initState()
+  scoreMul: number; // scoring multiplier
   sky: SkyGradient;
-  bands: Band[];          // ordered far→near
+  bands: Band[]; // ordered far→near
   particles: ParticleSpec[];
   celestials: Celestial[];
   palette: {
-    pipeWall: string;     // override of WALL_R within taste
-    pipeEdge: string;     // override of PIPE_EDGE within taste
-    dotL: string;         // per-world dot tint (still warm)
-    dotR: string;         // per-world dot tint (still cool)
+    pipeWall: string; // override of WALL_R within taste
+    pipeEdge: string; // override of PIPE_EDGE within taste
+    dotL: string; // per-world dot tint (still warm)
+    dotR: string; // per-world dot tint (still cool)
     dividerGlowL: string;
     dividerGlowR: string;
-    bgFlash: string;      // death-flash colour
+    bgFlash: string; // death-flash colour
   };
 };
 ```
 
 **Open schema decisions** (to settle before Cowork starts implementing):
+
 - Should the celestial be a top-level `Celestial[]` or a band entry? **Decision: top-level.** Rationale — celestials don't share band semantics (no parallax-with-scroll, no terrain interaction).
 - Are gradient stops linear-RGB or sRGB? **Decision: sRGB hex strings as input; renderer interpolates in oklch (Skia supports this via colour-space-aware blending).** Documented because CSS does sRGB by default and the HTML mockup will band slightly differently than Skia.
 
@@ -108,12 +136,15 @@ Threaded into `GameCanvas` as a prop. The engine's `initState()` reads `gravityM
 ## 4. Three guardrails (per Cowork's perf review)
 
 ### 4.1 Co-fix P0-1 in the same release
+
 `Path.Make()` allocations per-frame in `PipeScanlines.tsx` and `Dot.strokeCircle` are still open. Memoize static path geometry with `useMemo`, pass the same `SkPath` instance frame to frame. Bundle this into the `feat/v0.3-worlds` PR — adding `WorldRenderer` without fixing P0-1 is incremental GC pressure.
 
 ### 4.2 Mid-range Android device test gate
+
 Pixel 7 has substantial GPU headroom. Real proof gate: **60-second sustained-play test on a non-flagship Android (Pixel-5-class, 4GB RAM) with frame-rate overlay**. Must hold ≥58fps. PLAN.md Stage 4. No production tag without this.
 
 ### 4.3 Memoization patterns from day one
+
 - `useMemo` for static-per-planet geometry (silhouette outlines, crater positions, particle base positions)
 - `WorldTheme` objects defined `as const` and frozen; never mutated
 - Stable references on gradient stop arrays (Skia rebuilds shaders on identity change)
@@ -125,13 +156,13 @@ Pixel 7 has substantial GPU headroom. Real proof gate: **60-second sustained-pla
 
 Flagged by Cowork. The HTML mockup will diverge from Skia in these areas; resolve at translation, not at design.
 
-| Gotcha | Symptom | Mitigation |
-|---|---|---|
-| Gradient interpolation mode | Long sky gradients band differently sRGB vs. linear-RGB | Render Skia in oklch; HTML mockup is reference for *intent*, not pixel-identity |
-| Path AA defaults | Silhouette edges may shimmer or look softer/harder | Use Skia `antiAlias` explicit on all paths |
-| Blend-mode subset | CSS modes (e.g. `screen`, `overlay`) without Skia equivalents | Stick to `srcOver`, `multiply`, `plus` — pre-checked in renderer |
-| Pattern fills | Tile/repeat semantics differ | Avoid pattern fills; use procedural draw |
-| Blur radii | `filter: blur(Npx)` ≠ `BlurMask(N)` | Calibrate against Skia, not CSS, when porting glow |
+| Gotcha                      | Symptom                                                       | Mitigation                                                                      |
+| --------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Gradient interpolation mode | Long sky gradients band differently sRGB vs. linear-RGB       | Render Skia in oklch; HTML mockup is reference for _intent_, not pixel-identity |
+| Path AA defaults            | Silhouette edges may shimmer or look softer/harder            | Use Skia `antiAlias` explicit on all paths                                      |
+| Blend-mode subset           | CSS modes (e.g. `screen`, `overlay`) without Skia equivalents | Stick to `srcOver`, `multiply`, `plus` — pre-checked in renderer                |
+| Pattern fills               | Tile/repeat semantics differ                                  | Avoid pattern fills; use procedural draw                                        |
+| Blur radii                  | `filter: blur(Npx)` ≠ `BlurMask(N)`                           | Calibrate against Skia, not CSS, when porting glow                              |
 
 ---
 
@@ -181,6 +212,7 @@ src/features/game/engine/
 ```
 
 Engine tests (124) stay green. New tests:
+
 - `WorldRenderer` snapshot tests for Moon at four ToD keypoints
 - `useCurrentPlanet` round-trip persistence test
 - `themes/*.ts` shape validation against schema (compile-time via TS)

@@ -87,7 +87,7 @@ in the three theme files. Two open questions:
 
 ### 5. Split-screen tint (blue/red) — remove
 
-User position: *ideally remove entirely.* The warm/cool dot palette
+User position: _ideally remove entirely._ The warm/cool dot palette
 (amber + ice, locked) plus per-side divider glow (`palette.dividerGlowL/R`)
 should be enough to disambiguate the two dots without tinting the playfield.
 Drop the half-screen tint, then verify dots are readable across all three
@@ -135,9 +135,9 @@ travel zone.
 ### 11. Naming
 
 "Two Dots" still works with the planetary theme — the dot pair survives as
-the core mechanic. Alternatives if a rebrand is on the table: *Orbit*,
-*Two Moons*, *Pair of Worlds*, *Conjunction*, or kept-mechanic compounds
-(*Two Dots: Worlds*, *Two Dots: Orbit*). This is a product/marketing call,
+the core mechanic. Alternatives if a rebrand is on the table: _Orbit_,
+_Two Moons_, _Pair of Worlds_, _Conjunction_, or kept-mechanic compounds
+(_Two Dots: Worlds_, _Two Dots: Orbit_). This is a product/marketing call,
 not engineering. Once decided, fan out: app icon, splash, store metadata,
 in-game logo treatment, end-screen flourish.
 

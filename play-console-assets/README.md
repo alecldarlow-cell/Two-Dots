@@ -6,15 +6,15 @@ Everything Google Play Console will ask you to upload, in one folder. Companion 
 
 ## What goes here
 
-| Asset | File | Status | Notes |
-| --- | --- | --- | --- |
-| App icon (square) | `app-icon.html` (source) → `../assets/icon.png` (overwrite) | source exists, PNG export pending | **Current `assets/icon.png` is a blank dark swatch — must replace.** Export from this folder, overwrite the placeholder, rebuild. |
-| App icon (Android adaptive foreground) | `app-icon.html` (source) → `../assets/adaptive-icon.png` (overwrite) | source exists, PNG export pending | Same — current placeholder is blank. Adaptive icon foreground needs transparent background. |
-| Feature graphic | `feature-graphic.html` (source) → `feature-graphic.png` (export) | ✅ ready to upload | 1024×500 PNG generated via `export-feature-graphic.ps1` |
-| Phone screenshot 1 — Idle | `screenshot-1-idle.png` | needs copying from Pixel 7 | Captured session 9 |
-| Phone screenshot 2 — Playing early | `screenshot-2-playing.png` | needs copying from Pixel 7 | Captured session 9 |
-| Phone screenshot 3 — Death | `screenshot-3-death.png` | needs copying from Pixel 7 | Captured session 9 (score 7) |
-| Phone screenshot 4 — Pause | `screenshot-4-pause.png` | needs copying from Pixel 7 | Captured session 9 |
+| Asset                                  | File                                                                 | Status                            | Notes                                                                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| App icon (square)                      | `app-icon.html` (source) → `../assets/icon.png` (overwrite)          | source exists, PNG export pending | **Current `assets/icon.png` is a blank dark swatch — must replace.** Export from this folder, overwrite the placeholder, rebuild. |
+| App icon (Android adaptive foreground) | `app-icon.html` (source) → `../assets/adaptive-icon.png` (overwrite) | source exists, PNG export pending | Same — current placeholder is blank. Adaptive icon foreground needs transparent background.                                       |
+| Feature graphic                        | `feature-graphic.html` (source) → `feature-graphic.png` (export)     | ✅ ready to upload                | 1024×500 PNG generated via `export-feature-graphic.ps1`                                                                           |
+| Phone screenshot 1 — Idle              | `screenshot-1-idle.png`                                              | needs copying from Pixel 7        | Captured session 9                                                                                                                |
+| Phone screenshot 2 — Playing early     | `screenshot-2-playing.png`                                           | needs copying from Pixel 7        | Captured session 9                                                                                                                |
+| Phone screenshot 3 — Death             | `screenshot-3-death.png`                                             | needs copying from Pixel 7        | Captured session 9 (score 7)                                                                                                      |
+| Phone screenshot 4 — Pause             | `screenshot-4-pause.png`                                             | needs copying from Pixel 7        | Captured session 9                                                                                                                |
 
 ---
 

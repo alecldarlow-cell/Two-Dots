@@ -171,11 +171,11 @@ Sidebar: **Grow → Store presence → Main store listing**. This is the custome
 
 All upload assets live in `play-console-assets/` (sibling to this playbook). See that folder's `README.md` for per-file status, export instructions, and how to copy screenshots off your Pixel 7.
 
-| Asset                | Required size | Source                                     |
-| -------------------- | ------------- | ------------------------------------------ |
-| App icon             | 512×512 PNG   | `assets/icon.png` — confirm resolution     |
-| Feature graphic      | 1024×500 PNG  | `play-console-assets/feature-graphic.html` → export to PNG via Chrome DevTools (instructions inside the HTML file and in the assets README) |
-| Phone screenshots    | Native Pixel 7 size (1080×2400) | Captured session 9 — copy from device into `play-console-assets/` (see README) |
+| Asset             | Required size                   | Source                                                                                                                                      |
+| ----------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| App icon          | 512×512 PNG                     | `assets/icon.png` — confirm resolution                                                                                                      |
+| Feature graphic   | 1024×500 PNG                    | `play-console-assets/feature-graphic.html` → export to PNG via Chrome DevTools (instructions inside the HTML file and in the assets README) |
+| Phone screenshots | Native Pixel 7 size (1080×2400) | Captured session 9 — copy from device into `play-console-assets/` (see README)                                                              |
 
 **App icon resolution check:**
 
@@ -297,6 +297,7 @@ For the first upload, the manual path (step 6) is simpler. Set up `eas submit` l
 4. Wait for Play Console to validate it (~30 seconds)
 5. Fill in the **Release name** (Play Console will pre-suggest the version code — accept or rename)
 6. Fill in the **Release notes** for the language tab(s) you set up. Suggested first-release notes:
+
    ```
    First Internal Testing release.
 
@@ -305,6 +306,7 @@ For the first upload, the manual path (step 6) is simpler. Set up `eas submit` l
    - Custom synth audio (16 SFX).
    - No ads, no in-app purchases.
    ```
+
 7. Click **Next** to review, then **Save** (don't roll out yet — that's step 7)
 
 ### Automated path (if `eas submit` is set up)
@@ -379,15 +381,18 @@ The version code in your AAB matches one already uploaded. Either bump `android.
 ### EAS build fails on `npm install`
 
 The `.npmrc` should mean `--legacy-peer-deps` is implicit. Verify it exists:
+
 ```powershell
 Get-Content .npmrc
 # Should print: legacy-peer-deps=true
 ```
+
 If missing, recreate it. Then rebuild.
 
 ### Privacy policy URL returns 404
 
 GitHub Pages config:
+
 1. https://github.com/alecldarlow-cell/Two-Dots/settings/pages
 2. Source: "Deploy from a branch"
 3. Branch: `main`, folder: `/docs`
@@ -398,9 +403,11 @@ Verify file exists at `docs/privacy.html` on the `main` branch.
 ### "App is not signed by the upload key" error during upload
 
 Means EAS used a different keystore than Play Console expects (only relevant if you've previously uploaded to this app entry from a different machine or keystore source). Run:
+
 ```powershell
 eas credentials
 ```
+
 to inspect / sync. For a first upload this won't hit you.
 
 ---
@@ -408,27 +415,32 @@ to inspect / sync. For a first upload this won't hit you.
 ## Quick command reference (copy-paste blocks)
 
 **Build production AAB:**
+
 ```powershell
 cd "C:\Claude\Two Dots\two-dots"
 eas build --profile production --platform android
 ```
 
 **Submit to Play Internal Testing (if `eas submit` configured):**
+
 ```powershell
 eas submit --platform android --profile production --latest
 ```
 
 **Build a new preview APK for ad-hoc sideload testing:**
+
 ```powershell
 eas build --profile preview --platform android
 ```
 
 **See all your past builds:**
+
 ```powershell
 eas build:list
 ```
 
 **See your EAS credentials state:**
+
 ```powershell
 eas credentials
 ```

@@ -100,8 +100,7 @@ export default function GameScreen(): React.ReactElement {
   // (cool plum on Moon, warm wine on Earth, deep ember on Jupiter). Falls back
   // to the legacy COL_BG_FLASH constant if the theme palette is somehow
   // unavailable — defensive guard, shouldn't fire in practice.
-  const bgColor =
-    display.flash > 6 ? (worldTheme.palette.bgFlash ?? COL_BG_FLASH) : COL_BG;
+  const bgColor = display.flash > 6 ? (worldTheme.palette.bgFlash ?? COL_BG_FLASH) : COL_BG;
 
   // Live score pop animation. No shadow offset — the HUD score has no
   // shadows — single gold core, scale-pop animation only.
@@ -237,11 +236,7 @@ export default function GameScreen(): React.ReactElement {
 
         {/* ── Idle screen ── */}
         {display.phase === 'idle' && (
-          <IdleScreen
-            thumbR={thumbR}
-            thumbY={thumbY}
-            thumbFillAlpha={thumbFillAlpha}
-          />
+          <IdleScreen thumbR={thumbR} thumbY={thumbY} thumbFillAlpha={thumbFillAlpha} />
         )}
 
         {/* ── Death screen ── */}
@@ -257,5 +252,3 @@ export default function GameScreen(): React.ReactElement {
     </View>
   );
 }
-
-

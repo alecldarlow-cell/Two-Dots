@@ -40,7 +40,7 @@ The patterns that recur across winners:
 3. **Brutal honest difficulty beats dynamic adjustment.** Flappy's pipes never widen. Players blame themselves, not the game. Counter-intuitive lesson: don't soften the curve to be kind; tune the loop to feel fair, not easier.
 4. **Hit-pause + audio stinger + particle burst on near-miss is the highest-ROI juice technique.** Single most cited intervention across the design literature, smallest implementation cost.
 5. **Pick ONE primary retention hook.** Color Switch chose leaderboards. Magic Tiles 3 chose daily challenges. The patterns that share a hook well are the ones that combine a competitive surface (leaderboard or PB) with a soft progression layer (cosmetics) — not two competing engagement loops.
-6. **Failure must feel cathartic, not punitive.** Stack's whole design thesis ("Polish as Progression," GDC 2016). Haptics + visual + audio so the moment of death is *satisfying* — drives instant retry.
+6. **Failure must feel cathartic, not punitive.** Stack's whole design thesis ("Polish as Progression," GDC 2016). Haptics + visual + audio so the moment of death is _satisfying_ — drives instant retry.
 7. **Premium pricing (£1.99) is alive and well in the minimalist arcade niche.** Geometry Dash is the canonical example. Buys editorial trust, eliminates ad integration entirely.
 8. **Community / extensibility creates long tails.** Geometry Dash level editor. Magic Tiles weekly songs. Static-content games burn out faster than ones with content drops or community surfaces. Two Dots can't easily ship a level editor (procedural, not authored), but seasonal cosmetic drops or weekly fixed-seed challenges are the equivalent.
 9. **Contextual onboarding beats forced tutorials when the mechanic is one sentence.** "Tap LEFT to jump orange" appears on first frame, fades after first successful jump. Avoids the patronising tutorial-level penalty for returning players.
@@ -53,6 +53,7 @@ Full reports preserved at `outputs/game_design_research_report.md` (best-practic
 ## 4. Alec's five seed ideas — examined
 
 ### (i) Planetary gravity difficulty modes — Moon / Earth / Jupiter
+
 **Strong.** Maps the existing `gravity` constant onto a difficulty axis the player understands intuitively. Lower gravity (Moon) = floatier dots, longer hang-time, more reaction window — easier. Higher gravity (Jupiter) = faster fall, tighter timing — harder. Score multiplier per planet (e.g. ×0.7 / ×1.0 / ×1.6) keeps the global leaderboard meaningful while letting easier modes serve as on-ramp.
 
 **Architectural fit**: trivial. `engine/constants.ts` exposes a single gravity scalar. A planet enum threaded through `initState()` and into the scoring multiplier covers it.
@@ -62,6 +63,7 @@ Full reports preserved at `outputs/game_design_research_report.md` (best-practic
 **Tone fit**: planets-as-difficulty also opens an aesthetic door for theming (palettes, particles, even SFX pitch shift) without breaking the established orange/cyan/navy/gold semantic system.
 
 ### (ii) Bottom-up inversion — pipes become planet surfaces
+
 **Strong but treat as a distinct mode, not a replacement.** The core mechanic right now is "dots fall, taps push them up against gravity, pipes scroll down". Inverting to "dots are anchored to a surface, taps make them step up, terrain rises from below" is a fundamentally different feel — closer to Doodle Jump or a vertical Geometry Dash than the current Flappy lineage.
 
 **Why ship it as a mode:** keeps the canonical Two Dots feel intact while opening a second flavour. Leverages the same engine primitives — collision, scoring, tier ramps — with re-skinned terrain.
@@ -71,33 +73,35 @@ Full reports preserved at `outputs/game_design_research_report.md` (best-practic
 **Risk**: mode proliferation dilutes the leaderboard story. Solution — call this "Surface Mode" and gate the leaderboard separately.
 
 ### (iii) Cross-run currency + spend
+
 **The right instinct, the spend question is the hard part.** Research is clear: cosmetics are the dominant spend across the genre (10 of 12 winners). The matrix of viable sinks for Two Dots:
 
-| Sink | Maps to existing identity | Cost to produce | Player appeal |
-|------|---------------------------|-----------------|---------------|
-| Dot colour skins | ✅ Direct (orange / cyan are the brand — variants like blood-orange/teal stay on-brand) | Low (palette edits) | High (Stack model) |
-| Trail particles | ✅ Already in the Skia layer | Medium (new particle systems) | High |
-| Pipe palettes per tier | ✅ Tier system already exists | Low (palette work) | Medium |
-| Background / starfield themes | ✅ Already navy `COL_BG` | Low | Medium |
-| Death particle effects | ✅ Already implemented | Low | Medium (visible only on failure) |
-| Audio packs (chord palette swap) | ✅ 16 procedural WAVs already | Medium | Low–medium |
-| New planet unlocks (paired with idea i) | ✅ | Medium | High |
+| Sink                                    | Maps to existing identity                                                               | Cost to produce               | Player appeal                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------- | -------------------------------- |
+| Dot colour skins                        | ✅ Direct (orange / cyan are the brand — variants like blood-orange/teal stay on-brand) | Low (palette edits)           | High (Stack model)               |
+| Trail particles                         | ✅ Already in the Skia layer                                                            | Medium (new particle systems) | High                             |
+| Pipe palettes per tier                  | ✅ Tier system already exists                                                           | Low (palette work)            | Medium                           |
+| Background / starfield themes           | ✅ Already navy `COL_BG`                                                                | Low                           | Medium                           |
+| Death particle effects                  | ✅ Already implemented                                                                  | Low                           | Medium (visible only on failure) |
+| Audio packs (chord palette swap)        | ✅ 16 procedural WAVs already                                                           | Medium                        | Low–medium                       |
+| New planet unlocks (paired with idea i) | ✅                                                                                      | Medium                        | High                             |
 
 **Source**: per-run score, with a conversion ratio (start: half score → currency, tune from playtest) banked at end-of-run. **Sink**: the cosmetic shop only. _No pay-to-win sinks — no extra lives, no power-ups, no slowdowns._ Cosmetic-only protects the integrity of the leaderboard and the brand. **Naming** can be settled at design-time; lean into the brand semantics (e.g. "Sparks") rather than a generic "Coins / Gems" pattern.
 
 ### (iv) Flatten the difficulty curve to maximise "new best" hits
+
 **Right instinct, but the actual curve is more nuanced than "flatten globally."** Pulled the verified values from `src/features/game/engine/tiers.ts`:
 
-| Tier | Score | Gap (px) | Speed (px/frame) | Pause (ms) | Δ gap | Δ pause |
-|---|---|---|---|---|---|---|
-| 1 Warmup | 0–4 | 480 | 1.8 | 1000 | — | — |
-| 2 Drift | 5–9 | 400 | 1.8 | 850 | −80 | −150 |
-| 3 Swing | 10–14 | 340 | 2.0 | 700 | −60 | −150 |
-| 4 Push | 15–19 | 290 | 2.0 | 560 | −50 | −140 |
-| 5 Shift | 20–24 | 245 | 2.2 | 430 | −45 | −130 |
-| 6 Rush | 25–29 | 210 | 2.2 | 320 | −35 | −110 |
-| 7 Chaos | 30–34 | 185 | 2.5 | 270 | −25 | −50 |
-| 8 Survival | 35+ | 165→140 | 2.5+ creep | 230 | −20→−45 | −40 |
+| Tier       | Score | Gap (px) | Speed (px/frame) | Pause (ms) | Δ gap   | Δ pause |
+| ---------- | ----- | -------- | ---------------- | ---------- | ------- | ------- |
+| 1 Warmup   | 0–4   | 480      | 1.8              | 1000       | —       | —       |
+| 2 Drift    | 5–9   | 400      | 1.8              | 850        | −80     | −150    |
+| 3 Swing    | 10–14 | 340      | 2.0              | 700        | −60     | −150    |
+| 4 Push     | 15–19 | 290      | 2.0              | 560        | −50     | −140    |
+| 5 Shift    | 20–24 | 245      | 2.2              | 430        | −45     | −130    |
+| 6 Rush     | 25–29 | 210      | 2.2              | 320        | −35     | −110    |
+| 7 Chaos    | 30–34 | 185      | 2.5              | 270        | −25     | −50     |
+| 8 Survival | 35+   | 165→140  | 2.5+ creep       | 230        | −20→−45 | −40     |
 
 Two observations from the data:
 
@@ -109,6 +113,7 @@ Two observations from the data:
 **Concrete proposal**: don't tune blindly. Instrument the existing `analytics_events` queue to log `gate_index_at_death` and `time_to_death_ms` per run, gather 200+ runs from testers, then make one curve-tuning pass with data. Two tasks: one-day instrumentation, one-day tuning post-data.
 
 ### (v) Sophisticated dynamics — double-press, near-pass bonus
+
 **Two distinct ideas, treat separately.**
 
 **Near-pass bonus** is the cheapest high-impact win in the brief. Verified against the engine: `step.ts:148-160` already runs `isCloseCall(...)` per dot per pipe, sets `closeCalledByL/R` to prevent re-firing, increments `closeL/closeR` frame counters, and pushes a `{ kind: 'close-call' }` audio event. The wiring exists; what's missing is (a) +1 to `s.score` inside the close-call branch, (b) a `score-blip` audio event alongside the close-call sound for a richer stinger, (c) a 1–2-frame hit-pause via the existing accumulator. All three changes touch `step.ts` and the `playAudioEvent` switch in `useGameLoop.ts`. Engine-test impact: tier-property tests stay green; one new test on the close-call score increment. **Estimate: ~2 hours including the test, not 1.**
@@ -136,11 +141,11 @@ Two observations from the data:
 
 The recurring takeaway from both research streams. Every winner does these three things; every burnout failure neglects one.
 
-| Pillar | What it means for Two Dots | Status |
-|---|---|---|
-| **Tight core loop** | Run-to-retry under ~1.5s. Failure feels fair. Difficulty consistent. | 🟢 broadly in place; retry latency unmeasured; tier-curve cliff at 5–7 (idea iv) is the open item |
-| **Soft progression layer** | Visible cross-run accumulation (currency, cosmetics, achievements, OR daily challenges). _Pick one primary._ | 🔴 entirely absent |
-| **Sensory payoff** | Juice, haptics, audio so the moment of death is satisfying, not punitive | 🟡 strong basics; near-miss reward not yet wired; tier-transition theatrics absent; audio depth shallow |
+| Pillar                     | What it means for Two Dots                                                                                   | Status                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| **Tight core loop**        | Run-to-retry under ~1.5s. Failure feels fair. Difficulty consistent.                                         | 🟢 broadly in place; retry latency unmeasured; tier-curve cliff at 5–7 (idea iv) is the open item       |
+| **Soft progression layer** | Visible cross-run accumulation (currency, cosmetics, achievements, OR daily challenges). _Pick one primary._ | 🔴 entirely absent                                                                                      |
+| **Sensory payoff**         | Juice, haptics, audio so the moment of death is satisfying, not punitive                                     | 🟡 strong basics; near-miss reward not yet wired; tier-transition theatrics absent; audio depth shallow |
 
 **The soft-progression-layer gap is the largest and most consequential.** Stage 6 in PLAN.md is the right name for it. The strategic question is what shape it takes.
 
@@ -151,21 +156,27 @@ The recurring takeaway from both research streams. Every winner does these three
 These are mutually compatible but compete for sequencing. Pick the lead pillar, the others follow. Each path has rough effort and the dependencies it pulls in.
 
 ### Path A — Cosmetics & currency (depth, breadth)
+
 Lead with the soft-progression layer. Build a currency that bank-deposits at end-of-run. Build a cosmetic shop with 12–20 unlocks across dot skins + trail particles + background palettes. Wire achievement showcase into the death screen. High retention impact. Requires sustained art / palette work — not just code. Effort: ~2–3 sessions plus art-direction time. Dependencies: monetisation decision (Piers Q2) — if free-with-IAP, ship a real IAP integration; if premium, currency becomes earn-only.
 
 ### Path B — Daily challenge & streaks (recurring engagement)
+
 Lead with a fixed-seed daily run. Every player gets the same pipes today. Separate leaderboard. Streak counter for consecutive days played. Higher long-term retention multiplier per the research, lower aesthetic dependency. Effort: ~2 sessions for client + 0.5 session for the seed-publishing surface. Dependencies: a daily-seed source (Supabase Edge Function or scheduled job) and a tester pool large enough for a daily leaderboard to feel populated — current pool is too small to validate this on its own.
 
 ### Path C — Modes & variety (Alec's planetary direction)
+
 Lead with idea (i) — Moon / Earth / Jupiter as gravity-defined difficulty modes with score multipliers. Then idea (ii) — Surface Mode as a second flavour. New aesthetic per planet. Reuses the engine. Best for marketing ("3 worlds!") and for short-form social content — visually distinct clips. Doesn't directly add a soft-progression layer but pairs naturally with one if added later. Effort: ~2 sessions for gravity-modes; idea (ii) is its own ~2 sessions. Dependencies: per-planet palette / asset pass.
 
 ### Path D — Polish & juice pass (felt quality)
+
 Lead with hit-pause + close-call score bonus, tier-transition theatrics, vertical-layered music, accessibility / settings, onboarding overlay, share card. No new mechanics. Reads as a "v0.2 polish release." Lowest risk, highest per-day return on tester delight, but doesn't fix the meta-game gap. Effort: 1.5–2 sessions including the share-card cross-platform work.
 
 ### Path E — Premium pricing pivot (Geometry Dash model)
+
 Not a feature; a pricing decision. Set Two Dots to £1.99 upfront and remove the entire ads-and-IAP engineering surface. Cosmetics still possible — but earned through play only, no shop, no currency. Buys editorial trust (Apple historically favours premium minimalist titles). Eliminates Path A's currency + IAP scope and most of its monetisation backend. Caps revenue ceiling significantly per Piers' Phase 2 forecast — but de-risks integration and keeps the product clean. Effort: design / pricing decision + a one-day app-config flip + an in-app "thank-you for buying" moment. Dependencies: this is the live open question from Piers' research; resolving it informs which of A / B / C is even shaped correctly.
 
 ### Anti-cheat dependency on any leaderboard-touching path (B, or C/A if they touch the global board)
+
 The Decisions Log already flags this: _"RLS allows any client to write any score value. This is acceptable for Phase 1 (personal contacts). Before public launch, an Edge Function validating score plausibility (time-since-session-start × score consistency) should be added."_ Any path that materially expands leaderboard exposure should bring this validator with it, not afterwards.
 
 ---
@@ -193,13 +204,13 @@ Two decisions, in order:
 
 **Decision 2 — lead path for the next 1–3 sessions.**
 
-| Lead | Best for | Effort | Largest dependency |
-|---|---|---|---|
-| **D** (polish & juice) | Tester delight per dev-day. Buys time before the bigger decisions. | 1.5–2 sessions | None |
-| **A** (cosmetics + currency) | Highest meta-game / retention lift | 2–3 sessions + art | Decision 1 |
-| **C** (planetary modes) | Content / marketing reach; best short-form-video material | 2 sessions per mode | Per-planet asset pass |
-| **B** (daily challenge) | Long-term DAU for an active tester base | 2 sessions + Edge Function | Tester pool size; anti-cheat |
-| **D + C hybrid** | Both polish and content variety | 3.5–4 sessions | None blocking |
+| Lead                         | Best for                                                           | Effort                     | Largest dependency           |
+| ---------------------------- | ------------------------------------------------------------------ | -------------------------- | ---------------------------- |
+| **D** (polish & juice)       | Tester delight per dev-day. Buys time before the bigger decisions. | 1.5–2 sessions             | None                         |
+| **A** (cosmetics + currency) | Highest meta-game / retention lift                                 | 2–3 sessions + art         | Decision 1                   |
+| **C** (planetary modes)      | Content / marketing reach; best short-form-video material          | 2 sessions per mode        | Per-planet asset pass        |
+| **B** (daily challenge)      | Long-term DAU for an active tester base                            | 2 sessions + Edge Function | Tester pool size; anti-cheat |
+| **D + C hybrid**             | Both polish and content variety                                    | 3.5–4 sessions             | None blocking                |
 
 I have no strong preference between A / C / D — each is defensible. **D before any larger path** is the most defensible non-controversial sequence: the close-call score bonus, hit-pause, settings surface, onboarding overlay, and share card all unblock everything else (analytics depth, accessibility featuring, social sharing) and ship in their own ~2-session window with no architectural commitment. But if the goal of this chat is to build the meta-game, **A** is the directly-on-target path and the polish items can come back later.
 
@@ -217,6 +228,7 @@ I have no strong preference between A / C / D — each is defensible. **D before
 - Piers' [TD — Acceptance Criteria](https://piersarnold.atlassian.net/wiki/spaces/AP/pages/29655041/TD+-+Acceptance+Criteria) (29655041)
 
 Sources:
+
 - [TD — Business Case](https://piersarnold.atlassian.net/wiki/spaces/AP/pages/29196298/TD+Business+Case)
 - [TD — Research](https://piersarnold.atlassian.net/wiki/spaces/AP/pages/40075295/TD+Research)
 - [TD — Project Requirements](https://piersarnold.atlassian.net/wiki/spaces/AP/pages/29425667/TD+-+Project+Requirements)

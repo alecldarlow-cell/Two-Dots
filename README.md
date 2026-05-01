@@ -223,16 +223,16 @@ Both stores require a privacy policy URL. A minimal one disclosing anonymous dev
 
 Documented deliberately so the Decisions Log in Confluence can reference them:
 
-| Deviation                            | Reason                                                                                                                                                                                                             |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| No FastAPI backend                   | Two Dots is a mobile game. §9 of tech-requirements names Supabase as the production target. The dev-time Postgres/Docker/Alembic pattern is shaped for SaaS, which this isn't.                                     |
-| Mobile-only repo, no monorepo        | §3.1 describes the monorepo for backend-paired products. §1.3 allows mobile in a separate repo. No backend means no monorepo.                                                                                      |
-| No SQLAlchemy ORM                    | §1.4 mandates SQLAlchemy ORM models. No Python service means no ORM layer to write — the Supabase JS client is the data-access layer. Same root cause as "no FastAPI backend."                                     |
-| No Alembic migrations                | §1.4 mandates Alembic for every schema change. Two Dots ships raw `.sql` files in `supabase/migrations/` applied via the Supabase dashboard. Alembic is a Python migration tool; with no Python it'd be dead infra. |
+| Deviation                            | Reason                                                                                                                                                                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No FastAPI backend                   | Two Dots is a mobile game. §9 of tech-requirements names Supabase as the production target. The dev-time Postgres/Docker/Alembic pattern is shaped for SaaS, which this isn't.                                               |
+| Mobile-only repo, no monorepo        | §3.1 describes the monorepo for backend-paired products. §1.3 allows mobile in a separate repo. No backend means no monorepo.                                                                                                |
+| No SQLAlchemy ORM                    | §1.4 mandates SQLAlchemy ORM models. No Python service means no ORM layer to write — the Supabase JS client is the data-access layer. Same root cause as "no FastAPI backend."                                               |
+| No Alembic migrations                | §1.4 mandates Alembic for every schema change. Two Dots ships raw `.sql` files in `supabase/migrations/` applied via the Supabase dashboard. Alembic is a Python migration tool; with no Python it'd be dead infra.          |
 | No Docker / Docker Compose           | §1.5 requires Docker for all services + Compose for local dev. Two Dots builds via Expo + EAS (cloud). The dev-time Docker pattern is shaped for the FastAPI+Postgres+Frontend trifecta; mobile-only has nothing to compose. |
-| Maestro (not Playwright) for E2E     | §4.4 specifies Playwright; Playwright doesn't support React Native. Maestro is the mobile equivalent. Still device-runnable in CI.                                                                                 |
-| Skia (not RN Game Engine) for render | Business case mentioned RN Game Engine. The HTML prototype is Canvas2D imperative — Skia is a direct port. RNGE is a React component tree per entity, which would require rewriting the game loop from scratch.    |
-| Engine mutates state in place        | Functional-style per-frame copy would allocate ~8 objects/frame at 60fps. Not worth the GC pressure for a pure-logic module with one call site. Mutation is contained; the boundary is tested via effects-as-data. |
+| Maestro (not Playwright) for E2E     | §4.4 specifies Playwright; Playwright doesn't support React Native. Maestro is the mobile equivalent. Still device-runnable in CI.                                                                                           |
+| Skia (not RN Game Engine) for render | Business case mentioned RN Game Engine. The HTML prototype is Canvas2D imperative — Skia is a direct port. RNGE is a React component tree per entity, which would require rewriting the game loop from scratch.              |
+| Engine mutates state in place        | Functional-style per-frame copy would allocate ~8 objects/frame at 60fps. Not worth the GC pressure for a pure-logic module with one call site. Mutation is contained; the boundary is tested via effects-as-data.           |
 
 ---
 

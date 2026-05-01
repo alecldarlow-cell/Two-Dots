@@ -136,13 +136,7 @@ export function GameCanvas({
 
                 {/* Inner-edge pinstripes — 1px hard line just inside the
                     left and right edges of the body. */}
-                <Rect
-                  x={pipeLeft}
-                  y={seg.y}
-                  width={sx(1)}
-                  height={seg.h}
-                  color={PIPE_INNER_EDGE}
-                />
+                <Rect x={pipeLeft} y={seg.y} width={sx(1)} height={seg.h} color={PIPE_INNER_EDGE} />
                 <Rect
                   x={pipeLeft + sx(PIPE_W) - sx(1)}
                   y={seg.y}
@@ -180,13 +174,7 @@ export function GameCanvas({
                 ) : (
                   /* Bottom segment: 6px solid edge, then glow fades downward into body */
                   <>
-                    <Rect
-                      x={pipeLeft}
-                      y={seg.y}
-                      width={sx(PIPE_W)}
-                      height={sx(6)}
-                      color={GOLD}
-                    />
+                    <Rect x={pipeLeft} y={seg.y} width={sx(PIPE_W)} height={sx(6)} color={GOLD} />
                     <Rect x={pipeLeft} y={seg.y + sx(6)} width={sx(PIPE_W)} height={sx(14)}>
                       <LinearGradient
                         start={vec(0, seg.y + sx(6))}

@@ -10,14 +10,11 @@ import {
 describe('color', () => {
   describe('GIVEN preprocessHexCurve + oklchToHex round-trip', () => {
     describe('WHEN given pure greys', () => {
-      it.each(['#000000', '#808080', '#ffffff'])(
-        'THEN %s round-trips back to itself',
-        (hex) => {
-          const stops = preprocessHexCurve([{ t: 0, color: hex }]);
-          const back = oklchToHex(stops[0]![1]);
-          expect(back).toBe(hex);
-        },
-      );
+      it.each(['#000000', '#808080', '#ffffff'])('THEN %s round-trips back to itself', (hex) => {
+        const stops = preprocessHexCurve([{ t: 0, color: hex }]);
+        const back = oklchToHex(stops[0]![1]);
+        expect(back).toBe(hex);
+      });
     });
 
     describe('WHEN given saturated primaries', () => {

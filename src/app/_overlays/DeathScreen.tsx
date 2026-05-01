@@ -67,8 +67,7 @@ export function DeathScreen({
   // BEST footer reveal — gated on countDone and score>0 (no comparison
   // meaningful at score=0). Rendered from frame 1 with opacity 0 so the
   // score's centred position doesn't shift on reveal.
-  const footerOpacity =
-    countDone && display.score > 0 ? (wasNewBest ? 0.9 : 0.6) : 0;
+  const footerOpacity = countDone && display.score > 0 ? (wasNewBest ? 0.9 : 0.6) : 0;
 
   return (
     <View

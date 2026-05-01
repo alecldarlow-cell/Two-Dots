@@ -56,15 +56,15 @@ Tweaks panel auto-activates on standalone via a small bootstrap in each HTML.
 }
 ```
 
-* `Band` kinds: `silhouette` | `plain` | `craters`. Silhouettes carry a `profile`
+- `Band` kinds: `silhouette` | `plain` | `craters`. Silhouettes carry a `profile`
   enum: `'soft-craters' | 'cratered-horizon' | 'mountains' | 'hills' | 'singleHill' | 'storm-bands'`.
   Optional `gradientCurve?` for internal vertical shading on silhouettes.
-* `ParticleSpec` kinds: `starfield | horizontalDrift | clouds | birds`.
+- `ParticleSpec` kinds: `starfield | horizontalDrift | clouds | birds`.
   Optional `sizeMul?` on starfield/birds.
-* `Celestial.kind`: `planet | sun | moon | storm-eye`.
+- `Celestial.kind`: `planet | sun | moon | storm-eye`.
   Optional `xCurve` / `yCurve` (sample raw t — continuous arcing position),
   `phaseCurve` (terminator).
-* Renderer rule: `glow=0` hides body+halo for sun/moon kinds only;
+- Renderer rule: `glow=0` hides body+halo for sun/moon kinds only;
   storm-eye/planet always visible.
 
 **Note: iteration tool's renderer ALSO supports `kind: 'earth'`** — special-case
@@ -77,14 +77,14 @@ but `kind: 'planet'` in `themes/moon.ts` (engine). One outstanding port.
 
 ## What's settled (do not relitigate)
 
-* Warm/cool dot palette locked across all worlds (amber + ice).
-* Pipe palette navy family (#10355c wall, #7ac0e8 edge).
-* ToD wrap: 4 stops at 0/0.25/0.5/0.75; t=1 wraps to 0.
-* Particle `count` = fixed seeded positions; `densityCurve` = alpha multiplier.
-* Coordinate units: yPct/heightPct of VIS_H, xPct of canvas width.
-* OKLCh interpolation in renderer.
-* Per-world cycle profile (Moon airless, Earth atmospheric, Jupiter atmospheric).
-* No schema additions for Jupiter — used hardcoded storm-eye rendering instead.
+- Warm/cool dot palette locked across all worlds (amber + ice).
+- Pipe palette navy family (#10355c wall, #7ac0e8 edge).
+- ToD wrap: 4 stops at 0/0.25/0.5/0.75; t=1 wraps to 0.
+- Particle `count` = fixed seeded positions; `densityCurve` = alpha multiplier.
+- Coordinate units: yPct/heightPct of VIS_H, xPct of canvas width.
+- OKLCh interpolation in renderer.
+- Per-world cycle profile (Moon airless, Earth atmospheric, Jupiter atmospheric).
+- No schema additions for Jupiter — used hardcoded storm-eye rendering instead.
 
 ---
 
@@ -95,10 +95,10 @@ but `kind: 'planet'` in `themes/moon.ts` (engine). One outstanding port.
 1. ✅ Divider glow removed from `game-overlay.jsx` + toggle removed from app panel.
 2. ✅ farRidge band removed from `theme-moon.js`.
 3. ✅ Craters made static (no scroll drift), two-shade depth (lighter rim halo
-   + darker bowl offset upward), power-law size distribution (32 craters,
-   75% small, 20% medium, 5% large, sizes 6-50px wide, with overlap rejection
-   buffer of 1.1×). Crater band extended to cover the full regolith plain
-   (foreground band yPct 0.78 / heightPct 0.22).
+   - darker bowl offset upward), power-law size distribution (32 craters,
+     75% small, 20% medium, 5% large, sizes 6-50px wide, with overlap rejection
+     buffer of 1.1×). Crater band extended to cover the full regolith plain
+     (foreground band yPct 0.78 / heightPct 0.22).
 4. ✅ Stars confined to sky region — Starfield reads the topmost band's `yPct`
    as the ceiling instead of hardcoded 0.55. Lunar dust particle removed
    (was reading as misplaced stars in regolith area).
@@ -148,12 +148,12 @@ Negative parallax on alternating bands for zonal flow.
 
 ## Tooling
 
-* **`.\tools\v0.3-snapshot.ps1 "<message>"`** — git add+commit with `round 6:`
+- **`.\tools\v0.3-snapshot.ps1 "<message>"`** — git add+commit with `round 6:`
   prefix. Run after every confirmed change. (Or change the prefix for round 7.)
-* **`.\tools\v0.3-checks.ps1`** — typecheck + lint + tests + open Skia preview.
-* **`.\tools\serve-design-iteration.ps1`** — http-server on port 8080
+- **`.\tools\v0.3-checks.ps1`** — typecheck + lint + tests + open Skia preview.
+- **`.\tools\serve-design-iteration.ps1`** — http-server on port 8080
   serving the iteration tool. Open Earth/Moon/Jupiter.html.
-* **`.\tools\copy-design-iteration.ps1`** — copies design's working folder
+- **`.\tools\copy-design-iteration.ps1`** — copies design's working folder
   (`C:\Claude\Two Dots\Design Files`) into `tools\design-iteration`.
   **Don't run mid-iteration** — overwrites local edits.
 
@@ -191,12 +191,12 @@ compiled JSX in the browser.
 
 ## Recommended next moves
 
-* **Snapshot baseline and engine catch-up port** — single PR. Iteration
+- **Snapshot baseline and engine catch-up port** — single PR. Iteration
   tool numbers and renderer behaviours, ported into engine themes/renderer.
   Includes the schema additions (Celestial.kind: 'earth').
-* **Jupiter design review** — same 4-frame side-by-side pattern as Moon
-  + Earth. I have the iteration tool ready; Jupiter.html serves it.
-* **Production switch-on** — flip WORLDS_ENABLED, run gates on device.
+- **Jupiter design review** — same 4-frame side-by-side pattern as Moon
+  - Earth. I have the iteration tool ready; Jupiter.html serves it.
+- **Production switch-on** — flip WORLDS_ENABLED, run gates on device.
 
 ---
 

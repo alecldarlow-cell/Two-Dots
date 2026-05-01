@@ -104,9 +104,7 @@ export function stepPlaying(s: GameState, input: FrameInput): FrameEffects {
     input.now - s.lastSpawn >= PIPE_SPAWN_MS;
   const gravityMul = input.gravityMul ?? 1.0;
   if (shouldSpawn) {
-    s.pipes.push(
-      spawnPipe(s.score, input.now, input.visH, s.spawner, input.rng, gravityMul),
-    );
+    s.pipes.push(spawnPipe(s.score, input.now, input.visH, s.spawner, input.rng, gravityMul));
     s.lastSpawn = input.now;
   }
 
@@ -397,4 +395,3 @@ export function stepDead(s: GameState): void {
   // stepPlaying is never called while dead, so we advance them here instead.
   advanceVisualCounters(s);
 }
-

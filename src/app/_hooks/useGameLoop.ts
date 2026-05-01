@@ -44,13 +44,7 @@ import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 
 import { logEvent } from '@features/analytics';
-import {
-  handleTap,
-  initState,
-  stepDead,
-  stepPlaying,
-  tierFor,
-} from '@features/game/engine';
+import { handleTap, initState, stepDead, stepPlaying, tierFor } from '@features/game/engine';
 import type { AudioEvent, GameState } from '@features/game/engine';
 import { getTheme } from '@features/game/world';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
@@ -256,9 +250,7 @@ export function useGameLoop(): GameLoopAPI {
           const pool: AudioPlayer[] = [];
           for (let i = 0; i < poolSize; i++) {
             pool.push(
-              createAudioPlayer(
-                asset as unknown as Parameters<typeof createAudioPlayer>[0],
-              ),
+              createAudioPlayer(asset as unknown as Parameters<typeof createAudioPlayer>[0]),
             );
           }
           soundsMap[key] = pool;

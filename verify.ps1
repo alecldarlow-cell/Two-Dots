@@ -1,4 +1,8 @@
-# verify.ps1 — Two Dots: typecheck + lint + tests
+# verify.ps1 — Two Dots: typecheck + lint + format:check + tests
+#
+# Mirrors the GitHub Actions CI gate (.github/workflows/ci.yml). All four
+# checks must pass before push so CI is a confirmation rather than a
+# discovery surface.
 #
 # Usage:
 #   .\verify.ps1
@@ -31,8 +35,9 @@ function Run-Step($name, $step) {
     Write-Host ""
 }
 
-Run-Step 'typecheck' { npm run typecheck }
-Run-Step 'lint'      { npm run lint }
-Run-Step 'test'      { npm test }
+Run-Step 'typecheck'    { npm run typecheck }
+Run-Step 'lint'         { npm run lint }
+Run-Step 'format:check' { npm run format:check }
+Run-Step 'test'         { npm test }
 
 Write-Host "All green." -ForegroundColor Green

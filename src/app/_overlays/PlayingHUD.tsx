@@ -88,10 +88,7 @@ export function PlayingHUD({
       {display.milestonePop > 0 && (
         <View
           pointerEvents="none"
-          style={[
-            styles.milestoneContainer,
-            { top: notchOffset + 110 - mDriftY, opacity: mAlpha },
-          ]}
+          style={[styles.milestoneContainer, { top: notchOffset + 110 - mDriftY, opacity: mAlpha }]}
         >
           <Text style={styles.milestoneText}>★ {display.score} ★</Text>
           {(display.score === 10 || display.score === 20) && (

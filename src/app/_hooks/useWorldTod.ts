@@ -68,8 +68,7 @@ export function useWorldTod(display: DisplaySnapshot, nowMs: number): number {
   if (display.score > lastScoreRef.current) {
     const interval = activeMsRef.current - lastClearActiveMsRef.current;
     if (interval > 0) {
-      emaIntervalRef.current =
-        EMA_ALPHA * interval + (1 - EMA_ALPHA) * emaIntervalRef.current;
+      emaIntervalRef.current = EMA_ALPHA * interval + (1 - EMA_ALPHA) * emaIntervalRef.current;
     }
     lastClearActiveMsRef.current = activeMsRef.current;
   }
@@ -84,10 +83,7 @@ export function useWorldTod(display: DisplaySnapshot, nowMs: number): number {
 
   // Tween from current anchor toward next, capped at 1 if the player
   // stalls. Tween duration tracks the player's actual pacing.
-  const tweenDuration = Math.max(
-    TWEEN_MIN_MS,
-    Math.min(emaIntervalRef.current, TWEEN_MAX_MS),
-  );
+  const tweenDuration = Math.max(TWEEN_MIN_MS, Math.min(emaIntervalRef.current, TWEEN_MAX_MS));
   const msSinceClear = activeMsRef.current - lastClearActiveMsRef.current;
   const tween = Math.min(msSinceClear / tweenDuration, 1);
 

@@ -81,13 +81,13 @@ Tap the LEFT half to jump the orange dot. Tap the RIGHT half to jump the cyan do
 
 ## Graphics required
 
-| Asset                | Size            | Source                                                                               |
-| -------------------- | --------------- | ------------------------------------------------------------------------------------ |
-| App icon             | 512×512 PNG     | `assets/icon.png` — verify resolution, scale up if needed                            |
-| Feature graphic      | 1024×500 PNG    | Needs designing — minimal: "TWO DOTS" + orange + cyan dots on `#07070f` background  |
-| Phone screenshots    | min 2, max 8    | Have 4 from session 9 (idle / playing / death / pause); ideally re-shoot one with a higher death-screen score so it shows a real number rather than 7 |
-| 7" tablet screenshots | optional       | Skip for v0.1.0 — tablet support is `false` in app.config.ts                         |
-| 10" tablet screenshots | optional      | Skip                                                                                 |
+| Asset                  | Size         | Source                                                                                                                                                |
+| ---------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App icon               | 512×512 PNG  | `assets/icon.png` — verify resolution, scale up if needed                                                                                             |
+| Feature graphic        | 1024×500 PNG | Needs designing — minimal: "TWO DOTS" + orange + cyan dots on `#07070f` background                                                                    |
+| Phone screenshots      | min 2, max 8 | Have 4 from session 9 (idle / playing / death / pause); ideally re-shoot one with a higher death-screen score so it shows a real number rather than 7 |
+| 7" tablet screenshots  | optional     | Skip for v0.1.0 — tablet support is `false` in app.config.ts                                                                                          |
+| 10" tablet screenshots | optional     | Skip                                                                                                                                                  |
 
 ---
 
@@ -115,18 +115,18 @@ Click through with these answers:
 
 ### Violence
 
-| Question                                                                                                | Answer |
-| ------------------------------------------------------------------------------------------------------- | ------ |
-| Does the game contain violence?                                                                         | **No** |
-| Does the game contain blood?                                                                            | No     |
-| Does the game contain assets depicting weapons of any kind?                                             | No     |
+| Question                                                    | Answer |
+| ----------------------------------------------------------- | ------ |
+| Does the game contain violence?                             | **No** |
+| Does the game contain blood?                                | No     |
+| Does the game contain assets depicting weapons of any kind? | No     |
 
 ### Sexual content
 
-| Question                                              | Answer |
-| ----------------------------------------------------- | ------ |
-| Does the game contain sexual content / nudity?        | **No** |
-| Does the game contain sexual innuendo?                | No     |
+| Question                                       | Answer |
+| ---------------------------------------------- | ------ |
+| Does the game contain sexual content / nudity? | **No** |
+| Does the game contain sexual innuendo?         | No     |
 
 ### Language
 
@@ -137,48 +137,48 @@ Click through with these answers:
 
 ### Controlled substances
 
-| Question                                          | Answer |
-| ------------------------------------------------- | ------ |
+| Question                                           | Answer |
+| -------------------------------------------------- | ------ |
 | Does the game reference drugs / alcohol / tobacco? | **No** |
 | Does the game depict use of these?                 | No     |
 
 ### Gambling
 
-| Question                                                                  | Answer |
-| ------------------------------------------------------------------------- | ------ |
-| Does the game contain real-money gambling?                                | **No** |
-| Does the game contain simulated gambling (no real currency)?              | No     |
-| Does the game contain randomised paid items (loot boxes / gacha)?         | No     |
+| Question                                                          | Answer |
+| ----------------------------------------------------------------- | ------ |
+| Does the game contain real-money gambling?                        | **No** |
+| Does the game contain simulated gambling (no real currency)?      | No     |
+| Does the game contain randomised paid items (loot boxes / gacha)? | No     |
 
 ### User-generated content
 
-| Question                                                                  | Answer |
-| ------------------------------------------------------------------------- | ------ |
-| Does the game contain a chat feature?                                     | **No** |
-| Can users share or upload content?                                        | No     |
-| Does the game allow user-to-user voice / text communication?              | No     |
+| Question                                                     | Answer |
+| ------------------------------------------------------------ | ------ |
+| Does the game contain a chat feature?                        | **No** |
+| Can users share or upload content?                           | No     |
+| Does the game allow user-to-user voice / text communication? | No     |
 
 ### Discrimination / hate
 
-| Question                                                | Answer |
-| ------------------------------------------------------- | ------ |
+| Question                                                    | Answer |
+| ----------------------------------------------------------- | ------ |
 | Does the game contain hate speech / discriminatory content? | **No** |
 
 ### Horror
 
-| Question                                | Answer |
-| --------------------------------------- | ------ |
-| Does the game contain horror themes?    | **No** |
-| Does the game contain frightening scenes? | No   |
+| Question                                  | Answer |
+| ----------------------------------------- | ------ |
+| Does the game contain horror themes?      | **No** |
+| Does the game contain frightening scenes? | No     |
 
 ### Miscellaneous (sometimes asked)
 
-| Question                                                                  | Answer |
-| ------------------------------------------------------------------------- | ------ |
-| Does the game allow users to interact with people they may not know?      | **No** |
-| Does the game share user location with other users?                       | No     |
-| Does the game allow users to purchase digital items?                      | No     |
-| Does the game collect personal information about users?                   | No (only an anonymous, device-generated UUID — see Data Safety section) |
+| Question                                                             | Answer                                                                  |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Does the game allow users to interact with people they may not know? | **No**                                                                  |
+| Does the game share user location with other users?                  | No                                                                      |
+| Does the game allow users to purchase digital items?                 | No                                                                      |
+| Does the game collect personal information about users?              | No (only an anonymous, device-generated UUID — see Data Safety section) |
 
 ---
 
@@ -200,22 +200,22 @@ Separate from the content rating, Play Console requires a Data Safety form. Two 
 
 ### Data types collected
 
-| Category                | Type                                          | Collected? | Shared with third parties? | Optional? | Purpose                          |
-| ----------------------- | --------------------------------------------- | ---------- | -------------------------- | --------- | -------------------------------- |
-| Personal info           | Name, email, phone, address, etc.             | **No**     | —                          | —         | —                                |
-| Financial info          | Payment info, purchase history, etc.          | **No**     | —                          | —         | —                                |
-| Health & fitness        | All                                           | **No**     | —                          | —         | —                                |
-| Messages                | All                                           | **No**     | —                          | —         | —                                |
-| Photos and videos       | All                                           | **No**     | —                          | —         | —                                |
-| Audio files             | All                                           | **No**     | —                          | —         | —                                |
-| Files and docs          | All                                           | **No**     | —                          | —         | —                                |
-| Calendar                | All                                           | **No**     | —                          | —         | —                                |
-| Contacts                | All                                           | **No**     | —                          | —         | —                                |
-| App activity            | App interactions / in-app search / installed apps / other actions | **Yes** (game-event data: run start, run end, score, tier, death side) | No | No (required for high-score persistence) | App functionality + analytics |
-| Web browsing            | All                                           | **No**     | —                          | —         | —                                |
-| App info & performance  | Crash logs / diagnostics                      | **No** (no crash reporter integrated for v0.1.0) | — | — | — |
-| Device or other IDs     | Anonymous device-generated UUID (NOT advertising ID, NOT IMEI) | **Yes** | No | No (required) | App functionality (persisting personal best across sessions) |
-| Location                | All                                           | **No**     | —                          | —         | —                                |
+| Category               | Type                                                              | Collected?                                                             | Shared with third parties? | Optional?                                | Purpose                                                      |
+| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| Personal info          | Name, email, phone, address, etc.                                 | **No**                                                                 | —                          | —                                        | —                                                            |
+| Financial info         | Payment info, purchase history, etc.                              | **No**                                                                 | —                          | —                                        | —                                                            |
+| Health & fitness       | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Messages               | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Photos and videos      | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Audio files            | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Files and docs         | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Calendar               | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| Contacts               | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| App activity           | App interactions / in-app search / installed apps / other actions | **Yes** (game-event data: run start, run end, score, tier, death side) | No                         | No (required for high-score persistence) | App functionality + analytics                                |
+| Web browsing           | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
+| App info & performance | Crash logs / diagnostics                                          | **No** (no crash reporter integrated for v0.1.0)                       | —                          | —                                        | —                                                            |
+| Device or other IDs    | Anonymous device-generated UUID (NOT advertising ID, NOT IMEI)    | **Yes**                                                                | No                         | No (required)                            | App functionality (persisting personal best across sessions) |
+| Location               | All                                                               | **No**                                                                 | —                          | —                                        | —                                                            |
 
 ### Notable
 

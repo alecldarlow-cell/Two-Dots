@@ -62,4 +62,3 @@ export function applyCycleProfile(g: number, profile: CycleProfile): number {
   // wrap (defensive — eNight = 1 normally)
   return 0;
 }
-

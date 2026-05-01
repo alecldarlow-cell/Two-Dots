@@ -121,9 +121,7 @@ function preprocessTheme(theme: WorldTheme): PreprocessedTheme {
       band,
       color: preprocessHexCurve(band.colorCurve),
       haze:
-        band.kind === 'plain' && band.hazeCurve
-          ? preprocessHexCurve(band.hazeCurve)
-          : undefined,
+        band.kind === 'plain' && band.hazeCurve ? preprocessHexCurve(band.hazeCurve) : undefined,
       gradient:
         band.kind === 'silhouette' && band.gradientCurve
           ? preprocessHexCurve(band.gradientCurve)
@@ -133,10 +131,7 @@ function preprocessTheme(theme: WorldTheme): PreprocessedTheme {
     celestials: theme.celestials.map((celestial) => ({
       celestial,
       color: preprocessHexCurve(celestial.colorCurve),
-      rim:
-        celestial.kind === 'gasGiantSpot'
-          ? preprocessHexCurve(celestial.rimCurve)
-          : undefined,
+      rim: celestial.kind === 'gasGiantSpot' ? preprocessHexCurve(celestial.rimCurve) : undefined,
     })),
     particles: theme.particles.map((spec) => ({
       spec,
@@ -230,10 +225,7 @@ type CloudSeed = {
   alpha: number;
 };
 
-function seedClouds(
-  spec: Extract<ParticleSpec, { kind: 'clouds' }>,
-  seed: number,
-): CloudSeed[] {
+function seedClouds(spec: Extract<ParticleSpec, { kind: 'clouds' }>, seed: number): CloudSeed[] {
   const rng = mulberry32(seed ^ 0x33333333);
   const out: CloudSeed[] = [];
   for (let i = 0; i < spec.count; i++) {
@@ -835,8 +827,7 @@ function buildSilhouettePath(
     p.moveTo(0, yPx + heightPx);
     let firstY = 0;
     for (let x = 0; x <= tileW; x += step) {
-      const flow =
-        Math.sin(x * 0.008 + seed) * 0.05 + Math.sin(x * 0.025 + seed * 1.4) * 0.025;
+      const flow = Math.sin(x * 0.008 + seed) * 0.05 + Math.sin(x * 0.025 + seed * 1.4) * 0.025;
       let yLocal = flow * heightPx;
       if (x === 0) firstY = yLocal;
       if (x + step > tileW) yLocal = firstY;
@@ -1062,18 +1053,13 @@ function CelestialBody({
 
   // Halo radius differs by kind: sun = 2.6× (showy), moon = 1.8× (gentle),
   // planet = 2.4× (default), storm-eye = 2.4×.
-  const haloR =
-    celestial.kind === 'sun' ? r * 2.6 : celestial.kind === 'moon' ? r * 1.8 : r * 2.4;
+  const haloR = celestial.kind === 'sun' ? r * 2.6 : celestial.kind === 'moon' ? r * 1.8 : r * 2.4;
   const haloAlphaHex = celestial.kind === 'moon' ? '88' : 'aa';
 
   return (
     <Group>
       <Circle cx={cx} cy={cy} r={haloR} opacity={glow}>
-        <RadialGradient
-          c={vec(cx, cy)}
-          r={haloR}
-          colors={[col + haloAlphaHex, col + '00']}
-        />
+        <RadialGradient c={vec(cx, cy)} r={haloR} colors={[col + haloAlphaHex, col + '00']} />
       </Circle>
       <Circle cx={cx} cy={cy} r={r} color={col} />
       {phaseShadow}
@@ -1110,11 +1096,7 @@ function CloudField({
         // the old per-circle approach produced. The CLOUD_CLIP_PATH wrapper
         // still truncates the bottom flat.
         return (
-          <Group
-            key={i}
-            transform={[{ translateX: x }, { translateY: c.baseY }]}
-            opacity={opacity}
-          >
+          <Group key={i} transform={[{ translateX: x }, { translateY: c.baseY }]} opacity={opacity}>
             <Group clip={CLOUD_CLIP_PATH}>
               <Path path={c.unionPath} color={tint} style="fill" antiAlias />
             </Group>
@@ -1329,11 +1311,7 @@ function BandRender({
     const baseOklch = sampleOklchCurve(preColor, t);
     const bowlCol = oklchToHex(baseOklch);
     // Rim: lerp 25% toward white. In oklch: lift L toward 1, drop C toward 0.
-    const rimCol = oklchToHex([
-      baseOklch[0] * 0.75 + 0.25,
-      baseOklch[1] * 0.75,
-      baseOklch[2],
-    ]);
+    const rimCol = oklchToHex([baseOklch[0] * 0.75 + 0.25, baseOklch[1] * 0.75, baseOklch[2]]);
     return (
       <Group>
         {craters.map((c, i) => {
@@ -1355,7 +1333,13 @@ function BandRender({
           });
           return (
             <Group key={i}>
-              <Path path={rimPath} color={rimCol} style="fill" opacity={c.opacity * 0.4} antiAlias />
+              <Path
+                path={rimPath}
+                color={rimCol}
+                style="fill"
+                opacity={c.opacity * 0.4}
+                antiAlias
+              />
               <Path path={bowlPath} color={bowlCol} style="fill" opacity={c.opacity} antiAlias />
             </Group>
           );
@@ -1485,11 +1469,7 @@ function EarthBody({
     <Group>
       {/* Atmospheric glow halo (light blue, fades to transparent) */}
       <Circle cx={cx} cy={cy} r={r * 1.8} opacity={glow}>
-        <RadialGradient
-          c={vec(cx, cy)}
-          r={r * 1.8}
-          colors={['#a8d0f0', '#a8d0f000']}
-        />
+        <RadialGradient c={vec(cx, cy)} r={r * 1.8} colors={['#a8d0f0', '#a8d0f000']} />
       </Circle>
       {/* Ocean body */}
       <Circle cx={cx} cy={cy} r={r} color={oceanCol} />
@@ -1497,13 +1477,7 @@ function EarthBody({
       <Group clip={bodyClip}>
         <Path path={continentsPath} color={continentCol} style="fill" antiAlias />
         <Path path={madagascarPath} color={continentCol} style="fill" antiAlias />
-        <Path
-          path={iceCapsPath}
-          color="#ffffff"
-          opacity={0.85}
-          style="fill"
-          antiAlias
-        />
+        <Path path={iceCapsPath} color="#ffffff" opacity={0.85} style="fill" antiAlias />
         {/* Soft terminator — dark crescent on lower-right of the ocean body */}
         <Circle cx={cx + r * 0.35} cy={cy + r * 0.05} r={r} color="#000000" opacity={0.22} />
       </Group>
@@ -1769,16 +1743,8 @@ function StormCloudField({
   //   dark  = lerp(tint → near-black, 0.45)
   // In oklch: lift L for light, drop L for dark; chroma trends toward 0
   // for both extremes.
-  const lightTint = oklchToHex([
-    baseOklch[0] * 0.5 + 1.0 * 0.5,
-    baseOklch[1] * 0.5,
-    baseOklch[2],
-  ]);
-  const darkTint = oklchToHex([
-    baseOklch[0] * 0.55,
-    baseOklch[1] * 0.55,
-    baseOklch[2],
-  ]);
+  const lightTint = oklchToHex([baseOklch[0] * 0.5 + 1.0 * 0.5, baseOklch[1] * 0.5, baseOklch[2]]);
+  const darkTint = oklchToHex([baseOklch[0] * 0.55, baseOklch[1] * 0.55, baseOklch[2]]);
   return (
     <Group>
       {cells.map((c, i) => {
@@ -1786,18 +1752,9 @@ function StormCloudField({
         const x = ((c.baseX + drift) % (SCREEN_W + 240)) - 120;
         const opacity = c.alpha * density;
         return (
-          <Group
-            key={i}
-            transform={[{ translateX: x }, { translateY: c.baseY }]}
-            opacity={opacity}
-          >
+          <Group key={i} transform={[{ translateX: x }, { translateY: c.baseY }]} opacity={opacity}>
             <Group clip={c.unionPath}>
-              <Rect
-                x={c.bbox.x - 2}
-                y={c.bbox.y - 2}
-                width={c.bbox.w + 4}
-                height={c.bbox.h + 4}
-              >
+              <Rect x={c.bbox.x - 2} y={c.bbox.y - 2} width={c.bbox.w + 4} height={c.bbox.h + 4}>
                 <LinearGradient
                   start={vec(0, c.bbox.y)}
                   end={vec(0, c.bbox.y + c.bbox.h)}
@@ -1848,11 +1805,7 @@ function ShearMoteField({
   // for light).
   const baseOklch = sampleOklchCurve(preColor, t);
   const darkTint = oklchToHex([baseOklch[0] * 0.55, baseOklch[1] * 0.85, baseOklch[2]]);
-  const lightTint = oklchToHex([
-    baseOklch[0] * 0.45 + 0.55,
-    baseOklch[1] * 0.7,
-    baseOklch[2],
-  ]);
+  const lightTint = oklchToHex([baseOklch[0] * 0.45 + 0.55, baseOklch[1] * 0.7, baseOklch[2]]);
   return (
     <Group>
       {motes.map((m, i) => {
@@ -1881,13 +1834,7 @@ function ShearMoteField({
         return (
           <Group key={i}>
             <Circle cx={x} cy={y} r={bodyR} color={darkTint} opacity={op} />
-            <Circle
-              cx={x + hlOffsetX}
-              cy={y + hlOffsetY}
-              r={hlR}
-              color={lightTint}
-              opacity={op}
-            />
+            <Circle cx={x + hlOffsetX} cy={y + hlOffsetY} r={hlR} color={lightTint} opacity={op} />
           </Group>
         );
       })}
@@ -1926,14 +1873,7 @@ function Aurora({
   // into nothing, matching the original.
   const overallAlpha = 0.65 * density;
   return (
-    <Rect
-      x={0}
-      y={0}
-      width={SCREEN_W}
-      height={stripH}
-      opacity={overallAlpha}
-      blendMode="screen"
-    >
+    <Rect x={0} y={0} width={SCREEN_W} height={stripH} opacity={overallAlpha} blendMode="screen">
       <LinearGradient
         start={vec(0, 0)}
         end={vec(0, stripH)}
@@ -2293,12 +2233,7 @@ function GasGiantSpot({
       <Path path={haloPath} color={col} style="fill" opacity={0.18} antiAlias />
       {/* Radial-gradient body */}
       <Path path={bodyPath} style="fill" antiAlias>
-        <RadialGradient
-          c={vec(0, 0)}
-          r={rx}
-          colors={[col, col, rim]}
-          positions={[0, 0.65, 1]}
-        />
+        <RadialGradient c={vec(0, 0)} r={rx} colors={[col, col, rim]} positions={[0, 0.65, 1]} />
       </Path>
       {/* Internal swirl arcs — clipped to body so they don't leak past rim */}
       <Group clip={bodyPath}>
@@ -2348,13 +2283,9 @@ export function WorldRenderer({
       birdsSpec: undefined as Extract<ParticleSpec, { kind: 'birds' }> | undefined,
       // v0.7 — Jupiter
       stormCells: [] as StormCellSeed[],
-      stormCloudsSpec: undefined as
-        | Extract<ParticleSpec, { kind: 'stormClouds' }>
-        | undefined,
+      stormCloudsSpec: undefined as Extract<ParticleSpec, { kind: 'stormClouds' }> | undefined,
       motes: [] as ShearMoteSeed[],
-      shearMotesSpec: undefined as
-        | Extract<ParticleSpec, { kind: 'shearMotes' }>
-        | undefined,
+      shearMotesSpec: undefined as Extract<ParticleSpec, { kind: 'shearMotes' }> | undefined,
       auroraSpec: undefined as Extract<ParticleSpec, { kind: 'aurora' }> | undefined,
       lightningSpec: undefined as Extract<ParticleSpec, { kind: 'lightning' }> | undefined,
     };
@@ -2467,12 +2398,8 @@ export function WorldRenderer({
   } = particleSeeds;
   const cloudsColor = cloudsSpec ? particleCurves.get(cloudsSpec.id) : undefined;
   const birdsColor = birdsSpec ? particleCurves.get(birdsSpec.id) : undefined;
-  const stormCloudsColor = stormCloudsSpec
-    ? particleCurves.get(stormCloudsSpec.id)
-    : undefined;
-  const motesColor = shearMotesSpec
-    ? particleCurves.get(shearMotesSpec.id)
-    : undefined;
+  const stormCloudsColor = stormCloudsSpec ? particleCurves.get(stormCloudsSpec.id) : undefined;
+  const motesColor = shearMotesSpec ? particleCurves.get(shearMotesSpec.id) : undefined;
   // Aurora colour curves (top + bot) preprocessed in pre.particles.
   const auroraEntry = auroraSpec
     ? pre.particles.find((p) => p.spec.id === auroraSpec.id)
@@ -2528,13 +2455,7 @@ export function WorldRenderer({
 
       {/* 5. Clouds (Earth — upper sky, behind silhouettes) */}
       {cloudsSpec && cloudsColor && (
-        <CloudField
-          clouds={clouds}
-          spec={cloudsSpec}
-          preColor={cloudsColor}
-          t={t}
-          nowMs={nowMs}
-        />
+        <CloudField clouds={clouds} spec={cloudsSpec} preColor={cloudsColor} t={t} nowMs={nowMs} />
       )}
 
       {/* 6. Birds (Earth — upper-mid sky, behind silhouettes) */}
@@ -2636,12 +2557,7 @@ export function WorldRenderer({
       {/* 12. Storm-eye celestials — overlay bands (legacy v0.5 GRS path,
           unused once jupiter.ts uses gasGiantSpot, but kept for back-compat) */}
       {stormEyes.map((c) => (
-        <StormEye
-          key={c.celestial.id}
-          celestial={c.celestial}
-          preColor={c.color}
-          t={t}
-        />
+        <StormEye key={c.celestial.id} celestial={c.celestial} preColor={c.color} t={t} />
       ))}
 
       {/* 8. Drift dust */}
