@@ -6,7 +6,7 @@ const SESSION_ID = '00000000-0000-4000-8000-000000000001';
 
 describe('serialiseEvent', () => {
   describe('GIVEN session_start', () => {
-    it('WHEN serialised THEN has no payload', () => {
+    it('WHEN serialised without seed THEN has no payload (production build)', () => {
       const event: AnalyticsEvent = { type: 'session_start', sessionId: SESSION_ID };
       const out = serialiseEvent(event);
       expect(out).toEqual({
@@ -17,6 +17,16 @@ describe('serialiseEvent', () => {
         run_index: null,
         payload: null,
       });
+    });
+
+    it('WHEN serialised with seed=null THEN has no payload (E2E_SEED parsing failed)', () => {
+      const out = serialiseEvent({ type: 'session_start', sessionId: SESSION_ID, seed: null });
+      expect(out.payload).toBeNull();
+    });
+
+    it('WHEN serialised with seed THEN payload carries the seed (E2E build)', () => {
+      const out = serialiseEvent({ type: 'session_start', sessionId: SESSION_ID, seed: 42 });
+      expect(out.payload).toEqual({ seed: 42 });
     });
   });
 
@@ -34,7 +44,7 @@ describe('serialiseEvent', () => {
   });
 
   describe('GIVEN run_end', () => {
-    it('WHEN serialised THEN carries score/tier/run_index and full death payload', () => {
+    it('WHEN serialised without seed THEN payload is unchanged from pre-E2E', () => {
       const out = serialiseEvent({
         type: 'run_end',
         sessionId: SESSION_ID,
@@ -54,6 +64,55 @@ describe('serialiseEvent', () => {
         death_gate_in_tier: 3,
         time_to_death_ms: 18420,
         close_calls_in_run: 4,
+      });
+    });
+
+    it('WHEN serialised with seed but no taps THEN payload carries seed only', () => {
+      // E2E build, run died below the fixture-worthy score threshold (<20).
+      // Seed flows for join-free querying; taps stay client-side and dropped.
+      const out = serialiseEvent({
+        type: 'run_end',
+        sessionId: SESSION_ID,
+        runIndex: 1,
+        score: 5,
+        tier: 2,
+        deathSide: 'R',
+        deathGateInTier: 1,
+        timeToDeathMs: 8000,
+        closeCallsInRun: 1,
+        seed: 42,
+      });
+      expect(out.payload).toEqual({
+        death_side: 'R',
+        death_gate_in_tier: 1,
+        time_to_death_ms: 8000,
+        close_calls_in_run: 1,
+        seed: 42,
+      });
+    });
+
+    it('WHEN serialised with seed + taps THEN payload carries both (fixture-worthy run)', () => {
+      const taps = { L: [820, 1450, 2100], R: [950, 1300, 1900] };
+      const out = serialiseEvent({
+        type: 'run_end',
+        sessionId: SESSION_ID,
+        runIndex: 7,
+        score: 24,
+        tier: 5,
+        deathSide: 'both',
+        deathGateInTier: 4,
+        timeToDeathMs: 28000,
+        closeCallsInRun: 6,
+        seed: 42,
+        taps,
+      });
+      expect(out.payload).toEqual({
+        death_side: 'both',
+        death_gate_in_tier: 4,
+        time_to_death_ms: 28000,
+        close_calls_in_run: 6,
+        seed: 42,
+        taps,
       });
     });
   });

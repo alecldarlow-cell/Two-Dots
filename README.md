@@ -174,7 +174,7 @@ src/app/_hooks/__tests__/
 
 - The four custom React hooks themselves — see "Hook-test policy" below.
 - Skia render components — visual correctness verified on-device only.
-- E2E flows (Maestro YAML) — `core-path.yaml` committed at `.maestro/core-path.yaml`. First successful local run pending; see `.maestro/README.md` for install + run steps. Adding to CI (Android emulator runner job) deferred until the flow set grows past one.
+- E2E flows (Maestro YAML) — `core-path.yaml` committed and verified passing on Pixel 7. Multi-tier flows generated on-demand from real seeded gameplay via `tools/generate-maestro-fixture.mjs` (deterministic-seed build + Supabase analytics → YAML). See `.maestro/README.md` for the full workflow. CI job (Android emulator runner) deferred until multi-tier flows are routinely run.
 
 ### Hook-test policy
 

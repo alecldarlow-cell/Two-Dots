@@ -29,7 +29,12 @@ export function serialiseEvent(event: AnalyticsEvent): SerialisedEvent {
 
   switch (event.type) {
     case 'session_start':
-      return base;
+      return {
+        ...base,
+        // Seed only flows for seeded (E2E) builds — production payload stays null.
+        // typeof check covers both undefined (field absent) and null (env var unset).
+        payload: typeof event.seed === 'number' ? { seed: event.seed } : null,
+      };
 
     case 'run_start':
       return { ...base, run_index: event.runIndex };
@@ -45,6 +50,10 @@ export function serialiseEvent(event: AnalyticsEvent): SerialisedEvent {
           death_gate_in_tier: event.deathGateInTier,
           time_to_death_ms: event.timeToDeathMs,
           close_calls_in_run: event.closeCallsInRun,
+          // Seed + taps only appear when set (E2E build + fixture-worthy run).
+          // Production payloads stay byte-identical to pre-E2E behaviour.
+          ...(typeof event.seed === 'number' && { seed: event.seed }),
+          ...(event.taps && { taps: event.taps }),
         },
       };
 

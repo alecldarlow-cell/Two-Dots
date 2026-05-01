@@ -43,7 +43,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 
-import { logEvent } from '@features/analytics';
+import { logEvent, type TapsRecord } from '@features/analytics';
 import { handleTap, initState, stepDead, stepPlaying, tierFor } from '@features/game/engine';
 import type { AudioEvent, GameState } from '@features/game/engine';
 import { getTheme } from '@features/game/world';
@@ -51,7 +51,8 @@ import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { useSubmitScore } from '@features/leaderboard/api';
 import { useMonetisation } from '@features/monetisation';
 import { StorageKeys, getItem, setItem } from '@shared/storage';
-import { defaultRng } from '@shared/utils/rng';
+import { defaultRng, mulberry32, type Rng } from '@shared/utils/rng';
+import { E2E_SEED } from '@shared/utils/e2eSeed';
 
 import { PHYSICS_STEP_MS, VIS_H } from '../_shared/constants';
 import { snap, type DisplaySnapshot } from '../_shared/snapshot';
@@ -105,6 +106,19 @@ export function useGameLoop(): GameLoopAPI {
 
   const gsRef = useRef<GameState>(initState());
   const [display, setDisplay] = useState<DisplaySnapshot>(() => snap(gsRef.current));
+
+  // ─── E2E determinism + tap capture ──────────────────────────────────────────
+  // When EXPO_PUBLIC_E2E_SEED is set on the build, the engine's RNG becomes
+  // mulberry32(seed) and is recreated on every idle→playing transition. Each
+  // run within the session sees the same pipe layout — what makes recorded
+  // tap streams replayable. Production builds (no seed) stay on defaultRng.
+  //
+  // The tap buffer captures L/R jump times during a seeded run. On run_end,
+  // if the score reached the fixture threshold (>= 20) the buffer is attached
+  // to the analytics payload. Everything is no-op when seed is null —
+  // production runs add zero rows, zero bytes, zero CPU.
+  const rngRef = useRef<Rng>(E2E_SEED !== null ? mulberry32(E2E_SEED) : defaultRng);
+  const tapsThisRunRef = useRef<TapsRecord>({ L: [], R: [] });
 
   // ─── Audio (expo-audio) ──────────────────────────────────────────────────────
   // Each sound key maps to a small pool of AudioPlayer instances. Replay
@@ -333,7 +347,7 @@ export function useGameLoop(): GameLoopAPI {
           // applied to dot physics AND the spawner's reachability projection
           // inside stepPlaying so gates stay reachable in any world.
           const gravityMul = getTheme(planetForScore(s.score)).gravityMul;
-          const fx = stepPlaying(s, { now, visH: VIS_H, rng: defaultRng, gravityMul });
+          const fx = stepPlaying(s, { now, visH: VIS_H, rng: rngRef.current, gravityMul });
           for (const ae of fx.audio) playAudioEvent(ae);
         } else if (s.phase === 'dead') {
           stepDead(s);
@@ -370,6 +384,11 @@ export function useGameLoop(): GameLoopAPI {
         void setItem(StorageKeys.personalBest, display.score).catch(() => {});
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // Attach captured tap stream + seed for fixture-worthy seeded runs.
+      // Production runs (E2E_SEED null) carry neither — payload is byte-
+      // identical to pre-E2E. Threshold 20 picks runs that cleared the
+      // Earth boundary, matching the fixture-generator default.
+      const includeFixture = E2E_SEED !== null && display.score >= 20;
       logEvent({
         type: 'run_end',
         sessionId: sessionIdRef.current,
@@ -380,6 +399,8 @@ export function useGameLoop(): GameLoopAPI {
         deathGateInTier: display.deathGateInTier,
         timeToDeathMs: runStartTimeRef.current > 0 ? now - runStartTimeRef.current : 0,
         closeCallsInRun: closeCallsInRunRef.current,
+        ...(E2E_SEED !== null && { seed: E2E_SEED }),
+        ...(includeFixture && { taps: tapsThisRunRef.current }),
       });
       if (deviceState.status === 'ready') {
         submitScore({
@@ -446,6 +467,12 @@ export function useGameLoop(): GameLoopAPI {
       runIndexRef.current++;
       runStartTimeRef.current = now;
       closeCallsInRunRef.current = 0;
+      // Reset RNG + tap buffer for this run. With a seed, every run starts
+      // from the same mulberry32 state → identical pipe layout → recorded
+      // taps replay correctly. Without a seed, defaultRng is stateless so
+      // the assignment is harmless.
+      rngRef.current = E2E_SEED !== null ? mulberry32(E2E_SEED) : defaultRng;
+      tapsThisRunRef.current = { L: [], R: [] };
       logEvent({
         type: 'run_start',
         sessionId: sessionIdRef.current,
@@ -458,6 +485,15 @@ export function useGameLoop(): GameLoopAPI {
         previousRunIndex: runIndexRef.current,
         timeSinceDeathMs: now - deathTimeRef.current,
       });
+    } else if (E2E_SEED !== null && prevPhase === 'playing' && s.phase === 'playing') {
+      // Mid-run jump tap. Capture L/R sides only — pause toggles are
+      // skipped from v1 fixture replay. Push absolute ms-since-run-start;
+      // generator converts to deltas at YAML emit time.
+      for (const ev of events) {
+        if (ev.kind === 'tap') {
+          tapsThisRunRef.current[ev.side].push(now - runStartTimeRef.current);
+        }
+      }
     }
   }
 

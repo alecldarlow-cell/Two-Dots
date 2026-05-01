@@ -44,10 +44,36 @@ The CI integration job is intentionally not in `.github/workflows/ci.yml` yet �
 
 When adding a new YAML, drop it next to `core-path.yaml`. Convention is one flow per critical path. Maestro picks up everything matching `.maestro/*.yaml` if you run `maestro test .maestro/` (no specific file).
 
-Next candidates (when the surface area grows):
+## Analytics-driven fixtures (seeded multi-tier flows)
 
-- **multi-tier-survival** — actually play to gate 5 or 10, verify the milestone pop appears, the world swap happens, and tier audio fires (audio assertions are tricky in Maestro; would need a different probe).
-- **persist-best-score** — play to score N, die, re-launch the app, confirm "BEST N" footer appears on death screen.
-- **pause-resume** — tap the centre divider mid-run, confirm pause overlay, tap to resume.
+Hand-recorded multi-tier flows are brittle: production builds use `Math.random` in the engine spawner, so pipe layouts differ on every run, so taps tuned to one layout don't clear the next.
 
-These are deferred — they'd add value but cost more flow-maintenance overhead than core-path on its own.
+The fix is a deterministic-seed build (the `e2e` profile in `eas.json`, which sets `EXPO_PUBLIC_E2E_SEED=42`) plus a generator that converts a real recorded run into a YAML flow.
+
+**End-to-end workflow:**
+
+1. **Build the seeded APK:**
+   ```
+   eas build --profile e2e --platform android --message "e2e-seed-42"
+   ```
+2. **Sideload and play.** Either yourself or any tester. Reach a score ≥ 20 (the fixture-worthy threshold). Each death sends a `run_end` analytics event; if the build was seeded AND the run scored ≥ 20, the captured tap stream rides along in the payload.
+3. **Generate the flow:**
+   ```
+   $env:SUPABASE_URL = "https://biwhjzebrmhvtkjaqsay.supabase.co"
+   $env:SUPABASE_SERVICE_ROLE_KEY = "<paste from Supabase dashboard>"
+   node tools/generate-maestro-fixture.mjs
+   ```
+   Defaults: `--seed 42 --min-score 20 --out .maestro/seeded-survival.yaml`. Override any of those.
+4. **Run the generated flow** (against the same seeded APK):
+   ```
+   maestro test .maestro/seeded-survival.yaml
+   ```
+
+The generator picks the most recent qualifying run and rebuilds the YAML against it. **Re-run after engine-tuning changes** (`JUMP_VY`, `GRAVITY`, tier values) — recorded tap timings drift when physics shift, so you'll need a new source run.
+
+**Privacy / cost note:** tap streams only attach to `run_end` payloads on seeded builds. Production builds (no `EXPO_PUBLIC_E2E_SEED`) carry zero tap data — payloads stay byte-identical to pre-E2E. Only people running the `e2e` APK contribute fixture data, and only when their score crosses the threshold. See `src/features/analytics/events.ts` (`TapsRecord` type) and `src/app/_hooks/useGameLoop.ts` (the gating logic).
+
+**Future flows worth adding (lower priority):**
+
+- **pause-resume** — tap the centre divider mid-run, confirm pause overlay, tap to resume. Doesn't need seeding (pause behaviour is independent of pipe layout).
+- **persist-best-score** — score N, kill app, relaunch, confirm "BEST N" footer. Needs seeding to reach a known score reliably.

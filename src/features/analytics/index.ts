@@ -6,6 +6,7 @@ export type {
   RetryTappedEvent,
   SessionEndEvent,
   CloseCallEvent,
+  TapsRecord,
 } from './events';
 export { serialiseEvent, type SerialisedEvent } from './serialise';
 export { computeRetryRate, UNPROMPTED_THRESHOLD_MS, type RetryRateResult } from './retryRate';

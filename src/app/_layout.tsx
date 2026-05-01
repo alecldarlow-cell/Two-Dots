@@ -43,6 +43,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Providers } from '@/providers';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { initAnalyticsQueue, logEvent } from '@features/analytics';
+import { E2E_SEED } from '@shared/utils/e2eSeed';
 
 // U3 (Stage 2.2): cap Dynamic Type / Display Size scaling at 1.3× across the
 // whole app. Two Dots is a fixed-pixel design — uncapped scaling at 200%+
@@ -70,7 +71,13 @@ function AnalyticsBootstrap(): null {
     (async (): Promise<void> => {
       await initAnalyticsQueue(deviceState.deviceId);
       if (cancelled) return;
-      logEvent({ type: 'session_start', sessionId: ExpoCrypto.randomUUID() });
+      // Seed is null on production builds (no EXPO_PUBLIC_E2E_SEED set);
+      // serialiser drops it from the payload entirely in that case.
+      logEvent({
+        type: 'session_start',
+        sessionId: ExpoCrypto.randomUUID(),
+        seed: E2E_SEED,
+      });
     })();
 
     return () => {
