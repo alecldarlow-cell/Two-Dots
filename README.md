@@ -168,13 +168,33 @@ src/app/_hooks/__tests__/
   useCurrentPlanet.test.ts — planetForScore boundary mapping (gates 0/9/10/19/20/21+)
 ```
 
-**Not yet tested:**
+**Not directly tested (factual current state):**
 
-- React hooks themselves (`useGameLoop`, `useDeviceId`, `useWorldTod`, `useCurrentPlanet`) — pure functions inside them are tested but the React-bound hook integration isn't. Pending decision on whether to add `@testing-library/react-native` hook tests now or defer until a feature drives the need (see drift-report gap #4).
+- The four custom React hooks themselves — see "Hook-test policy" below.
 - Skia render components — visual correctness verified on-device only.
-- E2E flows (Maestro YAML) — gap #1 in the tech-requirements drift report. Core-path flow (idle → first run → death → retry) is the next thing to build.
+- E2E flows (Maestro YAML) — core-path flow (idle → first run → death → retry) in progress, not yet landed.
 
-Test pattern follows the org spec §4.3:
+### Hook-test policy
+
+The four custom hooks (`useGameLoop`, `useDeviceId`, `useWorldTod`, `useCurrentPlanet`) deliberately have no `@testing-library/react-native` integration tests at this stage. The org spec §4.3 says "test hooks separately"; we honour that partially — pure functions inside hooks are tested directly — and defer the rest with explicit re-trigger conditions.
+
+**Why deferred:**
+
+- **Pure logic inside hooks is tested.** `planetForScore` (extracted from `useCurrentPlanet`) has direct coverage. `applyCycleProfile` + `cycleProfileWeights` (the math `useWorldTod` consumes) have direct coverage. Engine math throughout is covered. Where hook logic is purifiable, it has been.
+- **The remaining hook bodies are integration glue** — refs, `useEffect`s, audio loading, the rAF lifecycle, Supabase calls, AppState handling. Mocking the dependencies (`expo-audio`, `expo-haptics`, AsyncStorage, the engine, the Supabase client, `AppState`) for hook-mounting tests buys low-confidence coverage at high maintenance cost — the mocks would need to track every API-surface change in those libraries.
+- **Integration regressions in this codebase are visible on-device.** Audio not playing, dots not moving, screen not updating, score not persisting — none of those modes slip past a working pure-function test suite undetected; they're caught the moment the APK is sideloaded. The Phase 1 cohort will exercise the hook surface harder than any reasonable mock could simulate.
+
+**Add hook tests when any of the following becomes true:**
+
+1. A regression appears in hook integration that pure-function tests didn't catch — that's the canary that mocks are now worth maintaining.
+2. A new non-trivial hook is added with logic that can't reasonably be extracted as a pure function.
+3. Before Phase 2 public launch — shipping past friends-and-family scope raises the bar on regression discipline.
+
+This is a deliberate deferral, not an oversight. Recorded here, in the Confluence handover doc §6, and tracked as task #27.
+
+### Test pattern
+
+Follows the org spec §4.3:
 
 ```
 describe('GIVEN <condition>', () => {
