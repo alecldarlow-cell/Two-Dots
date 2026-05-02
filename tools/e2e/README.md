@@ -35,11 +35,13 @@ deterministic pipe layouts so a captured tap stream is meaningful to replay.
 ## Running
 
 Single test:
+
 ```bash
 bash tools/e2e/01-core-path.sh
 ```
 
 Whole suite:
+
 ```bash
 bash tools/e2e/run-all.sh
 ```
@@ -70,18 +72,18 @@ bash tools/e2e/run-all.sh
 
 ## Requirement → test mapping
 
-| # | Requirement | Test | Status |
-|---|---|---|---|
-| 1 | Launch → idle visible | `01-core-path.sh` (session_start assertion) | ✅ passes |
-| 2 | Single tap → playing | `01-core-path.sh` (run_start assertion) | ✅ passes |
-| 3 | Wait → dead | `01-core-path.sh` (run_end assertion) | ✅ passes |
-| 4 | Tap → idle | `01-core-path.sh` (retry_tapped assertion) | ✅ passes |
-| 5 | Pause overlay on divider tap | `05-pause-overlay.sh` | ⏳ needs next build |
-| 6 | Best score persistence | `06-best-score.sh` | ⏳ needs next build |
-| 7 | Survival past N gates | `02-seeded-replay.sh` | ✅ passes (target 5) |
-| 8 | World transitions (score ≥ 10) | `03-world-transition.sh` | ⚠ fails until replay scores > 10 |
-| 9 | Multi-tier progression (tier ≥ 2) | `04-multi-tier.sh` | ⚠ fails until replay reaches tier 2 |
-| 10 | Specific tap sequence → gate layout | `02-seeded-replay.sh` | ✅ this is exactly what the replay does |
+| #   | Requirement                         | Test                                        | Status                                  |
+| --- | ----------------------------------- | ------------------------------------------- | --------------------------------------- |
+| 1   | Launch → idle visible               | `01-core-path.sh` (session_start assertion) | ✅ passes                               |
+| 2   | Single tap → playing                | `01-core-path.sh` (run_start assertion)     | ✅ passes                               |
+| 3   | Wait → dead                         | `01-core-path.sh` (run_end assertion)       | ✅ passes                               |
+| 4   | Tap → idle                          | `01-core-path.sh` (retry_tapped assertion)  | ✅ passes                               |
+| 5   | Pause overlay on divider tap        | `05-pause-overlay.sh`                       | ⏳ needs next build                     |
+| 6   | Best score persistence              | `06-best-score.sh`                          | ⏳ needs next build                     |
+| 7   | Survival past N gates               | `02-seeded-replay.sh`                       | ✅ passes (target 5)                    |
+| 8   | World transitions (score ≥ 10)      | `03-world-transition.sh`                    | ⚠ fails until replay scores > 10        |
+| 9   | Multi-tier progression (tier ≥ 2)   | `04-multi-tier.sh`                          | ⚠ fails until replay reaches tier 2     |
+| 10  | Specific tap sequence → gate layout | `02-seeded-replay.sh`                       | ✅ this is exactly what the replay does |
 
 **Why some are pending:**
 
