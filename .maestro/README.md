@@ -1,6 +1,8 @@
 # Two Dots — Maestro E2E flows
 
-Single flow today: `core-path.yaml` — covers the minimum game loop (launch → idle → tap to start → let dots die → death screen → tap to retry → back to idle).
+> **Status (May 2026):** Maestro is retained only for the single-tap `core-path.yaml` smoke flow. Multi-tap gameplay tests have been migrated to a bash + ADB framework — see `tools/e2e/` and the post-mortem at the bottom of this file.
+
+Single Maestro flow today: `core-path.yaml` — covers the minimum game loop (launch → idle → tap to start → let dots die → death screen → tap to retry → back to idle).
 
 ## Running locally
 
@@ -44,34 +46,28 @@ The CI integration job is intentionally not in `.github/workflows/ci.yml` yet �
 
 When adding a new YAML, drop it next to `core-path.yaml`. Convention is one flow per critical path. Maestro picks up everything matching `.maestro/*.yaml` if you run `maestro test .maestro/` (no specific file).
 
-## Analytics-driven fixtures (seeded multi-tier flows)
+## Multi-tap gameplay tests — see `tools/e2e/`
 
-Hand-recorded multi-tier flows are brittle: production builds use `Math.random` in the engine spawner, so pipe layouts differ on every run, so taps tuned to one layout don't clear the next.
+Multi-tap replay tests live in `tools/e2e/` as bash scripts that drive the device via ADB and verify outcomes via Supabase analytics. The Maestro-based seeded replay (`generate-maestro-fixture.mjs`) was retired after we discovered Maestro's `tapOn: point` doesn't reliably dispatch in-game taps on Android (post-mortem below).
 
-The fix is a deterministic-seed build (the `e2e` profile in `eas.json`, which sets `EXPO_PUBLIC_E2E_SEED=42`) plus a generator that converts a real recorded run into a YAML flow.
+The seeded build mechanism, the captured-tap analytics payload, the per-fixture ranking logic — all of that is preserved and now feeds the bash framework instead. See `tools/e2e/README.md` for the current workflow.
 
-**End-to-end workflow:**
+## Post-mortem: why Maestro for multi-tap was abandoned
 
-1. **Build the seeded APK:**
-   ```
-   eas build --profile e2e --platform android --message "e2e-seed-42"
-   ```
-2. **Sideload and play.** Either yourself or any tester. Reach a score ≥ 20 (the fixture-worthy threshold). Each death sends a `run_end` analytics event; if the build was seeded AND the run scored ≥ 20, the captured tap stream rides along in the payload.
-3. **Generate the flow:**
-   ```
-   $env:SUPABASE_URL = "https://biwhjzebrmhvtkjaqsay.supabase.co"
-   $env:SUPABASE_SERVICE_ROLE_KEY = "<paste from Supabase dashboard>"
-   node tools/generate-maestro-fixture.mjs
-   ```
-   Defaults: `--seed 42 --min-score 20 --out .maestro/seeded-survival.yaml`. Override any of those.
-4. **Run the generated flow** (against the same seeded APK):
-   ```
-   maestro test .maestro/seeded-survival.yaml
-   ```
+We spent meaningful effort trying to get Maestro to replay captured tap streams against the seeded build. The flow worked end-to-end at the pipeline level (capture → generate → execute) but the dots reliably died at gate 1. After narrowing down, the root cause was a **Maestro tap-dispatch issue specific to Android + this app**:
 
-The generator picks the most recent qualifying run and rebuilds the YAML against it. **Re-run after engine-tuning changes** (`JUMP_VY`, `GRAVITY`, tier values) — recorded tap timings drift when physics shift, so you'll need a new source run.
+- The outer touch View has `accessibilityRole="button"` (deliberate, for screen readers).
+- Maestro's `tapOn: { point: 'X%, Y%' }` on Android routes through the OS accessibility framework.
+- The first tap (idle→playing transition) registers fine. **Subsequent taps during the playing phase are swallowed** — confirmed by a controlled test: `adb shell input tap` works for the same coordinates that Maestro can't reach.
 
-**Privacy / cost note:** tap streams only attach to `run_end` payloads on seeded builds. Production builds (no `EXPO_PUBLIC_E2E_SEED`) carry zero tap data — payloads stay byte-identical to pre-E2E. Only people running the `e2e` APK contribute fixture data, and only when their score crosses the threshold. See `src/features/analytics/events.ts` (`TapsRecord` type) and `src/app/_hooks/useGameLoop.ts` (the gating logic).
+Two compounding issues we also identified along the way:
+
+- Maestro's per-`tapOn` overhead is ~150ms (screen capture + a11y tree fetch + dispatch), too slow for this app's intra-gate timing budget even when dispatch worked.
+- `waitForAnimationToEnd` doubled as a sleep but was a hack — Maestro has no pure sleep command.
+
+The replacement framework uses ADB for input dispatch (~30ms per tap, bypasses accessibility) and Supabase queries for verdicts (works regardless of Skia rendering or accessibility tree contents). See `tools/e2e/lib.sh`.
+
+**Privacy / cost note (still applies):** tap streams only attach to `run_end` payloads on seeded builds. Production builds (no `EXPO_PUBLIC_E2E_SEED`) carry zero tap data — payloads stay byte-identical to pre-E2E. Only people running the `e2e` APK contribute fixture data, and only when their score crosses the threshold. See `src/features/analytics/events.ts` (`TapsRecord` type) and `src/app/_hooks/useGameLoop.ts` (the gating logic).
 
 **Future flows worth adding (lower priority):**
 

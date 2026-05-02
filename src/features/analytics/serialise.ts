@@ -28,13 +28,22 @@ export function serialiseEvent(event: AnalyticsEvent): SerialisedEvent {
   };
 
   switch (event.type) {
-    case 'session_start':
+    case 'session_start': {
+      const payload: Record<string, unknown> = {};
+      // Seed only flows for seeded (E2E) builds — production payload stays null.
+      // typeof check covers both undefined (field absent) and null (env var unset).
+      if (typeof event.seed === 'number') payload.seed = event.seed;
+      // Best score is carried so the E2E best-score-persistence test can
+      // verify cross-launch retention without needing on-screen text. Only
+      // emit when non-zero — clean installs and cleared state stay null.
+      if (typeof event.bestScore === 'number' && event.bestScore > 0) {
+        payload.best_score = event.bestScore;
+      }
       return {
         ...base,
-        // Seed only flows for seeded (E2E) builds — production payload stays null.
-        // typeof check covers both undefined (field absent) and null (env var unset).
-        payload: typeof event.seed === 'number' ? { seed: event.seed } : null,
+        payload: Object.keys(payload).length > 0 ? payload : null,
       };
+    }
 
     case 'run_start':
       return { ...base, run_index: event.runIndex };
@@ -81,6 +90,13 @@ export function serialiseEvent(event: AnalyticsEvent): SerialisedEvent {
         score: event.score,
         run_index: event.runIndex,
         payload: { side: event.side },
+      };
+
+    case 'pause_toggled':
+      return {
+        ...base,
+        run_index: event.runIndex,
+        payload: { paused: event.paused },
       };
   }
 }

@@ -44,6 +44,7 @@ import { Providers } from '@/providers';
 import { useDeviceId } from '@features/leaderboard/hooks/useDeviceId';
 import { initAnalyticsQueue, logEvent } from '@features/analytics';
 import { E2E_SEED } from '@shared/utils/e2eSeed';
+import { StorageKeys, getItem } from '@shared/storage';
 
 // U3 (Stage 2.2): cap Dynamic Type / Display Size scaling at 1.3× across the
 // whole app. Two Dots is a fixed-pixel design — uncapped scaling at 200%+
@@ -71,12 +72,19 @@ function AnalyticsBootstrap(): null {
     (async (): Promise<void> => {
       await initAnalyticsQueue(deviceState.deviceId);
       if (cancelled) return;
+      // Best score loaded from AsyncStorage so the E2E best-score-persistence
+      // test can verify cross-launch retention via session_start.payload
+      // without needing OCR on the Skia-rendered "BEST N" footer. Falls back
+      // to 0 (clean install) — serialiser drops zero/null from the payload.
+      const storedBest = await getItem<number>(StorageKeys.personalBest);
+      if (cancelled) return;
       // Seed is null on production builds (no EXPO_PUBLIC_E2E_SEED set);
       // serialiser drops it from the payload entirely in that case.
       logEvent({
         type: 'session_start',
         sessionId: ExpoCrypto.randomUUID(),
         seed: E2E_SEED,
+        bestScore: typeof storedBest === 'number' ? storedBest : null,
       });
     })();
 

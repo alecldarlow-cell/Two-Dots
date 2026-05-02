@@ -13,7 +13,8 @@ export type AnalyticsEvent =
   | RunEndEvent
   | RetryTappedEvent
   | SessionEndEvent
-  | CloseCallEvent;
+  | CloseCallEvent
+  | PauseToggledEvent;
 
 /**
  * Captured tap stream attached to RunEndEvent for fixture-worthy seeded runs
@@ -43,6 +44,11 @@ export interface SessionStartEvent {
    *  Maestro fixture generator only consumes seeded runs (where tap
    *  sequences are reproducible against a deterministic pipe layout). */
   seed?: number | null;
+  /** Best score loaded from AsyncStorage at session start. Used by the E2E
+   *  best-score-persistence test to verify a previous session's score
+   *  carried over (asserts session_start.payload.best_score > 0 after a
+   *  qualifying run + relaunch). 0 on a clean install / cleared state. */
+  bestScore?: number | null;
 }
 
 export interface RunStartEvent {
@@ -93,4 +99,12 @@ export interface CloseCallEvent {
   runIndex: number;
   score: number;
   side: 'L' | 'R';
+}
+
+export interface PauseToggledEvent {
+  type: 'pause_toggled';
+  sessionId: string;
+  runIndex: number;
+  /** True when the player just entered pause; false when they resumed. */
+  paused: boolean;
 }

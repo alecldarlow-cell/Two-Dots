@@ -495,6 +495,20 @@ export function useGameLoop(): GameLoopAPI {
         }
       }
     }
+
+    // Pause toggled — emit analytics so the E2E pause-overlay test has a
+    // queryable signal. Independent of the phase-transition else-if chain
+    // because pause toggles can co-occur with playing→playing transitions.
+    for (const ev of events) {
+      if (ev.kind === 'tap-pause') {
+        logEvent({
+          type: 'pause_toggled',
+          sessionId: sessionIdRef.current,
+          runIndex: runIndexRef.current,
+          paused: ev.paused,
+        });
+      }
+    }
   }
 
   return {

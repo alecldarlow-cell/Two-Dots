@@ -6,6 +6,7 @@ export type {
   RetryTappedEvent,
   SessionEndEvent,
   CloseCallEvent,
+  PauseToggledEvent,
   TapsRecord,
 } from './events';
 export { serialiseEvent, type SerialisedEvent } from './serialise';
